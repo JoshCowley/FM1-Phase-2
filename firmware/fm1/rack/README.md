@@ -291,7 +291,7 @@ no soft-double routines, pool within its headroom.
 
 ## Memory: the big buffers sized to the preset
 
-The arena is 308 KB (what fm1-base's pool leaves). After a preset loads, `rk_fm1_fit` (rack.cc `fm1_fit`) sizes the
+The arena is 304 KB (what fm1-base's pool leaves, less the USB recording's ring since update 58). After a preset loads, `rk_fm1_fit` (rack.cc `fm1_fit`) sizes the
 big buffers to what the preset can use and lays the arena out again, so the room left goes to voices:
 
 - **the delay line** to the preset's delay time (plus TAPE's wow), not 1 s; the full second when a matrix row can

@@ -559,7 +559,7 @@ Connected to a computer by USB, the FM-1 shows up as an audio device ("FM1 RACK"
 - **Recording**: choose the FM-1 as the input in your DAW or audio app; it sends exactly what comes out of its headphone and line output, after MASTER.
 - **Playback**: choose the FM-1 as the output, and the computer's sound plays through the FM-1's output, mixed with its own. The recording never includes what the computer plays back, so you can monitor a backing track through the FM-1 while you record it.
 
-On a Mac it may take unplugging and plugging back in the first time, for the computer to see the new audio device. If the sound crackles while you record a heavy preset, the processor is the limit, not the USB: try a lighter preset or fewer voices.
+On a Mac it may take unplugging and plugging back in the first time, for the computer to see the new audio device. The FM-1 records at 44.1 kHz: set your DAW (or Audio MIDI Setup on a Mac) to 44.1 kHz for it, or the computer converts the rate on the way in. The recording keeps about 12 ms in hand (update 58), so it stays clean while the FM-1 works hard on a heavy preset. If the sound crackles while you record a heavy preset, the processor is the limit, not the USB: try a lighter preset or fewer voices.
 
 ### MIDI
 

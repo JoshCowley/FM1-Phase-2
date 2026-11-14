@@ -10,6 +10,11 @@
 #define APP_SPLASH_RGB RGB(90, 200, 255)
 #define APP_BIG_FONT FONT_B                  /* the splash's name and the panel's screens: the bold font (8 Nov: FONT_L and FONT_M left out, about 30 KB) */
 #define APP_SYS_TEXT                     /* the platform's own screens in FONT_XS / FONT_B (app.c): FONT_S not linked (update 44: 8.6 KB) */
+/* USB audio (update 58, Josh: "lots of artifacts"): the recording's ring keeps a whole render more in hand.
+ * FM1 Rack's renders take most of their time (heavy presets near 90 %); fm1-base's normal ring is sized for renders
+ * under ~40 % of it, and runs dry otherwise: the packets repeat their last frame, heard as crackle in the recording
+ * (bsp usb.c). Deep: its 4 KB ring in the pool, not RAM; 5.8 ms more latency on the recording */
+#define FM1B_UAC_DEEP 1
 #define APP_BLOCK 256u                   /* frames per audio block: 5.8 ms at 44.1 kHz */
 #define APP_TOUCH                        /* velocity from the keys (lib/touch.h) */
 #define APP_BLE_AT_BOOT 0
