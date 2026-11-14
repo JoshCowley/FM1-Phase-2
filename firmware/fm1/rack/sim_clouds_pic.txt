@@ -25,10 +25,10 @@ shot pic_granular_3.png
 spin K4 10
 wait 1200
 shot pic_density_up.png
-spin K4 -18
+spin K4 -16
 wait 1500
 shot pic_density_mid_empty.png
-spin K4 18
+spin K4 16
 wait 800
 turn SELECT 2
 wait 100

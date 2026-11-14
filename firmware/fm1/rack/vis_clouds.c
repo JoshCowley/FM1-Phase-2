@@ -334,7 +334,7 @@ static void cp_granular(const float *mon, int pf)
         f = f > 255u ? 255u : f;
         gg = f * o->gain >> 8;
         gg = gg * (uint32_t)cp.gain >> 8;
-        gg = gg * 300u >> 8;
+        gg = gg * (300u - (uint32_t)o->sz * 70u) >> 8;   /* (the large ones less, so a crowd of them does not burn out) */
         gg = gg > 255u ? 255u : gg;
         if (cp.freeze)
             gg = gg * (176u + (uint32_t)(cp_sin((int32_t)o->age / 3 + i * 37) + 16384) / 256u) >> 8;   /* shimmer */

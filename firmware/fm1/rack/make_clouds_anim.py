@@ -31,8 +31,8 @@ c("spin K1 8"); c("spin K2 -8")                   # POSITION 66, SIZE 44
 frames(2.0, "POSITION and SIZE turned")
 c("spin K4 10")                                   # DENSITY 86
 frames(1.5, "DENSITY up")
-c("spin K4 -18"); frames(1.8, "DENSITY at 50: Clouds plays no grains")
-c("spin K4 18"); frames(1.0)
+c("spin K4 -16"); frames(1.8, "DENSITY at 50: Clouds plays no grains")
+c("spin K4 16"); frames(1.0)
 c("turn SELECT 2"); c("wait 100"); c("spin K3 1")   # page 3: FREEZE on
 frames(2.5, "FREEZE")
 c("spin K3 -1"); frames(1.0)
