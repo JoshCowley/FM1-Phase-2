@@ -570,7 +570,7 @@ On a Mac it may take unplugging and plugging back in the first time, for the com
 - program change, when PROG CHG is on (factory presets, then yours);
 - CC 120 and 123 (all notes off);
 - CC 20–23 for the macros;
-- clock, start and stop, when CLOCK is MIDI: the arpeggiator, the sequencer and the tempo follow it.
+- clock, start and stop, when CLOCK is MIDI: the arpeggiator, the sequencer and the tempo follow it. (Update 59) The FM-1 follows the clock with a steady internal clock that the incoming ticks keep in step, so a little jitter in the clock, or in when the FM-1 reads it, doesn't make the groove wobble: notes land within about half a millisecond of the beat, a constant 3 ms behind it. It locks within a beat of the clock starting or changing tempo.
 
 **Out**, over USB, when GLOBAL › MIDI OUT is on (off by default):
 

@@ -278,6 +278,8 @@ typedef struct { uint32_t at; uint8_t note, raw, on, k; float vel; } pl_ev_t;
 static pl_ev_t pl_pend[PL_NPEND];
 static int pl_npend;
 static uint32_t pl_now;                       /* codec frames */
+static uint32_t pl_tick_at;                   /* MIDI clock: the tick just read, on the steady clock (update 59) */
+static struct { uint32_t t, r0; float frac, per; int lock; } ck;   /* the steady clock following MIDI clock in (ck_tick) */
 static uint8_t pl_zone, pl_zone_order[7], pl_nzone;   /* the zone keys held, in the order pressed */
 static int pl_sus;
 static float pl_vel = 0.75f;
@@ -754,7 +756,7 @@ static float step_frames(void)
 {
     int r = AI(A_RATE) > 5 ? 5 : AI(A_RATE);
     if (GI(G_CLOCK) == 1 && pa.tick_frames > 0.0f)
-        return pa.tick_frames * (float)ARP_TICKS[r];
+        return (ck.lock ? ck.per : pa.tick_frames) * (float)ARP_TICKS[r];
     return ARP_BEATS[r] * 60.0f / tempo_bpm() * PL_HZ;
 }
 /* ------------------------------------------------------------------ RHYTHM: three ring generators --- */
@@ -1073,7 +1075,7 @@ static const style_t *st_style(void)
 static float st_frames(const style_t *S)      /* a step: a 16th, or an 8th-note triplet */
 {
     if (GI(G_CLOCK) == 1 && pa.tick_frames > 0.0f)
-        return pa.tick_frames * (S->div == 3 ? 8.0f : 6.0f);
+        return (ck.lock ? ck.per : pa.tick_frames) * (S->div == 3 ? 8.0f : 6.0f);
     return (S->div == 3 ? 1.0f / 3.0f : 0.25f) * 60.0f / tempo_bpm() * PL_HZ;
 }
 static int st_tie(const char *p, int i, int len)   /* steps the note at i lasts: itself and the holds after it */
@@ -1135,28 +1137,74 @@ static void style_step(uint32_t at)
     st.step++;
 }
 
-/* a MIDI clock tick (0xF8), in the interrupt; CLOCK MIDI: the arp's steps */
+/* MIDI clock in (update 59, after Josh: "midi sync is not very accurate", heard as a loose, wobbly groove). The
+ * interrupt reads MIDI once a block (5.8 ms), so each tick was seen up to a block late and played at the start of
+ * the block it was read in: up to 5.8 ms of random error on every step. Now a phase-locked follower: each tick's time
+ * (half a block before it was read, on average) corrects a steady clock a little (for the first beat its phase by
+ * three tenths of the error and its period from the ticks' average, to lock; then a twenty-fifth of the error, and
+ * the period by less than a five-hundredth), and the steps fall on that steady clock, one block ahead, so the engine can start each
+ * note at its own frame (rack_core.c rc_at: within 1 ms). A constant 2.9 ms of latency, and no wobble. A jump (a new
+ * tempo, a gap) relocks at once. */
+static uint32_t ck_tick(void)                 /* this tick on the steady clock, plus the block of look-ahead */
+{
+    uint32_t r = pl_now - APP_BLOCK / 2u;
+    float per = pa.tick_frames;
+    if (per <= 0.0f)
+        return pl_now;
+    if (ck.lock) {
+        float pred = ck.frac + ck.per;
+        uint32_t whole = (uint32_t)pred;
+        uint32_t p = ck.t + whole;
+        float e = (float)(int32_t)(r - p) - (pred - (float)whole);
+        if (e > -0.5f * ck.per && e < 0.5f * ck.per) {
+            float kp = ck.lock < 24 ? 0.3f : 0.04f;   /* (a beat to lock, then steady) */
+            float adv = pred + kp * e;
+            if (ck.lock < 24)                 /* locking: the period as the ticks' average since the lock */
+                ck.per = (float)(r - ck.r0) / (float)ck.lock;
+            else
+                ck.per += 0.0015f * e;
+            if (ck.lock < 1000) ck.lock++;
+            if (ck.per < 0.5f * per) ck.per = 0.5f * per;
+            if (ck.per > 2.0f * per) ck.per = 2.0f * per;
+            whole = (uint32_t)adv;
+            ck.t += whole;
+            ck.frac = adv - (float)whole;
+            return ck.t + APP_BLOCK;
+        }
+    }
+    ck.lock = 1;                              /* (re)lock on this tick */
+    ck.t = r;
+    ck.r0 = r;
+    ck.frac = 0.0f;
+    ck.per = per;
+    return ck.t + APP_BLOCK;
+}
 static void pl_clock_tick(void)
 {
-    uint32_t gap = pl_now - pa.last_tick;
+    uint32_t gap = pl_now - pa.last_tick, at;
     if (pa.last_tick && gap > 0u && gap < 44100u) {
         pa.tick_frames = pa.tick_frames > 0.0f ? pa.tick_frames + ((float)gap - pa.tick_frames) * 0.1f : (float)gap;
-        pv.bpm_in = 60.0f * PL_HZ / (pa.tick_frames * 24.0f);
+        pv.bpm_in = 60.0f * PL_HZ / ((ck.lock && ck.per > 0.0f ? ck.per : pa.tick_frames) * 24.0f);
+    } else {
+        ck.lock = 0;                          /* the first tick, or after a long gap */
     }
     pa.last_tick = pl_now;
     pv.clock_at = plat_ms();
+    at = ck_tick();
+    if ((int32_t)(at - pl_now) < 0) at = pl_now;
+    pl_tick_at = at;
     sq_clock_tick();
     if (GI(G_CLOCK) == 1 && st.on && st_style()) {   /* STYLE on MIDI clock: a step every 6 ticks (8: triplets) */
         if (!st.running) { st.running = 1; st.step = 0; st.ticks = 0; }
         if (st.ticks++ % (st_style()->div == 3 ? 8u : 6u) == 0u)
-            style_step(pl_now);
+            style_step(at);
     }
     if (GI(G_CLOCK) != 1 || AI(A_MODE) == AM_OFF || !pa.count)
         return;
     if (pa.ticks++ % ARP_TICKS[AI(A_RATE) > 5 ? 5 : AI(A_RATE)] == 0u)
-        arp_step(pl_now);
+        arp_step(at);
 }
-static void pl_clock_start(void) { pa.ticks = 0; pa.idx = 0; pa.step = 0; st.ticks = 0; st.step = 0; }
+static void pl_clock_start(void) { pa.ticks = 0; pa.idx = 0; pa.step = 0; st.ticks = 0; st.step = 0; ck.lock = 0; }
 
 /* each block (the interrupt, before the render): the arp's steps on the internal clock, then what falls due */
 static void pl_block(uint32_t n)
@@ -1204,6 +1252,7 @@ static void pl_block(uint32_t n)
             for (j = i; j < pl_npend - 1; j++)
                 pl_pend[j] = pl_pend[j + 1];
             pl_npend--;
+            rc_at = (int32_t)(e.at - pl_now) > 0 ? (int32_t)(e.at - pl_now) : 0;   /* (update 59: at its own frame) */
             if (e.raw == 255) {               /* the arp: its layer (ARP FM-1, ARP SEND on ARP CH) */
                 if (e.on) lay_on(L_ARP, e.note, e.vel);
                 else lay_off(L_ARP, e.note);
@@ -1224,6 +1273,7 @@ static void pl_block(uint32_t n)
             i++;
         }
     }
+    rc_at = 0;
     pl_now = end;
 }
 

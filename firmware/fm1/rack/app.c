@@ -143,8 +143,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
     btn_count();
     if (!rc_audio.pause_req)
         midi_in();
+    sq_block(n);                              /* the sequencer's and MSEQ's (seq.c; update 59: before pl_block moves
+                                                 pl_now on, so its window is this block, not the next) */
     pl_block(n);                              /* the arp's steps and the strums falling due */
-    sq_block(n);                              /* the sequencer's and MSEQ's (seq.c) */
     rc_render(lr, n, 8300000.0f);
     click_render(lr, n, 8300000.0f);          /* the click track and the count-in (seq.c, update 40) */
     for (i = 0; i < n; i++) {                 /* MASTER, gliding over about 5 ms */

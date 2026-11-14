@@ -156,7 +156,7 @@ static float sq_step_frames(void)
 {
     const sq_bank_t *b = &sqb[sq.bank];
     if (GI(G_CLOCK) == 1 && pa.tick_frames > 0.0f)
-        return pa.tick_frames * SQ_DIV16[b->div] * 6.0f;
+        return (ck.lock ? ck.per : pa.tick_frames) * SQ_DIV16[b->div] * 6.0f;
     return 60.0f / tempo_bpm() / 4.0f * SQ_DIV16[b->div] * PL_HZ;
 }
 static float hash01(uint32_t a, uint32_t b)   /* the page's hash01: SPICE's variation, the same each pass */
@@ -406,6 +406,7 @@ static void sq_block(uint32_t n)
             for (j = i; j < sq_npend - 1; j++)
                 sq_pend[j] = sq_pend[j + 1];
             sq_npend--;
+            rc_at = (int32_t)(e.at - pl_now) > 0 ? (int32_t)(e.at - pl_now) : 0;   /* (update 59: at its own frame) */
             if (e.on) {
                 if (sq_on[e.note]) {          /* the same pitch still ringing: end it first */
                     sq_on[e.note]--;
@@ -421,6 +422,7 @@ static void sq_block(uint32_t n)
             i++;
         }
     }
+    rc_at = 0;
 }
 /* CLOCK MIDI: a tick (from pl_clock_tick) steps the sequencer */
 static void sq_clock_tick(void)
@@ -438,7 +440,7 @@ static void sq_clock_tick(void)
             if (sq_first) sq_first = 0;
             else sq_loop_end();
         }
-        sq_step((int)sq_step_i, pl_now, sq_step_frames());
+        sq_step((int)sq_step_i, pl_tick_at, sq_step_frames());   /* (update 59: on the steady clock) */
         sq_step_i++;
     }
 }

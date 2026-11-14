@@ -226,11 +226,32 @@ static int rc_unison(float note, float *out)
 /* other events (the firmware's play layer, app.c's play.c: keys, chords, the arpeggiator), and all notes off too */
 static void (*rc_ext)(int type, int a, float x, float y);
 
+/* (update 59) A note can start at its own frame in the coming block, not only at the block's start: the play layer
+ * sets rc_at (codec frames into the block) while it hands over a note that falls due inside the block, and rc_do
+ * keeps the note until rc_render reaches that frame (it renders the block in pieces, between the notes; the engine
+ * works in 1 ms blocks, so a note starts within 1 ms of its time). 0: at once */
+static int32_t rc_at;
+#define RC_TQN 48
+static struct { uint16_t off; uint8_t type; float x, y; } rc_tq[RC_TQN];
+static int rc_ntq;
+
 /* one event, in the audio interrupt (from the queue, or MIDI in, which the interrupt reads itself) */
 static void rc_do(int type, int a, float x, float y)
 {
     float n[4];
     int i, k;
+    if ((type == RCE_ON || type == RCE_OFF) && rc_at > 0 && rc_ntq < RC_TQN) {
+        int j = rc_ntq++;
+        while (j > 0 && rc_tq[j - 1].off > (uint16_t)rc_at) {   /* (kept in time order) */
+            rc_tq[j] = rc_tq[j - 1];
+            j--;
+        }
+        rc_tq[j].off = (uint16_t)rc_at;
+        rc_tq[j].type = (uint8_t)type;
+        rc_tq[j].x = x;
+        rc_tq[j].y = y;
+        return;
+    }
     switch (type) {
     case RCE_ON: k = rc_unison(x, n); for (i = 0; i < k; i++) rk_note_on(n[i], y); break;
     case RCE_OFF: k = rc_unison(x, n); for (i = 0; i < k; i++) rk_note_off(n[i]); break;
@@ -327,11 +348,19 @@ static void rc_tail(int32_t *lr, uint32_t n, float gain)
         lr[2u * i + 1u] = (int32_t)(rc_audio.tail_r * gain);
     }
 }
+static void rc_tq_flush(void)                 /* the timed notes, at once (no render: silence, a load) */
+{
+    int i, k = rc_ntq;
+    rc_ntq = 0;
+    for (i = 0; i < k; i++)
+        rc_do(rc_tq[i].type, 0, rc_tq[i].x, rc_tq[i].y);
+}
 static void rc_render(int32_t *lr, uint32_t n, float gain)
 {
     float pos_end, a, b, g = 1.0f, dg = 0.0f;
     uint32_t i, m, k;
     if (rc_audio.pause_req || rc_audio.faded) {   /* a preset is loading: stand aside (silence) */
+        rc_tq_flush();
         rc_audio.paused = rc_audio.pause_req;
         rc_tail(lr, n, gain);
         return;
@@ -342,6 +371,7 @@ static void rc_render(int32_t *lr, uint32_t n, float gain)
         rc_shed_wait--;
     rc_apply();
     if (rc_heavy) {                           /* too heavy for one core: silence until another preset loads */
+        rc_tq_flush();
         rc_tail(lr, n, gain);
         if (rc_audio.fade_req)
             rc_audio.faded = 1;
@@ -351,11 +381,30 @@ static void rc_render(int32_t *lr, uint32_t n, float gain)
     m = (uint32_t)pos_end;                    /* engine frames this block: positions 1..m */
     if (m > RC_BUFN)
         m = RC_BUFN;
-    rk_render((int)m);
     rc_buf_l[0] = rc_audio.hist_l;
     rc_buf_r[0] = rc_audio.hist_r;
-    memcpy(rc_buf_l + 1, rk_out_l(), m * sizeof(float));
-    memcpy(rc_buf_r + 1, rk_out_r(), m * sizeof(float));
+    {                                         /* (update 59) the block in pieces, each timed note at its frame */
+        uint32_t done = 0;
+        int q = 0, nq = rc_ntq;
+        rc_ntq = 0;
+        while (q < nq) {
+            uint32_t eo = (uint32_t)(rc_audio.t + (float)rc_tq[q].off * RC_STEP);   /* its engine frame */
+            if (eo > m) eo = m;
+            if (eo > done) {
+                rk_render((int)(eo - done));
+                memcpy(rc_buf_l + 1 + done, rk_out_l(), (eo - done) * sizeof(float));
+                memcpy(rc_buf_r + 1 + done, rk_out_r(), (eo - done) * sizeof(float));
+                done = eo;
+            }
+            rc_do(rc_tq[q].type, 0, rc_tq[q].x, rc_tq[q].y);   /* (rc_at is 0 here: at once) */
+            q++;
+        }
+        if (m > done) {
+            rk_render((int)(m - done));
+            memcpy(rc_buf_l + 1 + done, rk_out_l(), (m - done) * sizeof(float));
+            memcpy(rc_buf_r + 1 + done, rk_out_r(), (m - done) * sizeof(float));
+        }
+    }
     if (rc_audio.fade_req) {                  /* fading out: 1 to 0 over this block */
         g = 1.0f;
         dg = -1.0f / (float)n;
