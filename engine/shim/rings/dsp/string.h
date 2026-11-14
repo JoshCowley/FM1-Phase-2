@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack's copy of rings/dsp/string.h (pichenettes/eurorack, MIT), found before the original by the include path
 // (engine/shim first). Two changes: with RACK_FM1, the damping filter's brightness follows Rings' 24 kHz rate (DampingFilter::Configure); with RACK_RINGS16 (the FM-1 build), the strings' delay lines hold 16-bit samples
 // (DelayLine16 below); without it, this is the original.

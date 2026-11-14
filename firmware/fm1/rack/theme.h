@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack's look (update 51; update 53: split into choices, one macro each, and set from Josh's A/B picks:
  * near-black, dusty knob colours, a quiet colour per section, hairlines with a faint glow, no header tag, hairline
  * sliders with a dot, the lighter type; update 54: the pictures straight on the page, no cards or edges).

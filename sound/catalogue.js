@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 const GATES = ["NOTE", "GRID", "1/16", "1/8", "1/4", "BAR"];
 const n = (l, def = 0.5, o = {}) => ({ l, t: "num", def, ...o });          // 0..1
 const b = (l, def = 0) => ({ l, t: "bip", def });                           // -1..1

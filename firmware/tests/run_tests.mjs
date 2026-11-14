@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack firmware-readiness tests. From the repo root, after firmware/desktop/build.sh (and, for exact
 // 32-bit memory numbers, engine/build.sh + firmware/desktop/build_wasm32.sh):
 //   node firmware/tests/run_tests.mjs

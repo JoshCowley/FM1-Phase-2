@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack app glue: the part of the firmware between the board (fm1_platform.h) and the engine (rack.h).
 // Status: compiles and runs on a computer against a fake board (firmware/desktop/fake_board.cc); never run
 // on an FM-1. The screen pages, the sequencer, chords and patch storage are still to be ported from web/src.

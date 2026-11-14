@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 6. engine bridge, MIDI, main loop
 const MID = { PLAITS: 1, BRAIDS: 2, ELEMENTS: 3, RINGS: 10, WARPS: 11, FILTER: 12, PEAKS: 20, TIDES: 21, MARBLES: 22, GRIDS: 23, CLOUDS: 30, DELAY: 31, REVERB: 32, CHORUS: 33 };
 const audio = { on: false, ctx: null, node: null, scope: new Float32Array(128) };

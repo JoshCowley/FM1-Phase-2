@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack firmware: the clicks of a preset change and of a knob turn, measured on a computer (update 35).
  *   swclick       per preset change (each preset to the next, a chord held through it): the biggest jump between two
  *                 samples around the change, the old way (silence at once) and the new (rc_fade_pause's fade, then the

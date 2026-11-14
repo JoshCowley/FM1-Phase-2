@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // The seam between FM1 Rack and the FM-1 board. NOT YET IMPLEMENTED: nothing in this repo runs on an FM-1.
 //
 // The plan (docs: firmware/README.md and the developer guide) is to fork Felucca, keep its platform layer

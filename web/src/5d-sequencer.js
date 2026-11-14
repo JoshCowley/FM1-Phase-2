@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 5d. the sequencer, after Clipper / SLOOP 2.7.2
 // SEQ tapped: NOTES (a piano roll), PATTERN, SPICE, GEN. Held buttons are layers: SEQ steps, EDIT erase, ARP note repeat,
 // GLO fills and tap tempo, SEL (the SCL key) key and chords. PLAY starts and stops; REC records into the pattern.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Compares two reports (rack_cli --json or replay.mjs): level and loudness envelope per patch.
 //   node compare.mjs <a.json> <b.json> [--tol 0.02]
 // "env diff" is the largest difference between the two 100 ms loudness envelopes, relative to the louder

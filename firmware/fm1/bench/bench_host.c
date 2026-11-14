@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* The benchmark on a computer: the same cases and engine build (-DRACK_FM1 -DRACK_LITE), timed on the computer's
  * clock. What it checks before the firmware goes onto an FM-1:
  *   1. every case makes sound (no silence, no NaN) and its modules fit the arena as the FM-1's will;

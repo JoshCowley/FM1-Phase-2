@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack firmware: how hard each preset clicks when a note starts and stops, measured on a computer.
  *   click [preset]   per preset: the biggest jump between two samples in the 30 ms after a key goes down and
  *                    after it comes up, against the biggest jump while the note sustains (dB). A jump well

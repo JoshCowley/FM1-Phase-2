@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 5c. after Clipper: undo / compare, morph, randomizer, library,
 // arpeggiator with a Turing machine, modulation sequencer lanes, voice modes, tuning, MIDI out, CPU readout
 

@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Builds the engine natively, three trace players and a pretend FM-1 board:
 #   build/rack_cli       the browser configuration (float buffers, 6 voices of anything)
 #   build/rack_cli_fm1   the FM-1 configuration (-DRACK_FM1, arena of $ARENA_KB, default 340 = the page's 384K

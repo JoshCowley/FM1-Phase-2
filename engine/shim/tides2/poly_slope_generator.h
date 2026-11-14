@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack shim: Mutable's tides2/poly_slope_generator.h with only the slope-render variants FM1 Rack calls
 // (OUTPUT_MODE_GATES at RANGE_CONTROL, all three ramp modes) instantiated: 21 KB less flash (measured 4 Nov 2026).
 // Render() with any other output mode or range would call a null entry: rack.cc never asks for one.

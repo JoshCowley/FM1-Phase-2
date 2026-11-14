@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # The FM1 Rack firmware's sound side checked on a computer (rack_host.c): the engine built as the FM-1's
 # (-DRACK_FM1 -DRACK_LITE, the arena as fm1.toml sets it). Needs a C and C++ compiler and the Mutable code:
 #   EURORACK=/path/to/eurorack sh build_host.sh && build/host/rack_host

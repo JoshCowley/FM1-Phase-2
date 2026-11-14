@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Plays a trace through rack.wasm (the browser engine) and writes the same report as rack_cli --json.
 //   node replay.mjs <trace> <rack.wasm> <out.json> [--hw] [--fresh]
 //   --hw: the page's FM-1 preview, set_hw(1).  --fresh: a new engine instance for every patch, so no module

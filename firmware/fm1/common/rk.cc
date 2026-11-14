@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // The engine's C interface (engine/rack.h) under names of FM1 Rack's own: fm1-base's unity build, which the
 // firmware's C is part of, has functions called init, render and so on of its own. Built as one of the C++ units.
 // (fm1/bench has its own copy, as it was built and tested.)

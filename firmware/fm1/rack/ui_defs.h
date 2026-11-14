@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0
 /* Written by make_ui.py from web/src (1-data.js, 5c-tools.js): the page's modules, AMP, LFO, GLOBAL, SEL and ARP pages, tunings, scales; the firmware's OSC page. Don't edit. */
 #pragma once
 typedef struct { const char *l; uint8_t t, mod; int16_t lo, hi; uint16_t opt; float def; } ui_param_t;

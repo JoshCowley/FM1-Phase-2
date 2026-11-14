@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Builds the two FM-1 packages from this repo, on a Mac (or Linux) with internet access:
 #   fm1bench.fwsc  the benchmark (install this first)
 #   fm1ph2.fwsc   FM1 Rack Lite, first stage (only after the benchmark has run and said FPU OK)

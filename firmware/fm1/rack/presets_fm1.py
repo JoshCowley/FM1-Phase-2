@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """The FM-1's factory presets (14 Nov 2026): the page's set (web/presets_src.py) fitted to the FM-1's CPU, with FUNC,
 LFO targets and ten more. fm1_presets.py turns them into engine calls; the page keeps its own set.
 

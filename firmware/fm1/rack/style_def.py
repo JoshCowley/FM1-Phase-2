@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """STYLE, the arpeggiator's accompaniment (FM-1 only): while a chord is held, a bass line plays from its root in a
 style's rhythm. Three layers, each on its own MIDI channel and, if chosen, on the FM-1 (play.c lay_*): the chord as
 played (held while its keys are), the bass in the style's rhythm, the arpeggiator as it runs. make_ui.py writes the

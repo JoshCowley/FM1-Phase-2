@@ -59,7 +59,7 @@ Keys: `Z`–`/` and `Q`–`O` play notes, `-` and `=` shift the octave, `Space` 
 
 ## Licence
 
-GPL-3.0 (see `LICENSE`). The Mutable Instruments STM32 module code and stmlib are MIT; Grids and the Felucca platform are GPL-3.0, so the project as a whole is GPL-3.0.
+GPL-3.0 (see `LICENSE`). Each body of code and its licence, as found in the files: `NOTICE.md`. The Mutable Instruments STM32 module code and stmlib are MIT; Grids and the Felucca platform are GPL-3.0, so the project as a whole is GPL-3.0.
 
 "Mutable Instruments" is a registered trademark. The module names are kept on screen for now; renaming them is on the to-do list before any public release.
 

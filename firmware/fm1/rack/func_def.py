@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """FUNC, the firmware's own MOD module (13 Nov 2026: a function generator after Make Noise's Maths; engine/rack.cc
 run_func). Not on the browser page, so defined here: make_ui.py writes its page, make_presets.py its ranges."""
 SOURCES = ["-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1", "A OUT 2", "B OUT 1",

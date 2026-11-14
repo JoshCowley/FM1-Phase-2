@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack firmware: the sound side checked on a computer (rack_core.c with the engine built as the FM-1's).
  *   1. every preset, loaded as the firmware loads it (presets.h: INIT, its differences, each module's ranges),
  *      sounds the same as INIT then the preset's own calls (presets_full.h, as the page loads one), sample for

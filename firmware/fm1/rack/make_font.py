@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """make_font.py {gen}: FM1 Rack's own typefaces (update 51), written over fm1-base's felucca_font.h after it.
 
 fm1-base renders Barlow Semi Condensed (SemiBold and Bold). Josh found it heavy; FM1 Rack sets IBM Plex Sans

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // rack_cli: plays a trace (engine calls with frame times) through the engine on a computer.
 //
 //   rack_cli <trace> [--wav DIR] [--json OUT]

@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Compiles the FM-1 engine and every Mutable module with JieLi's own compiler for the FM-1's core (pi32v2,
 # clang 4.0.1), links it with unused code removed, and reports how much flash and RAM it needs, per module.
 # Needs the JieLi Linux toolchain (Felucca's tools/get_toolchain.sh; Linux x86-64, or Docker on a Mac) and the

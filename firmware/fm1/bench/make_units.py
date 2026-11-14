@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """fm1.toml's gen step: units/, one small C++ file per engine source, each including the real one, so fm1-base's
 build.py (which takes its o2 units from inside the app's folder) compiles FM1 Rack's engine and the Mutable modules
 the Lite firmware has, from where they are."""

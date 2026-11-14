@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Builds build/rack_cli_fm1.wasm: the FM-1 trace player compiled for a 32-bit target (wasm32), so its memory
 # numbers match a 32-bit chip like the FM-1's (the native build on a 64-bit computer has bigger pointers).
 # Run engine/build.sh first: this reuses its wasm32 objects in engine/obj. tests/run_tests.mjs runs it with Node.

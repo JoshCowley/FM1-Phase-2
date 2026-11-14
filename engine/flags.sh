@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Compiler flags for the wasm32-wasi build. Set EURORACK to your checkout of
 # https://github.com/pichenettes/eurorack (with the stmlib submodule).
 EURORACK="${EURORACK:-../../eurorack}"

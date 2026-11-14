@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Runs a WASI command module (build/rack_cli_fm1.wasm) with Node: node run_wasi.mjs <module.wasm> <args...>
 import { WASI } from 'node:wasi'; import fs from 'fs';
 process.removeAllListeners('warning');

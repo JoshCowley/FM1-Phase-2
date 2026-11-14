@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Renders each factory patch through rack.wasm and reports its level.
 const fs = require("fs");
 const { MODULES, AMP, LFOS, SLOTS, GLOBAL } = require("./catalogue.js");

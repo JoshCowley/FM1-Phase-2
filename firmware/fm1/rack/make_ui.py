@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """Write ui_defs.h: the page's module, AMP and LFO pages (web/src/1-data.js) as C tables for the firmware's menus.
 
 The definitions are evaluated with Node (the same JavaScript the page runs), then written as:
@@ -59,7 +61,7 @@ def main():
             opts.extend(names)
         return opt_ix[key]
 
-    out = ["/* Written by make_ui.py from web/src (1-data.js, 5c-tools.js): the page's modules, AMP, LFO, GLOBAL, SEL and ARP pages, tunings, scales; the firmware's OSC page. Don't edit. */",
+    out = ["// SPDX-License-Identifier: GPL-3.0", "/* Written by make_ui.py from web/src (1-data.js, 5c-tools.js): the page's modules, AMP, LFO, GLOBAL, SEL and ARP pages, tunings, scales; the firmware's OSC page. Don't edit. */",
            "#pragma once",
            "typedef struct { const char *l; uint8_t t, mod; int16_t lo, hi; uint16_t opt; float def; } ui_param_t;",
            "enum { UT_NUM, UT_BIP, UT_LIST, UT_INT };",

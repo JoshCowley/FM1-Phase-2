@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Keeps every engine function and module in a size-check link (desktop/size_pi32v2.sh): nothing here runs.
 #include "../engine/rack.h"
 extern "C" void fm1_entry(void) {

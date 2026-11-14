@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack: runs the rack engine (rack.wasm) in the audio thread.
 class FM1Rack extends AudioWorkletProcessor {
   constructor() {

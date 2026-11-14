@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack engine: the C interface a platform layer calls.
 //
 // The engine is engine/rack.cc, the same file the browser build compiles. Build it with -DRACK_FM1

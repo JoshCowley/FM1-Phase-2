@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Joins src/page.html, the six script parts and presets.json into index.html.
 #   python3 build.py [manual-url] [--standalone | --single]
 # --single writes fm1-rack-single.html with rack.wasm and worklet.js embedded (opens from disk).

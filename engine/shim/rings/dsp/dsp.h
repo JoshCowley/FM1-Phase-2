@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack's copy of rings/dsp/dsp.h (pichenettes/eurorack, MIT), found before the original by the include path
 // (engine/shim first). One change: with RACK_FM1 (the FM-1 build), Rings runs at 24 kHz in blocks of 24 (FM1 Rack's
 // engine feeds it every other sample and fills in between, rack.cc run_rings_shared): half its time, which the

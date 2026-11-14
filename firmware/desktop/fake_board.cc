@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // A pretend FM-1 for the computer: implements fm1_platform.h's fm1_hal_* functions, then drives the app the
 // way the board would (64-frame audio blocks, key presses from the main context) and writes the result to
 // a WAV file. It checks the app glue (call queue, audio conversion, keys, MIDI), not the hardware.

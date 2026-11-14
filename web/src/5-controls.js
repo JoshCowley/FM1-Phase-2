@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 5. controls
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const KNOBS_L = [["MASTER", "master"], ["SELECT", "select"], ["PRESETS", "presets"], ["ALGORITHM", "algo"]];

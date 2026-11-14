@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Turns presets-calls.json (what the 1.9 page sends the engine for each factory preset, recorded by
 // record_calls.mjs) into presets.trace: each preset from a clean start, a chord (or, in MONO/LEGATO, a
 // two-note line) held for 2.5 s, then 2 s of release. rack_cli and replay.mjs play the same file.

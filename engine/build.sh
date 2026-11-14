@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Build rack.wasm from scratch: every Mutable source in sources.txt, the two
 # extracted data files, then rack.cc, linked as a wasm32-wasi reactor.
 # Needs clang 18 plus Ubuntu's wasi-libc and libc++-18-dev-wasm32 packages.

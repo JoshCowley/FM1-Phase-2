@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """FM1 Phase 2 (14 Nov 2026): chooses, for every factory preset that played Plaits, the Braids model, TIMBRE and COLOR
 that sound closest to it, and writes presets_fm1_braids.json, which presets_fm1.py applies (to_braids).
 

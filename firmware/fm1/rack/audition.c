@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack firmware: the factory presets played through the firmware's sound path on a computer, as WAV files,
  * with their loudness, so the presets can be heard before an install and set to the same level.
  *   audition OUTDIR            every preset: OUTDIR/NN_NAME.wav (44.1 kHz stereo, a phrase that suits its

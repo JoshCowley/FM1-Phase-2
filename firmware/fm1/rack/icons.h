@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* 12 x 12 module icons for the screen, from the page's pixel icons (web/src/2-screen.js ICONS): one row a
  * uint16_t, bit 11 the leftmost pixel. Converted from that table (keep the two in step). */
 enum { IC_PLAITS, IC_BRAIDS, IC_RINGS, IC_FILTER, IC_PEAKS, IC_TIDES, IC_GRIDS, IC_DELAY, IC_REVERB, IC_CHORUS, IC_EMPTY, IC_AMP, IC_LFO, IC_MATRIX, IC_RACK, IC_HOME, IC_SAVE, IC_OUT, IC_GLOBAL, IC_SCALE, IC_ARP, IC_MIDI, IC_CHORD, IC_HOLD, IC_KNOB, IC_SEQ, IC_RANDOM, IC_LOCK, IC_FUNC, IC_N };

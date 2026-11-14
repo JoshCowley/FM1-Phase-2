@@ -1,4 +1,6 @@
-// FM1 Rack engine: Mutable Instruments modules (MIT; GPL-3 project) slotted
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
+// FM1 Rack engine: Mutable Instruments modules (MIT, in a checkout beside this repo; this file is GPL-3.0, see NOTICE.md) slotted
 // into one voice chain. Block = 24 frames @ 48 kHz.
 //
 // One source, two builds:

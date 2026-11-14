@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """Builds the hosted manuals (web/manual/) from the Markdown here, with pandoc:
   FM1-Rack-Manual.md              -> web/manual/index.html   (the browser build)
   FM1-Rack-FM1-Firmware-Manual.md -> web/manual/fm1.html     (the FM-1 firmware)

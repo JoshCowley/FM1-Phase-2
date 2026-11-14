@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // What the C++ engine needs and fm1-base doesn't link: no C++ runtime and no maths library (fm1-base firmwares are
 // C on its own fastmath.h). The maths functions here are fastmath.h's single-precision ones, so the engine runs
 // entirely on the FPU; they are approximations (fastmath.h gives their accuracy), close enough for timing and

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """Sets the FM-1 presets' levels (AMP LEVEL) so they play at about the same loudness through the firmware's own
 sound path: builds the host tools, plays every preset's phrase (audition), scales each LEVEL toward the target and
 writes presets_fm1_levels.json, which presets_fm1.py applies. A few passes settle it (the voices' gain goes as

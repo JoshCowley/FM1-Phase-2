@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 2. screen primitives and pixel icons
 const cv = document.getElementById("screen"), g = cv.getContext("2d");
 g.scale(3, 3);

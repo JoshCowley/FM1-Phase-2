@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """The FM-1's factory presets as engine calls, without the page (Nov 2026).
 
 The page (web/presets.json, from web/presets_src.py) and the FM-1 used to share one set, recorded from the page by

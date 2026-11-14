@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Data tables copied from Mutable Instruments' Grids (eurorack/grids/resources.cc, the drum-map nodes), whose source
+// header says: GNU General Public License, version 3 or (at your option) any later version. NOT MIT. Part of FM1
+// Phase 2 (GPL-3.0, see LICENSE); listed in NOTICE.md.
 #include <stdint.h>
 namespace grids_data {
 extern const uint8_t node_0[] = {

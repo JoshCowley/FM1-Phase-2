@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 4. pages
 function liveFor(slotIdx, count) {
   // the engine reports modulated values for the slot the screen is watching

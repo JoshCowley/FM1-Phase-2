@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack firmware: the sound side, shared by the firmware (app.c includes it) and the computer's check
  * (rack_host.c). Plain C over the engine (engine/rack.cc built -DRACK_FM1 -DRACK_LITE, through common/rk.cc).
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // ================================================================ 3. module visualisers (the moving band on each slot page)
 const VX = 6, VY = 30, VW = 228, VH = 62;
 const pulses = [];                 // note-ons seen by the UI: { t, note, vel }

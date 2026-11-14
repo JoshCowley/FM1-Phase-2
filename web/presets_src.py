@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 """The factory presets (Nov 2026): written to presets.json, which build.py puts in the page and
 firmware/fm1/rack/make_presets.py (through tests/record_calls.mjs) puts in the firmware.
 

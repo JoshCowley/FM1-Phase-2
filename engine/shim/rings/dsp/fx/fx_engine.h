@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // FM1 Rack's copy of rings/dsp/fx/fx_engine.h (pichenettes/eurorack, MIT), found before the original by the include
 // path (engine/shim first). One change, in Init: a null buffer is left alone instead of cleared. FM1 Rack's FM-1
 // build gives Rings no reverb buffer when a patch can't reach STR+VERB (rack.cc fm1_fit), the only model that runs

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Records what the FM1 Rack page sends the engine for every factory preset, and what its FM-1 preview
 // predicts (voices that fit in RAM and modules it unloads), using Playwright and Chromium.
 //   npm install playwright && npx playwright install chromium    (once)

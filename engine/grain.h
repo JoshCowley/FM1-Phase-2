@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // GRAIN: a Bento-style granular source (FM1 Phase 2, 14 Nov 2026). Grains are windowed, pitched reads from one
 // capture buffer (8-bit mu-law at GRAIN_RATE), played polyphonically from the keys: each voice runs up to
 // grain::kMaxGrains grains. rack.cc renders it (render_voice, M_GRAIN); this header holds its data and the
