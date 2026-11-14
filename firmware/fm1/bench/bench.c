@@ -40,6 +40,7 @@ uint32_t rk_worker_blocks(void);
 void rk_set_worker_ex(void (*sync)(void), int (*on)(void));   /* update 9: the platform's barrier and "taking jobs" calls */
 void rk_set_ticks(uint32_t (*ticks)(void));
 void rk_fx_core2(int on);                  /* 0: Clouds on the first core, the voices split (update 8's arrangement); the benchmark's comparison cases */
+void rk_fx_core2_voices(int on);           /* update 10: 0 keeps the voices above the fourth on the first core (update 9's arrangement); the comparison cases */
 int rk_fx_core2_active(void);              /* 1: Clouds runs on the second core in this patch */
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void rk_core_stats_reset(void);
@@ -101,7 +102,8 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 /* grains: a GRAIN case (FM1 Phase 2): the granular source with at most this many grains a voice (0: not one)
  * cl: a CLOUDS case (FM1 Phase 2): 1 + its row in CLC (the settings), 0 none */
 /* c2off: a 2 CORES case with the Clouds-on-the-second-core arrangement switched off at run time (rk_fx_core2(0)): update 8's, the voices split, Clouds on the first core */
-typedef struct { uint8_t group, preset, notes, grains, cl, c2off; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+/* v1 (update 10): a 2 CORES case with the voices above the fourth kept on the first core (rk_fx_core2_voices(0)): update 9's arrangement, for comparison */
+typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
 #define NCASE_MAX 200
 static bcase_t bcases[NCASE_MAX];
@@ -116,6 +118,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->grains = 0;
     c->cl = 0;
     c->c2off = 0;
+    c->v1 = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -323,6 +326,8 @@ static void bench_cases(void)
         k = bc_cl(G_CLOUDS, 4, CL_DELAY, "DELAY x4", r4);
         bc_cl(G_CLOUDS, 4, 18, "CL+DELAY", k);
         bc_cl(G_CLOUDS, 6, 17, "CL+REVERB x6", -1);           /* update 9: the one-core twin of the 2 CORES case "CL+REV x6" */
+        bc_cl(G_CLOUDS, 6, 1, "GRAN D0.9 x6", -1);             /* update 10: the one-core twins of the 2 CORES cases "GRAN D0.9 x6" and "CL+DELAY x6" */
+        bc_cl(G_CLOUDS, 6, 18, "CL+DELAY x6", -1);
         {
             static const uint8_t NV[4] = {1, 2, 4, 6};
             static const char *const BN[4] = {"BRAIDS x1", "BRAIDS x2", "BRAIDS x4", "BRAIDS x6"};
@@ -376,6 +381,12 @@ static void bench_cases(void)
         for (i = 0; i < 8; i++)
             bcases[bc_cl(G_CORES2, NOTES[i], ROW[i], OFFN[i], -1)].c2off = 1;
     }
+    /* update 10: six voices, the fifth and sixth in the second core's job (with Clouds loaded and no effect before it): GRANULR DENSITY 0.9 and Clouds + delay;
+     * and the same two with the reverb case (CL+REV x6 above) once more with the two voices kept on the first core ("V1": update 9's arrangement) */
+    bc_cl(G_CORES2, 6, 1, "GRAN D0.9 x6", -1);
+    bc_cl(G_CORES2, 6, 18, "CL+DELAY x6", -1);
+    bcases[bc_cl(G_CORES2, 6, 1, "GRAN D0.9 x6 V1", -1)].v1 = 1;
+    bcases[bc_cl(G_CORES2, 6, 17, "CL+REV x6 V1", -1)].v1 = 1;
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
@@ -467,6 +478,7 @@ static void bench_setup(int k)
     rk_set_worker(c->group == G_CORES2 ? bench_cpu2_run : 0, bench_cpu2_wait);
     rk_set_worker_ex(c->group == G_CORES2 ? bench_cpu2_sync : 0, c->group == G_CORES2 ? bench_cpu2_on : 0);
     rk_fx_core2(!c->c2off);
+    rk_fx_core2_voices(!c->v1);
     rk_init();
     run_ops(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
     if (c->preset != P_INIT)

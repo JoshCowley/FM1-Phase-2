@@ -9,9 +9,14 @@ Rack: it plays no sound and saves nothing. It answers two questions on the board
    built the same way, then checks a known single-precision sum at power-on.
 2. **How much of the CPU does each module take?** It runs FM1 Rack's real engine (`engine/rack.cc`, built
    `-DRACK_FM1 -DRACK_LITE`, and as the FM1 Phase 2 firmware is built: `-DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH`,
-   arena 304 KB) and times 164 cases (update 9; 150 at update 8, 138 before): every Braids shape, every Rings model, the filter, Tides,
+   arena 304 KB) and times 170 cases (update 10; 164 at update 9; 150 at update 8, 138 before): every Braids shape, every Rings model, the filter, Tides,
    Peaks, Grids, the delay, reverb and chorus, 1 to 6 voices, the CLOUDS group (below), and the 16 heaviest of the Phase 2
    factory presets plus the eight earlier ones (the module cases are still built on eight presets of the first set, kept in `tests/bench-base-calls.json`); then, when the second core starts, the 6-voice ones again on two cores (the 2 CORES group: the second core renders half the voices).
+
+**Update 10: the work around Clouds is the second core's too.** Six new cases (170 in all): in the 2 CORES group `GRAN D0.9 x6` and `CL+DELAY x6` (six voices; the fifth and sixth ride in
+the second core's job when Clouds is in FX 1 with an effect after it: `CL+DELAY x6`, `CL+REV x6`), and `GRAN D0.9 x6 V1` and `CL+REV x6 V1` (the same with the voices kept on the first core, `rk_fx_core2_voices(0)`: update 9's
+arrangement, to see whether the offload helps on the device); in the CLOUDS group the one-core twins `GRAN D0.9 x6` and `CL+DELAY x6`. Read "C1" and "C2" as before; at update 9 C1 was 55.7 / 56.2 / 56.7 % at GRANULR D0.7 / D0.9 / D1.0,
+and the aim is C1 near 32 and C2 under 80. `bench_host --proxy NAME...` prints each core's work on this computer (a proxy). The host check of a six-voice Clouds case against its one-core twin compares rms (within 8 %): the voices' drift and Clouds' grains draw random numbers in another order on two cores.
 
 **Update 9 (16 Nov 2026): Clouds on the second core, measured per core.** The build has `RACK_FX_CORE2` on: with two cores, Clouds runs alone on the second core (a block behind), every voice
 and the other effect on the first (rack/README.md, Update 9). The 2 CORES group now has, besides the three Clouds cases it had (`GRAN D1.0`, `CL+REVERB`, `CL+DELAY`, now the new split),

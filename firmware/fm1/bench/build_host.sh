@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")"
 EURORACK="${EURORACK:-../../../../eurorack}"
 ENG=../../../engine
-OUT=build/host
+OUT="${OUT:-build/host}"
 mkdir -p $OUT
 # RACK_FLAGS: extra compiler flags, e.g. RACK_FLAGS=-DRACK_WITH_GRAIN to build the shelved GRAIN source in (off by default).
 # A change of flags clears the objects (a stale .o from the other setting would be linked otherwise).

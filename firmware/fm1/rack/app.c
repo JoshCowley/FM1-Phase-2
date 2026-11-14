@@ -1182,6 +1182,7 @@ void app_init(void)
     if (plat_cpu2_set(1) == 0) {              /* the second core (now: the one time it may start): half the voices, or Clouds (update 9) */
         rk_set_worker(plat_cpu2_run, plat_cpu2_wait);
         rk_set_worker_ex(plat_cpu2_sync, plat_cpu2_on);
+        rk_set_ticks(plat_ticks24);               /* update 10: a clock for the engine to see which core is the slow one (the overload guard) */
     }
     n = plat_store_load(OBJ_SETTINGS, &set, sizeof set);
     if (!(n == (int)sizeof set && set.magic == SET_MAGIC)) {   /* an older record: up to RKL8 in its own layout */

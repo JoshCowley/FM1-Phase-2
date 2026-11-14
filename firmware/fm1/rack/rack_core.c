@@ -55,7 +55,8 @@ uint32_t rk_worker_blocks(void);
 void rk_set_worker_ex(void (*sync)(void), int (*on)(void));   /* update 9: the platform's barrier and "taking jobs" calls */
 void rk_set_ticks(uint32_t (*ticks)(void));
 void rk_fx_core2(int on);                  /* 0: Clouds on the first core, the voices split (update 8's arrangement); the benchmark's comparison cases */
-int rk_fx_core2_active(void);              /* 1: Clouds runs on the second core in this patch */
+int rk_fx_core2_active(void);
+int rk_shed_helps(void);                   /* update 10: 1 when one voice fewer relieves the core that is overloaded (rack.cc shed_helps) */              /* 1: Clouds runs on the second core in this patch */
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void rk_core_stats_reset(void);
 
@@ -292,6 +293,7 @@ static void rc_apply(void)
 #define RC_HEAVY_GAP 4u
 static uint32_t rc_shed_wait;
 static uint32_t rc_shed_count;
+static uint32_t rc_shed_skipped;              /* overloads where shedding a voice would not have helped (update 10) */
 static uint32_t rc_blocks, rc_heavy_last, rc_heavy_streak;
 static volatile int rc_heavy;                 /* 1: muted, too heavy for one core (shown on the screen) */
 static void rc_overload(void)
@@ -305,6 +307,13 @@ static void rc_overload(void)
     }
     if (rc_shed_wait)
         return;
+    /* update 10: with Clouds on the second core the block takes as long as the slower core; a voice is shed only if that voice is on the core that is
+     * the slow one (the top voice is the one that goes: from the fifth up it is the second core's, otherwise the first's). Otherwise nothing is
+     * shed (rc_shed_skipped counts those calls) and the overload goes on until the patch changes */
+    if (!rk_shed_helps()) {
+        rc_shed_skipped++;
+        return;
+    }
     rc_do(RCE_VOICES, rc_patch.voices_now - 1, 0.0f, 0.0f);
     rc_shed_wait = 8u;                        /* (update 44: 46 ms, was 116: an overload heard as crackle ends sooner) */
     rc_shed_count++;

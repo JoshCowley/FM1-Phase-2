@@ -12,18 +12,21 @@ OUT=build/tsan RACK_FLAGS="-fsanitize=thread -g" LDFLAGS="-fsanitize=thread" sh 
 SUPP="suppressions=$PWD/tsan.supp"; [ "$1" = nosupp ] && SUPP=
 export TSAN_OPTIONS="$SUPP halt_on_error=0 exitcode=0 second_deadlock_stack=1"
 bad=0; n=0
+# update 10: also with six voices held (the fifth and sixth ride in the second core's job, beside Clouds' own work)
+for voices in 4 6; do
 for scen in 0 1 2 3; do
   for chain in 0 1 2 3 4 5 6; do
     for mode in 0 1 2; do
       for fail in "0 0" "25 25"; do
         n=$((n + 1))
-        build/tsan/rack_host --fx2 $chain $mode $scen 2 $fail > /dev/null 2> build/tsan.err || true
+        FX2_VOICES=$voices build/tsan/rack_host --fx2 $chain $mode $scen 2 $fail > /dev/null 2> build/tsan.err || true
         if grep -q "WARNING: ThreadSanitizer" build/tsan.err; then
-          bad=$((bad + 1)); echo "chain $chain mode $mode scenario $scen failing '$fail':"; grep -A12 "WARNING: ThreadSanitizer" build/tsan.err | head -30
+          bad=$((bad + 1)); echo "voices $voices chain $chain mode $mode scenario $scen failing '$fail':"; grep -A12 "WARNING: ThreadSanitizer" build/tsan.err | head -30
         fi
       done
     done
   done
 done
-echo "ThreadSanitizer: $n runs (7 chain orders x 3 modes x 4 scenarios x worker working / failing), $bad with a report"
+done
+echo "ThreadSanitizer: $n runs (4 and 6 voices x 7 chain orders x 3 modes x 4 scenarios x worker working / failing), $bad with a report"
 [ $bad -eq 0 ]

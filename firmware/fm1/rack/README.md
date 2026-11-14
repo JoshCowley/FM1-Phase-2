@@ -226,6 +226,48 @@ range (at once against gliding), each against the same moment with nothing chang
 `build/host/audition OUTDIR` (built by build_host.sh) plays every preset through the firmware's sound path (rc_load,
 rc_render at 44.1 kHz) with a phrase for its category and writes a WAV each, with its peak and loudness.
 
+## Update 10: the second core takes the work around Clouds (host-tested, NOT yet run on an FM-1)
+
+The device bench (update 9's build, 4 held Braids voices) had the first core at 55.7 / 56.2 / 56.7 % with Clouds on the second core at GRANULR DENSITY 0.7 / 0.9 / 1.0,
+and 55.9 (LOOPDLY) and 55.3 (SPECTRL): about **24 points** beyond its four voices (31.7) whatever Clouds did. Those 24 points were Clouds' own surroundings, which update 9
+had left on the first core (`cl_front`, `cl_post`). **Attribution** (a host proxy: per-piece time of the update 9 code over 1,000 blocks in four cases (GRANULR D0.7 / D1.0, CL+REVERB, CL+REV x6; the shares given are GRANULR D0.7's, the others within a few points); this computer vectorises the filters, so the FM-1's shares may differ): 3:2 down 2 x 22 taps 26 %, 2:3 up 2 x 15 taps 47 %,
+BLEND/TONE/dry delay/output stage 17 %, staging (clamp copy, 16-bit conversion, output copy) 10 %: that is ~6, ~11, ~4 and ~2-3 of the 24 points. The sum of the pieces on the host
+(2.05 us of a 1 ms block, scaled by the host's four-voice cost 3.5 us = 31.7 points) comes to ~19 points, against 24 measured: the same size, and nothing else on the first core
+was found (reverb/delay are separate, listed in update 9's figures).
+
+**What moved.** All of it except two copies. The job (`cl_job`, rack.cc) now does: IN GAIN and the clamp, the 3:2 down, Clouds, the 2:3 up, the dry delay, BLEND, TONE and the
+output stage (verbatim the old code, the same order: so `rack_host` 7a-7f pass with the same expectations, sample for sample). The first core copies the block that reached Clouds'
+slot into the staging (`cl_front`: two 48-float copies) and the job's output into the signal. **Latency unchanged: one block (48 frames, 1.0 ms), constant, every chain order.**
+Parameters are still a snapshot (Clouds' own object, `cl_igain_`, `cl_umix_`, `cl_utone_`, set between the join and the next hand-over). The job's scratch for the 32 kHz blocks is `cl_po_`
+(the up filter takes all 32 frames in before it writes its 48 out, so it runs in place): no new static RAM beyond ~16 B (a few scalars) and `par_l_/par_r_` moved earlier in the file.
+Expected (not measured) on the device: first core down by ~22-24 points (about 32 + the other effect), second core up by about the same (GRANULR D1.0: 42.4 -> ~66; D0.7: 16.5 -> ~40;
+LOOPDLY 20.3 -> ~44; SPECTRL 11.7 -> ~35, bursty).
+
+**Resampler: not changed.** The existing one (43 taps at 96 kHz, cutoff 14.5 kHz, Kaiser beta 6) measures (`cl_resample_check`, down then up; one filter alone in brackets, 96 kHz): droop -0.0 dB at 10 kHz,
+-1.4 dB (-0.7) at 12, -8.6 (-4.3) at 14; alias level 17 kHz -30 dB, 18 kHz -40, 19 kHz -74, 20 -73, 22 -73 (the one filter: -13.9 at 16 kHz, -22.4 at 17, -35.8 at 18, -75 from 19). The brief's test (at least 60 dB
+down above 16 kHz) is **not met by the existing resampler** (it never was). Cheaper designs (Kaiser, designed alike, MACs a block 2,848 now): 35 taps 2,304 MAC (droop 12 kHz -1.2 dB, 17 kHz -17.9, 18 kHz -26),
+31 taps 2,080 (-1.5 / -16.0 / -22.4), 27 taps 1,760 (-2.2 / -18.1 / -24.9): each saves 8-38 % of the resamplers (about 2-9 points of the second core) and has less rejection and more droop, so none passes. The first
+design that does pass (>= 60 dB from 16 kHz, 12 kHz droop -1.2 dB, 14 kHz -12 dB) is 69 taps, 4,448 MAC (+56 %): dearer. The 2 stage half-band structures need 96 kHz intermediate work and don't beat one polyphase stage at 3:2.
+Not changed, so no flag and no A/B renders.
+
+**Voices on the second core.** With Clouds in FX 1, a live effect in FX 2 and no Rings, the voices above the fourth (`RACK_FX_CORE2_V1`, 4) are rendered by the job (first in the job: they draw random
+numbers (drift) as Clouds' grains do, and the deferred host stand-in then draws in the one-core order), into `par_l_/par_r_`, and added to the signal at Clouds' slot (`cl_join`): nothing is before it to miss them.
+Why only then (the host proxy, `bench_host --proxy`): the first core then also carries the effect after Clouds and the second core has the room; **with Clouds alone the offload makes the second core the slower one
+(GRANULR D0.9 x6: 5.5 us against 4.7 us with the voices on the first core)**, so there they stay. With an effect before Clouds (REVERB > CLOUDS, DELAY > CLOUDS) the voices would have to
+wait for the job before the effect: they stay on the first core. Starting polyphony with Clouds on two cores stays 4 (SELECT asks for up to 6). `rk_fx_core2_voices(0)` (the bench's "V1" cases) turns it off at run time.
+**Mixing order:** the voices' sums differ in the last bit ((v1..v4) + (v5 + v6) against ((((v1+v2)+v3)+v4)+v5)+v6; the one-core build adds in halves, too), and two cores draw the random numbers in another order
+than one: 7g shows LOOPDLY (no random numbers of its own) equal to one core delayed to within 6.6e-5 (a Clouds 16-bit input step is 3e-5), GRANULR and SPECTRL the same sound to within 4.8 % rms (like 7d's real thread).
+Not sample for sample, and that cannot be done for voices on another core.
+
+**Overload guard.** `rc_overload` sheds the top voice. It now asks the engine (`shed_helps`): with Clouds on two cores and a clock set (`rk_set_ticks(plat_ticks24)` in `app_init`) the engine knows which core is the slow one
+(the first core's wait at the join over 1/16 of the block, smoothed over 16 blocks: second core slow) and whether the top voice is on it (the fifth and above are the job's). A voice is shed only if it relieves the slow core.
+When it does not (second core slow with no voice on it, or first core slow with the fifth and sixth on the second), nothing is shed (`rc_shed_skipped` counts the calls) and the overload goes on, audible as crackle, until
+the patch changes: no new behaviour (no jump to fewer voices, no switching Clouds off). Not Clouds on two cores, or no clock: as before. 7h checks the decision with a made-up clock.
+
+**Checks.** `rack_host` 7g (six voices) and 7h (the guard) are new; `fx_core2_tsan.sh` runs 4 and 6 voices (336 runs, `FX2_VOICES`). `bench_host --proxy "GRAN D0.7" ...` prints each core's own work on this computer.
+Host proxy (microseconds of a 1 ms block, best of 6 runs; a PROXY: this computer is not the FM-1's core; core 1 = block less job): GRANULR D0.7 4.64 / 1.82 -> 3.33 / 3.09 (core 1 / core 2);
+GRANULR D1.0 4.68 / 3.72 -> 3.37 / 5.10; CL+REVERB 5.80 / 2.71 -> 4.55 / 4.03; CL+REV x6 7.08 / 2.82 -> 4.52 / 5.34 (voices kept on the first core: 5.84 / 3.97).
+
 ## Update 9: Clouds on the second core (RACK_FX_CORE2; host-tested, NOT yet run on an FM-1)
 
 With two cores running and CLOUDS in a slot, the second core runs Clouds (Prepare and Process, the heavy part) while the first core renders **every voice**

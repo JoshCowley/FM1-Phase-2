@@ -80,6 +80,10 @@ void set_worker_ex(void (*sync)(void), int (*on)(void));
 void set_ticks(uint32_t (*ticks)(void));
 void set_fx_core2(int on);
 int fx_core2_active(void);
+// update 10: set_fx_core2_voices(0): the voices above the first four stay on the first core (the benchmark's comparison cases); shed_helps: 1 when
+// one voice fewer relieves the core that is the slower one (the overload guard asks; always 1 unless Clouds runs on the second core and a clock is set)
+void set_fx_core2_voices(int on);
+int shed_helps(void);
 void core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void core_stats_reset(void);
 #endif

@@ -119,6 +119,37 @@ int main(int argc, char **argv)
         fwrite(a, sizeof(float), 48000, stdout);
         return 0;
     }
+    if (argc >= 2 && !strcmp(argv[1], "--proxy")) {   /* update 10: each core's own work on this computer, a PROXY (not the FM-1's cores): the 2 CORES cases named, best of 400 runs of 10 ms */
+        bench_cpu2_run = host_cpu2_run;
+        bench_cpu2_wait = host_cpu2_wait;
+        bench_cpu2_sync = host_cpu2_sync;
+        bench_cpu2_on = host_cpu2_on;
+        bench_cases();
+        printf("%-18s %10s %10s %10s   (microseconds a 1 ms block takes on this computer; the host runs the job where it is handed over, so core 1 = block less job)\n", "case", "core 1", "core 2", "slower");
+        for (k = 1; k < bncases; k++) {
+            int j, want = 0;
+            uint32_t c1 = 0xFFFFFFFFu, c2 = 0xFFFFFFFFu;
+            if (bcases[k].group != G_CORES2) continue;
+            for (j = 2; j < argc; j++) if (!strcmp(argv[j], bcases[k].name)) want = 1;
+            if (!want) continue;
+            bench_setup(k);
+            for (i = 0; i < bench_warm_steps(k); i++) bench_warm(k, i + 1);
+            rk_set_ticks(host_ticks);
+            for (i = 0; i < 400; i++) {
+                uint32_t job, wait, inl, t0, t;
+                rk_core_stats_reset();
+                t0 = host_ticks();
+                rk_render(480);
+                t = host_ticks() - t0;
+                rk_core_stats(&job, &wait, &inl);
+                if (t - job < c1) c1 = t - job;
+                if (job < c2) c2 = job;
+            }
+            bench_done(k);
+            printf("%-18s %10.2f %10.2f %10.2f\n", bcases[k].name, c1 / 24.0 / 10.0, c2 / 24.0 / 10.0, (c1 > c2 ? c1 : c2) / 24.0 / 10.0);
+        }
+        return 0;
+    }
     bench_cpu2_run = host_cpu2_run;
     bench_cpu2_wait = host_cpu2_wait;
     bench_cpu2_sync = host_cpu2_sync;
@@ -183,6 +214,15 @@ int main(int argc, char **argv)
                 /* rounding from the new order can grow in the effects (STRING MACH: 0.00017); 0.001 is -60 dB. A preset the
                  * arena gives one voice has nothing to share */
                 /* (Clouds on the second core: the reverb after it keeps its own LFO's time, a block ahead of its signal's: 0.0012 at six voices) */
+                /* update 10: with six voices the fifth and sixth are in the second core's job: they and Clouds' grains draw random numbers in another order than one
+                 * core's (the voices' drift), so the samples differ and the sound is the same: rms within 8 % (the 6-voice cases only; the "V1" cases keep them on the first core) */
+                if (bcases[c2].cl && !bcases[c2].c2off && !bcases[c2].v1 && bcases[c2].notes > 4) {
+                    double ea = 0, eb = 0;
+                    for (i = 0; i + 48 < 48000; i++) { ea += (double)a[i] * a[i]; eb += (double)b[i + 48] * b[i + 48]; }
+                    printf("2 cores %-14s six voices: rms %.5f / %.5f one core's (largest sample difference %g: the random numbers' order)\n", bcases[c2].name, sqrt(eb), sqrt(ea), d);
+                    if (fabs(sqrt(eb / ea) - 1.0) > 0.08 || s1 != 0 || s2 == 0) { printf("2 cores %-14s six voices: rms differs, blocks shared %u / %u   FAIL\n", bcases[c2].name, (unsigned)s2, (unsigned)s1); fails++; }
+                    continue;
+                }
                 if (d > (bcases[c2].cl && !bcases[c2].c2off ? 3e-3f : 1e-3f) || s1 != 0 || (bres[c2].voices_on >= 2 && s2 == 0)) {
                     printf("2 cores %-14s differs by %g, blocks shared %u (one core: %u)\n", bcases[c2].name, d,
                            (unsigned)s2, (unsigned)s1);

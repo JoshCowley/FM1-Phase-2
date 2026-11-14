@@ -36,6 +36,8 @@ void rk_set_worker_ex(void (*sync)(void), int (*on)(void)) { set_worker_ex(sync,
 void rk_set_ticks(uint32_t (*ticks)(void)) { set_ticks(ticks); }
 void rk_fx_core2(int on) { set_fx_core2(on); }
 int rk_fx_core2_active(void) { return fx_core2_active(); }
+void rk_fx_core2_voices(int on) { set_fx_core2_voices(on); }
+int rk_shed_helps(void) { return shed_helps(); }
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl) { core_stats(job, wait, inl); }
 void rk_core_stats_reset(void) { core_stats_reset(); }
 }
