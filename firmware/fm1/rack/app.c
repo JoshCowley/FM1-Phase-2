@@ -172,10 +172,13 @@ void app_panic(void)
  * 4 on one. The shedding takes off what doesn't fit (PD STRINGS: 104 % with 6 on two cores) */
 /* update 8: with Clouds in a slot a poly preset starts with 3 voices on one core (each Braids voice is about 5 points of the core; the
  * 14 Nov run had Clouds with the reverb at 95 % with 4); SELECT asks for more. RACK_CLOUDS_VOICES (engine/rack.cc) is 3 to match. */
+/* update 9 (RACK_FX_CORE2): on two cores a patch with Clouds runs Clouds on the second core and every voice on the first (rk_fx_core2_active():
+ * the engine decided so at the layout), so it starts with 4 voices (about 6 points of the core each, plus the delay or reverb: about 51 % for
+ * 4 voices with both, the overseer's arithmetic from update 8's figures; not measured); SELECT asks for up to 6. One core: still 3. */
 static int start_voices(void)
 {
     if (plat_cpu2_on())
-        return 6;
+        return rk_fx_core2_active() ? 4 : 6;
     return rc_patch.mod[RS_FX1] == 30 || rc_patch.mod[RS_FX2] == 30 ? 3 : 4;
 }
 #define START_VOICES start_voices()
@@ -1176,8 +1179,10 @@ void app_frame(void)
 void app_init(void)
 {
     int n, i;
-    if (plat_cpu2_set(1) == 0)                /* the second core (now: the one time it may start) renders half the voices */
+    if (plat_cpu2_set(1) == 0) {              /* the second core (now: the one time it may start): half the voices, or Clouds (update 9) */
         rk_set_worker(plat_cpu2_run, plat_cpu2_wait);
+        rk_set_worker_ex(plat_cpu2_sync, plat_cpu2_on);
+    }
     n = plat_store_load(OBJ_SETTINGS, &set, sizeof set);
     if (!(n == (int)sizeof set && set.magic == SET_MAGIC)) {   /* an older record: up to RKL8 in its own layout */
     static settings8_t old;

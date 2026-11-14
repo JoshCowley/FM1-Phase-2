@@ -8,13 +8,14 @@ set -e
 cd "$(dirname "$0")"
 EURORACK="$(cd "${EURORACK:-../../../../eurorack}" && pwd)"
 ENG=../../../engine
-OUT=build/host
+OUT="${OUT:-build/host}"
 mkdir -p $OUT
 # RACK_FLAGS: extra compiler flags, e.g. RACK_FLAGS=-DRACK_WITH_GRAIN to build the shelved GRAIN source in (off by default).
 # A change of flags clears the objects (a stale .o from the other setting would be linked otherwise).
 RACK_FLAGS="${RACK_FLAGS:-}"
-# update 8: the Clouds changes, each on by default; switch one off with RACK_FLAGS=-URACK_CLOUDS_32K (and so on; -URACK_CLOUDS_MAX_GRAINS)
-CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB"
+# update 8: the Clouds changes, each on by default; switch one off with RACK_FLAGS=-URACK_CLOUDS_32K (and so on; -URACK_CLOUDS_MAX_GRAINS);
+# update 9: RACK_FX_CORE2 (Clouds on the second core) too: RACK_FLAGS=-URACK_FX_CORE2 builds without it
+CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB -DRACK_FX_CORE2"
 [ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc $OUT/*.od; echo "$RACK_FLAGS" > $OUT/.flags; }
 python3 make_presets.py --full
 EURORACK="$EURORACK" python3 make_units.py
@@ -32,12 +33,12 @@ $CXX -c $ENG/rack.cc -o $OUT/rack.o
 $CXX -c ../common/rk.cc -o $OUT/rk.o
 ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c rack_host.c -o $OUT/rack_host.o
 ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c audition.c -o $OUT/audition.oa
-${CXX%% *} -o $OUT/rack_host $OUT/*.o -lm
-${CXX%% *} -o $OUT/audition $(ls $OUT/*.o | grep -v rack_host.o) $OUT/audition.oa -lm
+${CXX%% *} -o $OUT/rack_host $OUT/*.o -lm -lpthread $LDFLAGS
+${CXX%% *} -o $OUT/audition $(ls $OUT/*.o | grep -v rack_host.o) $OUT/audition.oa -lm -lpthread $LDFLAGS
 ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c click.c -o $OUT/click.oc
-${CXX%% *} -o $OUT/click $(ls $OUT/*.o | grep -v rack_host.o) $OUT/click.oc -lm
+${CXX%% *} -o $OUT/click $(ls $OUT/*.o | grep -v rack_host.o) $OUT/click.oc -lm -lpthread $LDFLAGS
 ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c swclick.c -o $OUT/swclick.oc
-${CXX%% *} -o $OUT/swclick $(ls $OUT/*.o | grep -v rack_host.o) $OUT/swclick.oc -lm
+${CXX%% *} -o $OUT/swclick $(ls $OUT/*.o | grep -v rack_host.o) $OUT/swclick.oc -lm -lpthread $LDFLAGS
 ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c clouds_demo.c -o $OUT/clouds_demo.od
-${CXX%% *} -o $OUT/clouds_demo $(ls $OUT/*.o | grep -v rack_host.o) $OUT/clouds_demo.od -lm
+${CXX%% *} -o $OUT/clouds_demo $(ls $OUT/*.o | grep -v rack_host.o) $OUT/clouds_demo.od -lm -lpthread $LDFLAGS
 echo "built $OUT/rack_host $OUT/audition $OUT/clouds_demo"

@@ -226,6 +226,61 @@ range (at once against gliding), each against the same moment with nothing chang
 `build/host/audition OUTDIR` (built by build_host.sh) plays every preset through the firmware's sound path (rc_load,
 rc_render at 44.1 kHz) with a phrase for its category and writes a WAV each, with its peak and loudness.
 
+## Update 9: Clouds on the second core (RACK_FX_CORE2; host-tested, NOT yet run on an FM-1)
+
+With two cores running and CLOUDS in a slot, the second core runs Clouds (Prepare and Process, the heavy part) while the first core renders **every voice**
+and the other effect. In update 8 the second core rendered half the voices and Clouds ran on the first (reverb + Clouds: 85.8 % on the first core).
+**Switched by the compile flag `RACK_FX_CORE2`** (in both `fm1.toml`s and the host builds; `RACK_FLAGS=-URACK_FX_CORE2` on a computer builds without it).
+
+**How.** One job a block, inside the block: `cl_fork` hands it over at the start of the block (`plat_cpu2_sync`, then `plat_cpu2_run`), the first core renders
+the voices, the effects before Clouds, then at Clouds' slot `cl_join` waits (`plat_cpu2_wait`, `plat_cpu2_sync`), `cl_post` mixes, and the effects after
+Clouds run on the first core. The job in block n works on the signal that reached Clouds' input in block n-1: `cl_front` staged it then (3:2 down to 32 kHz,
+the dry copy, BLEND and TONE, and the parameters set into Clouds' own object). **Latency: one block (48 frames, 1.0 ms), the same for every chain order**
+(CLOUDS in FX 1 or FX 2, with the delay, the reverb or the chorus before or after): Clouds' slot's output is exactly what it was on one core, a block later,
+and the chain after the slot with it. The dry path is staged with the signal it belongs to, so BLEND mixes dry and wet that match. Everything upstream
+of the slot (voices, modulators, an effect before Clouds) is in real time; an effect after Clouds keeps its own LFO a block ahead of its signal (the reverb's,
+the chorus'): inaudible, and the only place the host checks differ from "one core, delayed" (2 % of the signal's rms at most, the chorus).
+
+**When it is off.** Clouds not loaded, or the second core not running when the patch is laid out (`plat_cpu2_on`), or the arena gave Clouds up, or 32 kHz off
+(the bench's `rk_clouds_opts`), or `rk_fx_core2(0)` (the bench's comparison cases): as update 8 (voices split, Clouds on the first core). The choice is made where
+the patch is laid out (`fm1_layout`, `cl_pipe_decide`) and nothing is staged after it: the first block after a load outputs silence (the load fades out and in around it).
+Once chosen it stays until the next layout: if the second core is given up meanwhile, the job is done on the first core **in the same block**
+(`plat_cpu2_run` says 0: done at once, where the second core would have run it; `plat_cpu2_wait` says -1: done at the join), with no change of latency, no lost
+block, and the "1C*" mark in the strip; a new patch then lays out for one core.
+
+**What each core touches** (rack.cc, the notes at `cl_pipe_` and `cl_job`). During the job, the second core alone touches Clouds' processor object (its Parameters,
+buffers and the 98,304 + 49,152 B workspace in the arena), `cl_in32_` (reads) and `cl_out32_` (writes), `st_job_`. The first core, meanwhile, renders the
+voices and effects and never touches those. The parameters are handed over as a snapshot: set into Clouds' object in `run_fx` at block n-1, after the previous
+job was joined, and not changed until the job of block n has been joined. Hand-over: `plat_cpu2_sync` before `plat_cpu2_run` and after `plat_cpu2_wait`
+(the platform's own `run` and `wait` carry barriers too). No allocation. Outside the job the first core touches everything (the main loop, the layout and the
+picture run only between blocks, with no job out: a render joins its own). **The one shared object both cores write is stmlib's `Random` state** (one 32-bit word:
+the voices' notes and Clouds' grains and spectral glitches draw from it; a lost update repeats or skips a number, nothing else; the voice job already
+shares it with the first core). Everything else is read-only (tables) or one core's.
+
+**What "late" means here** (fm1-base `bsp/chip/fm1_cpu1.h`): `plat_cpu2_wait` gives a job up as late when it has waited **8 ms** (`FM1_CPU1_TIMEOUT_US`) for it,
+counted from the start of the wait, not the hand-over; a job it misread (the check on function, argument and request number fails) it never ran, and a
+faulted core is held. Clouds' job is under 1 ms (GRANULR at DENSITY 1.0: 71.5 % of a block measured on the first core; SPECTRL's slowest block about
+twice its average), so the margin is more than 10 times, and the job is not run twice on a misread (it never started). A job given up as late (a stall of
+8 ms: not Clouds' own doing) is done again on the first core: Clouds' state advances twice for that block, once. The job's stack on the host build (x86-64) goes
+559 B deep (the FM-1's second core has 2,816 B); `plat_cpu2_stack()` on the FM-1 would say.
+
+**Voices.** All the voices are on the first core, so a Clouds patch on two cores starts with **4 voices** (`app.c start_voices`; was 6 with no Clouds and 3 on one core; SELECT asks
+for up to 6). No Clouds: 6 on two cores, 4 on one, as before. Arena: 4 voices fit with Clouds and the reverb (rack_host 7f).
+
+**Strip.** The CPU % in the status strip is the time the audio interrupt takes for a block (fm1-base `main_fm1.c`), the first core's, waiting for the second included:
+that is the **slower of the two cores** (the block takes as long as it). It is also what the 90 % overload guard watches (`app_overload` sheds voices, which does not help when
+the second core is the slow one: Clouds at its heaviest alone on it is about 72 % by update 8's figures, so there is margin). The bench has each core's own load.
+
+**Host checks** (`rack_host`, section 7; `fx_core2_check.c`, with `host_cpu2.h`'s stand-in for the second core, one fresh process per case, 1.5 s, four Braids voices held):
+7a/7b two cores = one core delayed 48 frames, sample for sample, in every chain without a modulated effect (7 chain orders x 3 modes, steady, FREEZE on and off,
+QUALITY and MODE changed while it plays; the stand-in runs the job at the hand-over, where one core runs it, so Clouds' random numbers come in the one-core
+order); the reverb and chorus chains within 0.12 % / 2.4 % rms (their own LFO runs on); 7c a worker that declines or gives up jobs (injected, seeded): declined
+= the same samples, given up = the same as a worker that runs its job at the join, both together = the same sound within 0.5 % rms (random order); no NaN, no
+lost block; 7d a real second thread: LOOPDLY identical, GRANULR and SPECTRL within 7 % rms (the random numbers' order depends on the threads); 7e Clouds off
+and on from the panel, taken out and back, the patch reloaded, while playing: no NaN, largest step within 7 % of one core's own, a gap where Clouds starts
+up one block longer; 7f four voices fit and play. `fx_core2_tsan.sh`: 168 runs under ThreadSanitizer with the thread stand-in. **Changed expectations**:
+none of the older checks (they run with no worker); the new ones above expect one block of delay and 4 starting voices on two cores with Clouds.
+
 ## Update 8: Clouds costs less (16 Nov 2026; host-tested, NOT yet run on an FM-1)
 
 The owner's FM-1 measured (% of one core at 48 kHz, 4 held Braids voices): Braids x4 31.0; Clouds' own share in GRANULR 16 ST 28.2 at DENSITY 0.7,

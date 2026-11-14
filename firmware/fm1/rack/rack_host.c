@@ -8,7 +8,8 @@
  *   3. every preset makes sound through rc_render, with a chord, no NaN;
  *   4. the unison modes play 2 and 4 voices per key;
  *   5. the overload shed;
- *   6. CLOUDS: its modes sound, the arena holds, the reverb gives way first (clouds_check.c).
+ *   6. CLOUDS: its modes sound, the arena holds, the reverb gives way first (clouds_check.c);
+ *   7. CLOUDS on the second core (update 9, RACK_FX_CORE2): the same sound as one core, a block late (fx_core2_check.c).
  * Build and run: sh build_host.sh */
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,7 @@
 #include <math.h>
 #include "rack_core.c"
 #include "clouds_check.c"
+#include "fx_core2_check.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
 #include "presets_full.h"
@@ -109,6 +111,12 @@ int main(int argc, char **argv)
     static float a[48000], b[48000];
     static const int CHORD[6] = {48, 52, 55, 59, 62, 65};
     int k, i, fails = 0;
+    if (argc == 8 && !strcmp(argv[1], "--fx2")) {   /* update 9: one two-core case, its output on stdout (fx_core2_check.c) */
+        static float o[2 * 48 * 1500];
+        fc_play(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), atoi(argv[7]), o);
+        fwrite(o, sizeof(float), 2 * 48 * 1500, stdout);
+        return 0;
+    }
     if (argc == 4 && !strcmp(argv[1], "--play")) {
         play_engine(atoi(argv[2]), atoi(argv[3]), a);
         fwrite(a, sizeof(float), 48000, stdout);
@@ -214,6 +222,12 @@ int main(int argc, char **argv)
     }
     /* 6: CLOUDS (clouds_check.c) */
     fails += check_clouds();
+    /* 7: CLOUDS on the second core (fx_core2_check.c; with RACK_FX_CORE2 off the arrangement is off and these check nothing) */
+#ifdef RACK_FX_CORE2
+    fails += check_fx_core2(argv[0]);
+#else
+    printf("7 RACK_FX_CORE2 is off in this build: Clouds stays on the first core (nothing to check)\n");
+#endif
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

@@ -222,6 +222,45 @@ static float cl_dry_[2][CL_DRYD]; static int cl_dry_at_ = 0;
 static float cl_mixs_ = 0.0f; static bool cl_mix_init_ = false;
 static int cl32_on_ = 1;            // runtime: the benchmark switches it per case (the firmware never does)
 #endif
+#if defined(RACK_FM1) && defined(RACK_FX_CORE2) && defined(RACK_CLOUDS_32K)
+#define FXC2 1
+#endif
+#ifdef RACK_FM1
+// The second core's hooks (set_worker, set_worker_ex), declared here: Clouds' job (below) and the voices' job (render_voices) use the same worker
+typedef int (*rack_run_fn)(void (*)(uint32_t), uint32_t);
+typedef int (*rack_wait_fn)(void);
+static rack_run_fn par_run_ = 0;
+static rack_wait_fn par_wait_ = 0;
+static void (*par_sync_)(void) = 0;      // plat_cpu2_sync: a barrier between the cores' reads and writes
+static int (*par_on_)(void) = 0;         // plat_cpu2_on: 1 while the second core takes jobs
+static uint32_t (*ticks_)(void) = 0;     // the benchmark's clock (plat_ticks24); the firmware leaves it out
+static uint32_t st_job_ = 0, st_wait_ = 0;   // ticks: the jobs' own time (summed where they run), the time the first core spent waiting for one
+static uint32_t par_blocks_ = 0;         // blocks in which the second core took a job (voices or Clouds)
+#endif
+#ifdef FXC2
+// FM1 Phase 2 update 9, RACK_FX_CORE2: with two cores running and Clouds in a slot, the second core runs Clouds' Prepare and Process
+// (the heavy part, 32 frames at 32 kHz) for the block, while the first core renders ALL the voices and the other effect. One job a
+// block, handed over at the start of the block and joined where the chain reaches Clouds' slot (so no job spans a block).
+// The job in block n works on the signal that reached Clouds' input in block n-1 (staged then, with that block's parameters,
+// its dry copy and its mix settings): the first core finishes block n-1's work at Clouds' slot (cl_front: the input into the
+// staging, 3:2 down), and at block n's slot takes the job's output (cl_post: 2:3 up, the dry/wet mix, TONE, the output stage).
+// So Clouds' slot's output in block n is exactly what it would have been in block n-1 on one core: the whole chain from
+// the slot on is one block (BLOCK frames, 1 ms) late, the dry path included (BLEND mixes the dry staged with the signal it
+// belongs to). The same for Clouds in FX 1 or FX 2, with or without another effect: the voices and what is before Clouds run
+// during the job, what is after it after the join.
+static int cl_pipe_ = 0;          // 1: Clouds runs this way (decided where the patch is laid out)
+static int cl_pipe_opt_ = 1;      // run-time switch (the benchmark: 0 runs the update 8 way)
+static int cl_slot_ = -1;         // the slot Clouds is in
+static int cl_primed_ = 0;        // a block is staged for the job
+static int cl_forked_ = 0;        // the job is on the second core (only between the start of a block and Clouds' slot, or its end)
+static int cl_due_ = 0;           // a job belongs to this block (the voices then all stay on the first core)
+static clouds::ShortFrame cl_in32_[32], cl_out32_[32];   // the job's input (first core writes, before the hand-over) and output (the job writes, first core reads after the join)
+static float cl_g_[2][BLOCK];     // the staged block's dry signal (first core only)
+static float cl_po_[2][BLOCK];    // this block's output of Clouds' slot (first core only)
+static float cl_umix_ = 0.0f, cl_utone_ = 0.0f;          // the staged block's BLEND and TONE (first core only)
+static uint32_t cl_inline_ = 0;   // blocks in which Clouds' job was done on the first core (not taken, or given up)
+static void cl_pipe_decide();
+#endif
 #ifdef RACK_CLOUDS_SKIP_REVERB
 namespace clouds { extern int rack_cl_skip_reverb; }
 #endif
@@ -599,6 +638,9 @@ static void init_fx(int id) {
     clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
 #ifdef RACK_CLOUDS_32K
     memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_mix_init_ = false;
+#ifdef FXC2
+    cl_primed_ = 0;   // nothing staged: its first block out is silence, the next the first in (the dry path with it)
+#endif
 #endif
   }
 #endif
@@ -720,6 +762,9 @@ static void fm1_layout() {
   int n = want_voices_ < nalloc_ ? want_voices_ : nalloc_; if (n < 1) n = 1;
   for (int i = n; i < MAXV; ++i) { vs_[i].gate = false; vs_[i].active = false; vs_[i].stage = 0; vs_[i].env = 0; }
   nvoices_ = n; shrink_to_ = 0;
+#ifdef FXC2
+  cl_pipe_decide();   // (the audio is standing aside: no job is out)
+#endif
 }
 // After a patch has loaded (its modules, parameters and routes): size the big buffers to what it can use and lay the
 // arena out again, so the room left goes to voices. The sound is the same, sample for sample, as with the full sizes.
@@ -772,6 +817,10 @@ EXPORT int fm1_status(int what) {
   switch (what) { case 0: return (int)arena_used_; case 1: return (int)sizeof(arena_); case 2: return nalloc_; case 3: return nvoices_; case 4: return dropped_;
 #ifdef RACK_CLOUDS_32K
     case 5: return cl32_on_;   // update 8: Clouds runs at 32 kHz (the picture's buffer times are 1.5 x longer)
+#endif
+#ifdef FXC2
+    case 6: return cl_pipe_;   // update 9: Clouds on the second core
+    case 7: return (int)cl_inline_;
 #endif
   }
   return 0;
@@ -828,6 +877,9 @@ EXPORT void set_hw(int on) { delay_max_ = on ? DMAX_FM1 : DLEN - 1; delay_q16_ =
 EXPORT void set_clouds_opts(int k32, int skip_rev, int grains) {
 #ifdef RACK_CLOUDS_32K
   cl32_on_ = k32; cl_mix_init_ = false;
+#ifdef FXC2
+  cl_pipe_decide();
+#endif
 #endif
 #ifdef RACK_CLOUDS_SKIP_REVERB
   clouds::rack_cl_skip_reverb = skip_rev;
@@ -1819,11 +1871,102 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
 #endif
     for (int n = 0; n < BLOCK; ++n) { shim_fb_ = (fr[n].l + fr[n].r) * 0.5f; wl_out[n] = fr[n].l; wr_out[n] = fr[n].r; }
 }
+#ifdef FXC2
+// ---- Clouds on the second core (RACK_FX_CORE2; see the notes at cl_pipe_). What each core touches:
+//   job (second core, between the hand-over and the join): clouds_ (the processor object, its buffers and Parameters), cl_in32_ (reads), cl_out32_
+//     (writes), st_job_, and the stmlib Random state (Clouds' grains and its spectral glitches draw from it, as the voices do: one shared
+//     32-bit word, a lost update at worst; the voice job on the second core already shares it with the first)
+//   first core, in the same time: the voices, the other effect, the master; never clouds_, cl_in32_, cl_out32_
+//   first core, outside the job (before the hand-over, after the join): everything above, with plat_cpu2_sync() on each side
+static void cl_job(uint32_t) {
+  uint32_t t0 = ticks_ ? ticks_() : 0;
+  clouds_->Prepare();
+  clouds_->Process(cl_in32_, cl_out32_, 32);      // exactly Clouds' own block: its arrays hold 32 frames
+  clouds::Parameters* p = clouds_->mutable_parameters(); p->trigger = false; p->gate = false;
+  if (ticks_) st_job_ += ticks_() - t0;
+}
+// the start of a block: hand the staged block to the second core. Nothing staged (the first block after a load), Clouds switched off from
+// the panel, or no second core taking jobs: no job; the voices may then use the worker as before
+static void cl_fork() {
+  cl_forked_ = 0; cl_due_ = 0;
+  if (!cl_pipe_ || fx_off_[cl_slot_ - S_FX1]) return;
+  cl_due_ = 1;                                    // (even with nothing staged yet: the voices never split in this arrangement, so their sum is one order)
+  if (!cl_primed_) return;
+  if (par_run_) {
+    if (par_sync_) par_sync_();                   // the staged input written, before the second core reads it
+    cl_forked_ = par_run_(cl_job, 0) ? 1 : 0;
+  }
+  if (!cl_forked_) { cl_job(0); ++cl_inline_; }   // not taken: done here and now, where the second core would be running it beside the voices
+}
+// the join, where the chain reaches Clouds' slot (or at the block's end): wait for the job; given up or not taken, do it here, in this block
+static void cl_join() {
+  if (cl_forked_) {
+    cl_forked_ = 0;
+    uint32_t t0 = ticks_ ? ticks_() : 0;
+    int rc = par_wait_();
+    if (ticks_) st_wait_ += ticks_() - t0;
+    if (par_sync_) par_sync_();                   // the job's output written, before this core reads it
+    if (rc == 0) { ++par_blocks_; return; }
+    cl_job(0); ++cl_inline_;                      // given up: the job was dropped; done here, in this block
+  }
+}
+// this block's output of Clouds' slot, from the staged block and the job's wet output (the 32 kHz path's second half, as it was)
+static void cl_post() {
+  float d[2][32], w[2][BLOCK];
+  for (int m = 0; m < 32; ++m) { d[0][m] = cl_out32_[m].l / 32768.0f; d[1][m] = cl_out32_[m].r / 32768.0f; }
+  cl_up_[0].run(d[0], w[0]); cl_up_[1].run(d[1], w[1]);
+  const float user_mix = cl_umix_, tone = cl_utone_;
+  if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
+  float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
+  float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone);
+  float c = 1.0f - expf(-6.2831853f * hz / SR), dm = (user_mix - cl_mixs_) / (float)BLOCK;
+  for (int n = 0; n < BLOCK; ++n) {
+    cl_mixs_ += dm;
+    float fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f), fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f);
+    float wl = w[0][n] * norm, wr = w[1][n] * norm;
+    if (tone != 0.0f) {
+      cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
+      if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
+    }
+    float dl = cl_dry_[0][cl_dry_at_], dr = cl_dry_[1][cl_dry_at_];
+    cl_dry_[0][cl_dry_at_] = cl_g_[0][n]; cl_dry_[1][cl_dry_at_] = cl_g_[1][n];
+    if (++cl_dry_at_ == CL_DRYD) cl_dry_at_ = 0;
+    cl_po_[0][n] = SoftLimit((dl * fo + wl * fi) * 0.5f); cl_po_[1][n] = SoftLimit((dr * fo + wr * fi) * 0.5f);
+  }
+  cl_mixs_ = user_mix;
+}
+// this block's input into the staging (the first half of the 32 kHz path), for the next block's job
+static void cl_front(const float* l, const float* r, float igain, float user_mix, float tone) {
+  float d[2][32];
+  for (int n = 0; n < BLOCK; ++n) { cl_g_[0][n] = clampf(l[n] * igain, -1.0f, 1.0f); cl_g_[1][n] = clampf(r[n] * igain, -1.0f, 1.0f); }
+  cl_dn_[0].run(cl_g_[0], d[0]); cl_dn_[1].run(cl_g_[1], d[1]);
+  for (int m = 0; m < 32; ++m) {
+    cl_in32_[m].l = (int16_t)(clampf(d[0][m], -1.0f, 1.0f) * 32767.0f);
+    cl_in32_[m].r = (int16_t)(clampf(d[1][m], -1.0f, 1.0f) * 32767.0f);
+  }
+  clouds_->mutable_parameters()->dry_wet = 1.0f;  // all wet out of Clouds: the mix is made in cl_post, at 48 kHz
+  cl_umix_ = user_mix; cl_utone_ = tone;
+  cl_primed_ = 1;
+}
+// where Clouds' arrangement is decided: after a layout (modules loaded or unloaded: arena re-carved), a worker given, a switch changed.
+// Nothing is staged after it. Never called with a job out (the audio stands aside for a layout; a render joins its own job)
+static void cl_pipe_decide() {
+  if (cl_forked_) cl_join();
+  cl_primed_ = 0; cl_forked_ = 0; cl_due_ = 0;
+  cl_slot_ = mod_id_[S_FX1] == M_CLOUDS ? S_FX1 : mod_id_[S_FX2] == M_CLOUDS ? S_FX2 : -1;
+  cl_pipe_ = cl_pipe_opt_ && cl32_on_ && cl_slot_ >= 0 && par_run_ && (!par_on_ || par_on_());
+}
+#endif
 static void run_fx(int slot, float* l, float* r) {
   int id = mod_id_[slot];
   if (fx_off_[slot - S_FX1]) return;   // switched off from the panel (set_fx_bypass)
 #ifdef HAVE_CLOUDS
   if (id == M_CLOUDS) {
+#ifdef FXC2
+    // the job of the last block back first (before its parameters, buffers or object are touched), then its output mixed with its dry signal
+    const bool pipe = cl_pipe_ != 0;
+    if (pipe) { if (cl_primed_) { cl_join(); cl_post(); } else memset(cl_po_, 0, sizeof(cl_po_)); }   // (cl_join: nothing left to wait for if the job was done at the hand-over)
+#endif
     clouds::Parameters* p = clouds_->mutable_parameters();
     p->position = P(slot, 0, 0); p->size = P(slot, 1, 0); p->pitch = P(slot, 2, 0) * 24.0f;
     p->density = P(slot, 3, 0); p->texture = P(slot, 4, 0); p->dry_wet = P(slot, 5, 0);
@@ -1871,6 +2014,13 @@ static void run_fx(int slot, float* l, float* r) {
     float user_mix = p->dry_wet;
     if (tone != 0.0f) p->dry_wet = 1.0f;     // TONE: take the wet signal alone, filter it, and mix it back ourselves
     float ig = P(slot, 12, 0), igain = ig != 0.0f ? powf(10.0f, ig * 12.0f / 20.0f) : 1.0f;
+#ifdef FXC2
+    if (pipe) {   // this block staged for the next job; out: the last block's
+      cl_front(l, r, igain, user_mix, tone);
+      memcpy(l, cl_po_[0], sizeof(cl_po_[0])); memcpy(r, cl_po_[1], sizeof(cl_po_[1]));
+      return;
+    }
+#endif
     clouds_->Prepare();
 #ifdef RACK_CLOUDS_32K
     if (cl32_on_) {
@@ -2044,18 +2194,59 @@ static void run_fx(int slot, float* l, float* r) {
 // drops it, the first core renders every voice. The voices share nothing they write (each its own state and
 // scratch; stmlib's Random is shared, so its numbers may repeat across cores); the parameters, routes and
 // modulators they read only change between blocks.
-typedef int (*rack_run_fn)(void (*)(uint32_t), uint32_t);
-typedef int (*rack_wait_fn)(void);
-static rack_run_fn par_run_ = 0;
-static rack_wait_fn par_wait_ = 0;
 static float par_l_[BLOCK], par_r_[BLOCK];
 static int par_from_ = 0;
-static uint32_t par_blocks_ = 0;    // blocks the second core took a share of
-EXPORT void set_worker(rack_run_fn run, rack_wait_fn wait) { par_run_ = run; par_wait_ = wait; }
+EXPORT void set_worker(rack_run_fn run, rack_wait_fn wait) {
+  par_run_ = run; par_wait_ = wait;
+#ifdef FXC2
+  cl_pipe_decide();
+#endif
+}
+// update 9: the barrier and the "is it taking jobs" call of the platform, and (the benchmark only) a clock for the cores' own times
+EXPORT void set_worker_ex(void (*sync)(void), int (*on)(void)) {
+  par_sync_ = sync; par_on_ = on;
+#ifdef FXC2
+  cl_pipe_decide();
+#endif
+}
+EXPORT void set_ticks(uint32_t (*ticks)(void)) { ticks_ = ticks; }
+// run-time switch (the benchmark's comparison cases; the firmware never calls it): 0 = Clouds on the first core, the voices split, as update 8
+EXPORT void set_fx_core2(int on) {
+#ifdef FXC2
+  cl_pipe_opt_ = on != 0; cl_pipe_decide();
+#endif
+  (void)on;
+}
+// 1 when Clouds runs on the second core in this patch
+EXPORT int fx_core2_active() {
+#ifdef FXC2
+  return cl_pipe_;
+#else
+  return 0;
+#endif
+}
 EXPORT uint32_t worker_blocks() { return par_blocks_; }
+// what the cores did since the last reset: ticks the jobs took (summed where they ran), ticks the first core waited for one, blocks
+// in which Clouds' job was done on the first core instead of the second
+EXPORT void core_stats(uint32_t* job, uint32_t* wait, uint32_t* inl) {
+  *job = st_job_; *wait = st_wait_;
+#ifdef FXC2
+  *inl = cl_inline_;
+#else
+  *inl = 0;
+#endif
+}
+EXPORT void core_stats_reset() {
+  st_job_ = 0; st_wait_ = 0;
+#ifdef FXC2
+  cl_inline_ = 0;
+#endif
+}
 static void par_job(uint32_t) {
+  uint32_t t0 = ticks_ ? ticks_() : 0;
   memset(par_l_, 0, sizeof(par_l_)); memset(par_r_, 0, sizeof(par_r_));
   for (int i = par_from_; i < nvoices_; ++i) render_voice(i, par_l_, par_r_, 1);
+  if (ticks_) st_job_ += ticks_() - t0;
 }
 static void early_work();
 static void render_voices() {
@@ -2071,11 +2262,22 @@ static void render_voices() {
   if (rv_early_ >= 0) early += 1.4f;
   int first = (int)floorf((nvoices_ - early) * 0.5f + 0.5f);
   par_from_ = first < 0 ? 0 : first > nvoices_ ? nvoices_ : first;
+#ifdef FXC2
+  if (cl_due_) {   // update 9: Clouds' job is the second core's (one job at a time, and the same sum order whether it takes it or not): the first core renders every voice
+    early_work();
+    for (int i = 0; i < nvoices_; ++i) render_voice(i, blk_l_, blk_r_);
+    return;
+  }
+#endif
   bool shared = par_run_ && par_from_ < nvoices_ && par_run_(par_job, 0);
   early_work();
   for (int i = 0; i < par_from_; ++i) render_voice(i, blk_l_, blk_r_);
-  if (shared && par_wait_() == 0) ++par_blocks_;
-  else par_job(0);   // one core, or the second dropped it: the first does the second's share last
+  if (shared) {
+    uint32_t t0 = ticks_ ? ticks_() : 0;
+    int rc = par_wait_();
+    if (ticks_) st_wait_ += ticks_() - t0;
+    if (rc == 0) ++par_blocks_; else par_job(0);
+  } else par_job(0);   // one core, or the second dropped it: the first does the second's share last
   for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += par_l_[n]; blk_r_[n] += par_r_[n]; }
 }
 #endif
@@ -2144,6 +2346,9 @@ static void process_block() {
     }
   rv_early_ = (mod_id_[S_FX1] == M_REVERB) != (mod_id_[S_FX2] == M_REVERB) ? (mod_id_[S_FX1] == M_REVERB ? S_FX1 : S_FX2) : -1;
   if (rv_early_ >= 0 && fx_off_[rv_early_ - S_FX1]) rv_early_ = -1;   // switched off: not run a block behind either
+#ifdef FXC2
+  cl_fork();          // Clouds' job for the signal staged last block: the second core starts now
+#endif
   render_voices();
   if (mod_id_[S_SHP] == M_RINGS) {   // this block's excitation and strums, for Rings next block
     for (int n = 0; n < BLOCK; ++n) rings_ex_[n] = rings_in_[0][n] + rings_in_[1][n];
@@ -2156,6 +2361,9 @@ static void process_block() {
 #endif
   run_fx(S_FX1, blk_l_, blk_r_);
   run_fx(S_FX2, blk_l_, blk_r_);
+#ifdef FXC2
+  if (cl_forked_) cl_join();   // (a job still out at the block's end: Clouds' slot was not reached; none spans a block)
+#endif
   for (int n = 0; n < BLOCK; ++n) { blk_l_[n] *= master_ * 0.9f; blk_r_[n] *= master_ * 0.9f; }
   run_master(blk_l_, blk_r_);
   for (int n = 0; n < BLOCK; ++n) { blk_l_[n] = SoftClip(blk_l_[n]); blk_r_[n] = SoftClip(blk_r_[n]); }

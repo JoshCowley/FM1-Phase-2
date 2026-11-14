@@ -41,6 +41,8 @@ void app_init(void)
     if (plat_cpu2_set(1) == 0) {             /* the second core, for the 2 CORES cases (now: the one time it starts) */
         bench_cpu2_run = plat_cpu2_run;
         bench_cpu2_wait = plat_cpu2_wait;
+        bench_cpu2_sync = plat_cpu2_sync;
+        bench_cpu2_on = plat_cpu2_on;
     }
     bench_cases();
 }
@@ -155,6 +157,38 @@ static void bn_line(int k, char *t)
     bn_cat(t, r->bad ? ",NAN" : r->peak < 1e-4f && c->group != G_CORE ? ",SILENT" : ",OK");
 }
 
+/* update 9: a 2 CORES case's two cores as two more lines, "<name> C1" and "<name> C2", the same columns (CPU % of the block, the slowest run's
+ * microseconds), so reader.html and the CSV take them as they are */
+static void bn_core_line(int k, int core, char *t)
+{
+    const bcase_t *c = &bcases[k];
+    const bres_t *r = &bres[k];
+    char n[16];
+    t[0] = 0;
+    bn_cat(t, GROUP[c->group]);
+    bn_cat(t, ",");
+    bn_cat(t, c->name);
+    bn_cat(t, core == 1 ? " C1," : " C2,");
+    bn_tenths(bench_core_pct10(k, core, PLAT_TICKS_PER_US), n);
+    bn_cat(t, n);
+    bn_cat(t, ",,");
+    bn_int(bench_core_worst_us(k, core, PLAT_TICKS_PER_US), n);
+    bn_cat(t, n);
+    bn_cat(t, ",");
+    bn_int(r->voices_on, n);
+    bn_cat(t, n);
+    bn_cat(t, "/");
+    bn_int(r->voices_fit, n);
+    bn_cat(t, n);
+    bn_cat(t, ",");
+    bn_int((int32_t)(r->arena / 1024u), n);
+    bn_cat(t, n);
+    bn_cat(t, ",");
+    bn_int(r->dropped, n);
+    bn_cat(t, n);
+    bn_cat(t, r->bad ? ",NAN" : r->peak < 1e-4f ? ",SILENT" : ",OK");
+}
+
 /* ------------------------------------------------------------------ USB-MIDI --- */
 /* each line as one SysEx frame: F0 7D (non-commercial) 'F' 'M' 'B' text F7; reader.html collects them */
 static void bn_send_line(const char *s)
@@ -195,6 +229,12 @@ static void bn_send(void)
     for (k = 0; k < bncases; k++) {
         bn_line(k, t);
         bn_send_line(t);
+        if (bcases[k].group == G_CORES2) {        /* update 9: its two cores */
+            bn_core_line(k, 1, t);
+            bn_send_line(t);
+            bn_core_line(k, 2, t);
+            bn_send_line(t);
+        }
         fm1_wdt_feed();
     }
     bn_send_line("END");
@@ -270,7 +310,11 @@ static void draw(void)
             x = 176 - text_w(&FONT_XS, t);
             cv_text(x, y, &FONT_XS, t, C_HI);
             t[0] = 0;
-            if (bcases[k].minus >= 0) {
+            if (bcases[k].group == G_CORES2) {        /* update 9: the second core's job beside the block */
+                bn_cat(t, "C2 ");
+                bn_tenths(bench_core_pct10(k, 2, PLAT_TICKS_PER_US), n);
+                bn_cat(t, n);
+            } else if (bcases[k].minus >= 0) {
                 bn_cat(t, "(");
                 bn_tenths(bench_pct10(k, 0, PLAT_TICKS_PER_US), n);
                 bn_cat(t, n);

@@ -45,4 +45,10 @@ float *rk_monitor(int slot) { return monitor(slot); }
 // the second core: the platform's worker (plat_cpu2_run, plat_cpu2_wait) renders half the voices (rack.cc)
 void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void)) { set_worker(run, wait); }
 uint32_t rk_worker_blocks(void) { return worker_blocks(); }
+void rk_set_worker_ex(void (*sync)(void), int (*on)(void)) { set_worker_ex(sync, on); }
+void rk_set_ticks(uint32_t (*ticks)(void)) { set_ticks(ticks); }
+void rk_fx_core2(int on) { set_fx_core2(on); }
+int rk_fx_core2_active(void) { return fx_core2_active(); }
+void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl) { core_stats(job, wait, inl); }
+void rk_core_stats_reset(void) { core_stats_reset(); }
 }

@@ -5,7 +5,7 @@ usb_manufacturer = "FM1PH2"
 usb_product = "FM1 PHASE 2"
 words = "words.tsv"
 ble = false
-# the second core (fm1-base's plat_cpu2_*) renders half the voices (rack.cc render_voices); with the fallback, a unit
+# the second core (fm1-base's plat_cpu2_*) renders half the voices (rack.cc render_voices), or, with CLOUDS loaded (update 9, -DRACK_FX_CORE2 below), runs Clouds; with the fallback, a unit
 # whose second core misbehaves (fm1-base's notes: some FM-1s misread shared RAM) carries on with one core
 # USB audio (update 57, Josh: "I would like audio over USB"; off from 8 Nov to update 56): the FM-1 shows up as an
 # audio device beside its MIDI, recordable on the computer (in), and the computer can play through it (out). Costs
@@ -22,7 +22,7 @@ cpu2_fallback = true
 gen = ["make_units.py", "make_font.py {gen}"]   # (update 51: make_font.py, FM1 Rack's own typeface, over fm1-base's)
 o2 = ["units/*.cc"]
 o2_cflags = ["-std=gnu++11", "-w", "-fbuiltin", "-fno-exceptions", "-fno-rtti", "-DTEST", "-DRACK_FM1", "-DRACK_LITE",
-             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-DRACK_CLOUDS", "-DRACK_CLOUDS_NO_STRETCH", "-DRACK_CLOUDS_32K", "-DRACK_CLOUDS_MAX_GRAINS=40", "-DRACK_CLOUDS_SKIP_REVERB", "-O2", "-fdata-sections"]
+             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-DRACK_CLOUDS", "-DRACK_CLOUDS_NO_STRETCH", "-DRACK_CLOUDS_32K", "-DRACK_CLOUDS_MAX_GRAINS=40", "-DRACK_CLOUDS_SKIP_REVERB", "-DRACK_FX_CORE2", "-O2", "-fdata-sections"]
 # CLOUDS (Mutable's texture processor, MIT; FM1 Phase 2 step 5) is in the Lite build: -DRACK_CLOUDS (the engine builds it in, with its buffers trimmed to
 # 98,304 + 49,152 B, engine/rack.cc RACK_CLOUDS_SMALL; its object lives in the arena) and -DRACK_CLOUDS_NO_STRETCH (STRETCH is silent with the Mutable
 # checkout used, so MODE is GRANULR, LOOPDLY, SPECTRL). With it loaded and the arena short, the reverb gives way first, the delay only if nothing else will do

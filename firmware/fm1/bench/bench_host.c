@@ -21,7 +21,16 @@
  * FM-1 the cores run at once, so voices that use random numbers, drift or noise, draw them in another order) */
 static void (*host_job)(uint32_t);
 static uint32_t host_arg;
-static int host_cpu2_run(void (*fn)(uint32_t), uint32_t arg) { host_job = fn; host_arg = arg; return 1; }
+/* update 9: with Clouds on the second core (rk_fx_core2_active) the job runs when it is handed over, where one core would have run the same work
+ * (Clouds' random numbers in the one-core order: the output is then one core's, a block later); the voices' job still waits for the join */
+static int host_cpu2_run(void (*fn)(uint32_t), uint32_t arg)
+{
+    if (rk_fx_core2_active()) { fn(arg); host_job = 0; return 1; }
+    host_job = fn; host_arg = arg;
+    return 1;
+}
+static void host_cpu2_sync(void) { __sync_synchronize(); }
+static int host_cpu2_on(void) { return 1; }
 static int host_cpu2_wait(void) { if (host_job) { host_job(host_arg); host_job = 0; } return 0; }
 
 static uint32_t host_ticks(void)   /* 24 ticks a microsecond, as the FM-1's plat_ticks24 */
@@ -90,6 +99,8 @@ int main(int argc, char **argv)
         uint32_t shared;
         bench_cpu2_run = host_cpu2_run;
         bench_cpu2_wait = host_cpu2_wait;
+        bench_cpu2_sync = host_cpu2_sync;
+        bench_cpu2_on = host_cpu2_on;
         bench_cases();
         k = atoi(argv[2]);
         bench_setup(k);
@@ -110,6 +121,8 @@ int main(int argc, char **argv)
     }
     bench_cpu2_run = host_cpu2_run;
     bench_cpu2_wait = host_cpu2_wait;
+    bench_cpu2_sync = host_cpu2_sync;
+    bench_cpu2_on = host_cpu2_on;
     bench_cases();
     printf("%d cases\n", bncases);
     for (k = 0; k < bncases; k++) {
@@ -127,12 +140,14 @@ int main(int argc, char **argv)
                    bcases[k].minus >= 0 ? "own " : "    ", bcases[k].minus >= 0 ? bench_pct10(k, 0, 24) / 10.0 : 0.0,
                    r->peak, r->voices_on, r->voices_fit, r->arena / 1024u, r->dropped, r->bad ? "  NAN" : "",
                    silent ? "  SILENT" : "");
+            if (bcases[k].group == G_CORES2)
+                printf("%-8s %-14s   core 1 %5.1f%%  core 2 %5.1f%%  (of the block; the computer's clock)\n", "", "", bench_core_pct10(k, 1, 24) / 10.0, bench_core_pct10(k, 2, 24) / 10.0);
             if (r->bad || silent)
                 fails++;
         }
     }
     /* each 2 CORES case against its one-core twin (same preset and notes): the same sound but for the order the
-     * voices are added in, and the second core really took its share */
+     * voices are added in (a Clouds case: a block late, Clouds on the second core), and the second core really took its share */
     {
         int c2, c1, worst_k = -1;
         float worst = 0;
@@ -158,13 +173,17 @@ int main(int argc, char **argv)
                     fails++;
                     continue;
                 }
-                for (i = 0; i < 48000; i++)
-                    if (fabsf(a[i] - b[i]) > d)
-                        d = fabsf(a[i] - b[i]);
+                {   /* update 9: a Clouds case on two cores is its one-core twin a block (48 frames) late */
+                    int sh = bcases[c2].cl && !bcases[c2].c2off ? 48 : 0;
+                    for (i = 0; i + sh < 48000; i++)
+                        if (fabsf(a[i] - b[i + sh]) > d)
+                            d = fabsf(a[i] - b[i + sh]);
+                }
                 if (d > worst) { worst = d; worst_k = c2; }
                 /* rounding from the new order can grow in the effects (STRING MACH: 0.00017); 0.001 is -60 dB. A preset the
                  * arena gives one voice has nothing to share */
-                if (d > 1e-3f || s1 != 0 || (bres[c2].voices_on >= 2 && s2 == 0)) {
+                /* (Clouds on the second core: the reverb after it keeps its own LFO's time, a block ahead of its signal's: 0.0012 at six voices) */
+                if (d > (bcases[c2].cl && !bcases[c2].c2off ? 3e-3f : 1e-3f) || s1 != 0 || (bres[c2].voices_on >= 2 && s2 == 0)) {
                     printf("2 cores %-14s differs by %g, blocks shared %u (one core: %u)\n", bcases[c2].name, d,
                            (unsigned)s2, (unsigned)s1);
                     fails++;

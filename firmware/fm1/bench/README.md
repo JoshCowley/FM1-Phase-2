@@ -9,9 +9,17 @@ Rack: it plays no sound and saves nothing. It answers two questions on the board
    built the same way, then checks a known single-precision sum at power-on.
 2. **How much of the CPU does each module take?** It runs FM1 Rack's real engine (`engine/rack.cc`, built
    `-DRACK_FM1 -DRACK_LITE`, and as the FM1 Phase 2 firmware is built: `-DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH`,
-   arena 304 KB) and times 150 cases (16 Nov 2026; 138 before): every Braids shape, every Rings model, the filter, Tides,
+   arena 304 KB) and times 164 cases (update 9; 150 at update 8, 138 before): every Braids shape, every Rings model, the filter, Tides,
    Peaks, Grids, the delay, reverb and chorus, 1 to 6 voices, the CLOUDS group (below), and the 16 heaviest of the Phase 2
    factory presets plus the eight earlier ones (the module cases are still built on eight presets of the first set, kept in `tests/bench-base-calls.json`); then, when the second core starts, the 6-voice ones again on two cores (the 2 CORES group: the second core renders half the voices).
+
+**Update 9 (16 Nov 2026): Clouds on the second core, measured per core.** The build has `RACK_FX_CORE2` on: with two cores, Clouds runs alone on the second core (a block behind), every voice
+and the other effect on the first (rack/README.md, Update 9). The 2 CORES group now has, besides the three Clouds cases it had (`GRAN D1.0`, `CL+REVERB`, `CL+DELAY`, now the new split),
+`GRAN D0.7`, `GRAN D0.9`, `CL+REV x6` (CL+REVERB with six voices), `LOOPDLY`, `SPECTRL`, and **the eight again with the arrangement switched off at run time** (`... OFF`: update 8's: the voices split,
+Clouds on the first core; `rk_fx_core2(0)`), 14 new cases (164 in all; the one-core twin `CL+REVERB x6` is in the CLOUDS group). **Each 2 CORES case is three lines** in the screen's list, the CSV and the reader (same columns):
+the case itself (CPU %: the block, i.e. the slower core, what the status strip shows), then `<name> C1` (the first core's work: the block less the time it spent waiting for the second) and `<name> C2` (the second
+core's job), each as % of the block; "slowest run us" is that core's slowest run. On the screen the case's line shows `C2 x.x` beside its CPU %. On a computer the cores' lines mean little (one thread).
+All with 4 voices unless the name says 6. CSV name for the update 9 run: `fm1-bench-clouds3-2026-11-15.csv`.
 
 **Update 8 (16 Nov 2026): Clouds' three changes, each measurable from one run.** The build has the three flags on (`RACK_CLOUDS_32K`, `RACK_CLOUDS_MAX_GRAINS=40`,
 `RACK_CLOUDS_SKIP_REVERB`; rack/README.md, Update 8) and the bench's Clouds cases run with them; twelve cases (own = minus `BRAIDS x4`) change them per case at run time

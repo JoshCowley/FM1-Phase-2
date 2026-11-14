@@ -52,6 +52,12 @@ float rk_get_route(int i, int *out);
 float *rk_monitor(int slot);
 void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void));
 uint32_t rk_worker_blocks(void);
+void rk_set_worker_ex(void (*sync)(void), int (*on)(void));   /* update 9: the platform's barrier and "taking jobs" calls */
+void rk_set_ticks(uint32_t (*ticks)(void));
+void rk_fx_core2(int on);                  /* 0: Clouds on the first core, the voices split (update 8's arrangement); the benchmark's comparison cases */
+int rk_fx_core2_active(void);              /* 1: Clouds runs on the second core in this patch */
+void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
+void rk_core_stats_reset(void);
 
 typedef struct { const char *name, *cat; uint16_t at, len; uint8_t voices, mode; } rk_preset_t;
 typedef struct { uint8_t param; float lo, hi, span; } rk_meta_t;

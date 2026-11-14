@@ -72,6 +72,16 @@ int fm1_fit_needed(void);       // 1: the patch now reaches past what fm1_fit si
 // dropped the job. With a worker set, 2 or more voices are split between the cores. worker_blocks: blocks shared
 void set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void));
 uint32_t worker_blocks(void);
+// update 9 (RACK_FX_CORE2): sync = plat_cpu2_sync, on = plat_cpu2_on (either may be 0); ticks: a clock for the cores' own times (the benchmark);
+// set_fx_core2(0): Clouds stays on the first core and the voices split, as update 8 (the benchmark's comparison cases);
+// fx_core2_active: 1 when Clouds runs on the second core in this patch; core_stats: ticks the jobs took, ticks the first core waited,
+// blocks Clouds' job was done on the first core instead
+void set_worker_ex(void (*sync)(void), int (*on)(void));
+void set_ticks(uint32_t (*ticks)(void));
+void set_fx_core2(int on);
+int fx_core2_active(void);
+void core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
+void core_stats_reset(void);
 #endif
 
 #ifdef __cplusplus

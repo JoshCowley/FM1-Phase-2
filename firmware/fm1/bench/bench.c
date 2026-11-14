@@ -37,10 +37,18 @@ int rk_fm1_status(int what);
 void rk_fm1_fit(void);
 void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void));
 uint32_t rk_worker_blocks(void);
+void rk_set_worker_ex(void (*sync)(void), int (*on)(void));   /* update 9: the platform's barrier and "taking jobs" calls */
+void rk_set_ticks(uint32_t (*ticks)(void));
+void rk_fx_core2(int on);                  /* 0: Clouds on the first core, the voices split (update 8's arrangement); the benchmark's comparison cases */
+int rk_fx_core2_active(void);              /* 1: Clouds runs on the second core in this patch */
+void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
+void rk_core_stats_reset(void);
 /* the second core, when the platform has it (app.c: plat_cpu2_*; bench_host.c: a worker that runs the job at once):
  * the 2 CORES cases hand it half the voices; every other case runs on one core */
 static int (*bench_cpu2_run)(void (*)(uint32_t), uint32_t);
 static int (*bench_cpu2_wait)(void);
+static void (*bench_cpu2_sync)(void);       /* update 9: plat_cpu2_sync and plat_cpu2_on (the engine's Clouds job on the second core) */
+static int (*bench_cpu2_on)(void);
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } bop_t;
 typedef struct { const char *name; const bop_t *ops; uint16_t nops; uint8_t voices, mode; } bpreset_t;
@@ -92,7 +100,8 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
  * compared with (the module's own cost is the difference; -1 none) */
 /* grains: a GRAIN case (FM1 Phase 2): the granular source with at most this many grains a voice (0: not one)
  * cl: a CLOUDS case (FM1 Phase 2): 1 + its row in CLC (the settings), 0 none */
-typedef struct { uint8_t group, preset, notes, grains, cl; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+/* c2off: a 2 CORES case with the Clouds-on-the-second-core arrangement switched off at run time (rk_fx_core2(0)): update 8's, the voices split, Clouds on the first core */
+typedef struct { uint8_t group, preset, notes, grains, cl, c2off; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
 #define NCASE_MAX 200
 static bcase_t bcases[NCASE_MAX];
@@ -106,6 +115,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->notes = (uint8_t)notes;
     c->grains = 0;
     c->cl = 0;
+    c->c2off = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -312,6 +322,7 @@ static void bench_cases(void)
         bc_cl(G_CLOUDS, 4, 17, "CL+REVERB", k);
         k = bc_cl(G_CLOUDS, 4, CL_DELAY, "DELAY x4", r4);
         bc_cl(G_CLOUDS, 4, 18, "CL+DELAY", k);
+        bc_cl(G_CLOUDS, 6, 17, "CL+REVERB x6", -1);           /* update 9: the one-core twin of the 2 CORES case "CL+REV x6" */
         {
             static const uint8_t NV[4] = {1, 2, 4, 6};
             static const char *const BN[4] = {"BRAIDS x1", "BRAIDS x2", "BRAIDS x4", "BRAIDS x6"};
@@ -349,6 +360,22 @@ static void bench_cases(void)
     bc_cl(G_CORES2, 4, 14, "GRAN D1.0", -1);
     bc_cl(G_CORES2, 4, 17, "CL+REVERB", -1);
     bc_cl(G_CORES2, 4, 18, "CL+DELAY", -1);
+    /* update 9 (16 Nov 2026): Clouds on the second core (RACK_FX_CORE2): every voice and the other effect on the first, Clouds alone on the second, a block
+     * behind (engine/rack.cc cl_pipe_). The three cases above now run that way. Each case below is reported as three lines: the block (what the CPU %
+     * strip shows: the slower core, as the block takes as long as it), and its two cores' own loads "C1" (the first core's work: the block less the time it
+     * waited for the second) and "C2" (the second core's job), each as % of the block. The second set is the same cases with the arrangement
+     * switched off at run time ("OFF": the voices split, Clouds on the first core, as update 8), for comparison. */
+    bc_cl(G_CORES2, 4, 13, "GRAN D0.7", -1);
+    bc_cl(G_CORES2, 4, 1, "GRAN D0.9", -1);
+    bc_cl(G_CORES2, 6, 17, "CL+REV x6", -1);
+    bc_cl(G_CORES2, 4, 5, "LOOPDLY", -1);
+    bc_cl(G_CORES2, 4, 9, "SPECTRL", -1);
+    {
+        static const char *const OFFN[8] = {"GRAN D0.7 OFF", "GRAN D0.9 OFF", "GRAN D1.0 OFF", "CL+DELAY OFF", "CL+REVERB OFF", "CL+REV x6 OFF", "LOOPDLY OFF", "SPECTRL OFF"};
+        static const uint8_t ROW[8] = {13, 1, 14, 18, 17, 17, 5, 9}, NOTES[8] = {4, 4, 4, 4, 4, 6, 4, 4};
+        for (i = 0; i < 8; i++)
+            bcases[bc_cl(G_CORES2, NOTES[i], ROW[i], OFFN[i], -1)].c2off = 1;
+    }
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
@@ -369,6 +396,7 @@ typedef struct {
     float peak;                  /* the loudest sample in the timed runs */
     uint8_t voices_fit, voices_on, dropped, bad;   /* fm1_status 2, 3, 4; bad: a NaN or infinity came out */
     uint32_t arena;              /* bytes of the arena used */
+    uint32_t c1best, c1worst, c2best, c2worst;   /* update 9, the 2 CORES cases: the first core's work and the second's job, ticks for RUN_FRAMES (lowest and highest run) */
 } bres_t;
 static bres_t bres[NCASE_MAX];
 
@@ -437,6 +465,8 @@ static void bench_setup(int k)
     rk_seed(0x21u);
     rk_clouds_opts(1, 1, 40);                  /* (update 8: the build's own Clouds settings, unless a case's row changes them) */
     rk_set_worker(c->group == G_CORES2 ? bench_cpu2_run : 0, bench_cpu2_wait);
+    rk_set_worker_ex(c->group == G_CORES2 ? bench_cpu2_sync : 0, c->group == G_CORES2 ? bench_cpu2_on : 0);
+    rk_fx_core2(!c->c2off);
     rk_init();
     run_ops(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
     if (c->preset != P_INIT)
@@ -461,6 +491,8 @@ static void bench_setup(int k)
         rk_note_on(CHORD[i], 0.8f);
     bres[k].best = 0xFFFFFFFFu;
     bres[k].worst = 0;
+    bres[k].c1best = bres[k].c2best = 0xFFFFFFFFu;
+    bres[k].c1worst = bres[k].c2worst = 0;
     bres[k].peak = 0.0f;
     bres[k].bad = 0;
 }
@@ -480,6 +512,8 @@ static void bench_run(int k, uint32_t (*ticks)(void))
     uint32_t t0, t;
     const float *l, *r;
     int i;
+    rk_set_ticks(ticks);
+    rk_core_stats_reset();
     t0 = ticks();
     rk_render(RUN_FRAMES);
     t = ticks() - t0;
@@ -487,6 +521,15 @@ static void bench_run(int k, uint32_t (*ticks)(void))
         bres[k].best = t;
     if (t > bres[k].worst)
         bres[k].worst = t;
+    if (bcases[k].group == G_CORES2) {   /* the cores' own loads: the first core's work is the block less what it spent waiting for the second */
+        uint32_t job, wait, inl, c1;
+        rk_core_stats(&job, &wait, &inl);
+        c1 = t > wait ? t - wait : 0;
+        if (c1 < bres[k].c1best) bres[k].c1best = c1;
+        if (c1 > bres[k].c1worst) bres[k].c1worst = c1;
+        if (job < bres[k].c2best) bres[k].c2best = job;
+        if (job > bres[k].c2worst) bres[k].c2worst = job;
+    }
     l = rk_out_l();
     r = rk_out_r();
     for (i = 0; i < RUN_FRAMES; i++) {
@@ -519,6 +562,14 @@ static int32_t bench_pct10(int k, int own, uint32_t ticks_per_us)
         us -= (int32_t)(bres[bcases[k].minus].best / ticks_per_us);
     return us / 10;
 }
+
+/* the 2 CORES cases' own loads, in tenths of a percent of the block: core = 1 the first core's work, 2 the second core's job */
+static int32_t bench_core_pct10(int k, int core, uint32_t ticks_per_us)
+{
+    uint32_t t = core == 1 ? bres[k].c1best : bres[k].c2best;
+    return (int32_t)(t / ticks_per_us) / 10;
+}
+static int32_t bench_core_worst_us(int k, int core, uint32_t ticks_per_us) { return (int32_t)((core == 1 ? bres[k].c1worst : bres[k].c2worst) / ticks_per_us); }
 
 /* ------------------------------------------------------------------ the FPU check --- */
 /* single-precision arithmetic as the compiler emits it with -mfprev1 (hardware float): a fixed sum whose exact
