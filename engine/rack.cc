@@ -32,7 +32,12 @@
 #ifndef RACK_LITE
 #include "elements/dsp/part.h"
 #endif
-#ifndef RACK_LITE
+// CLOUDS (Mutable's texture processor, MIT): in every full build, and in the Lite firmware build only with -DRACK_CLOUDS
+// (FM1 Phase 2 step 5). RACK_FM1 + RACK_CLOUDS also trims its buffers to fit the arena (CL_SMALL below)
+#if !defined(RACK_LITE) || defined(RACK_CLOUDS)
+#define HAVE_CLOUDS 1
+#endif
+#ifdef HAVE_CLOUDS
 #include "clouds/dsp/granular_processor.h"
 #else
 #include "clouds/dsp/frame.h"   // the reverb's frame type
@@ -190,14 +195,38 @@ static int last_voice_ = 0;
 static uint32_t age_counter_ = 0;
 
 // ------------------------------------------------------------------ shared
-#ifndef RACK_LITE
-static clouds::GranularProcessor clouds_;
+#ifdef HAVE_CLOUDS
+#ifdef RACK_FM1
+// the processor object itself (about 9 KB, 64 grains and its block arrays) lives in the arena with its buffers: fm1-base's
+// static RAM has about 7 KB to spare (90.9 of 98.3 KB with USB audio), so 9 KB of .bss would not fit
+static clouds::GranularProcessor* clouds_;
+#else
+static clouds::GranularProcessor clouds_storage_;
+static clouds::GranularProcessor* const clouds_ = &clouds_storage_;
+#endif
 #endif
 static int clouds_quality_ = 0;
 static float cl_scan_ = 0.0f, cl_tone_l_ = 0.0f, cl_tone_r_ = 0.0f;
 static int cl_grid_ = -1;
 namespace clouds { extern const float lut_xfade_in[]; extern const float lut_xfade_out[]; }
+#if defined(RACK_FM1) && defined(RACK_CLOUDS)
+// FM1 Phase 2 step 5: Clouds' two buffers trimmed from 118,784 + 65,408 B (184,192 B) to 98,304 + 49,152 B (147,456 B).
+// Clouds' Init takes a large and a small buffer. Stereo: each channel's audio is `small` bytes (the large buffer is the two
+// channels' audio laid end to end, large = 2 x small) and the workspace after the first channel, large - small = small.
+// Mono: the whole large buffer is the audio and `small` the workspace. The workspace holds the diffuser (2048 floats,
+// 8192 B), the reverb (16384 x 2 B = 32768 B) and, at one address, the WSOLA correlator (3 x 130 x 4 = 1560 B) or, in
+// LOOPDLY, the pitch shifter (2 x 2047 x 2 = 8188 B): 8192 + 32768 + 8188 = 49,148 B, which `small` must hold. So 49,152 B
+// is the least that runs all three modes; the audio's length is what is cut: stereo 16-bit 24,576 samples (0.51 s at
+// 48 kHz) of stock's 32,704 (0.68 s)
+#ifndef RACK_CLOUDS_SMALL
+#define RACK_CLOUDS_SMALL 49152
+#endif
+static const int CL_SMALL = RACK_CLOUDS_SMALL, CL_LARGE = 2 * RACK_CLOUDS_SMALL, DLEN_MAX = 96000;
+static_assert(RACK_CLOUDS_SMALL >= 49148 && RACK_CLOUDS_SMALL % 16 == 0, "Clouds' workspace needs 49,148 B");
+#define CL_TRIMMED 1
+#else
 static const int CL_LARGE = 118784, CL_SMALL = 65536 - 128, DLEN_MAX = 96000;
+#endif
 // delay and chorus lines: floats in the browser, 16-bit on the FM-1
 #ifdef RACK_FM1
 typedef int16_t dsamp_t;
@@ -213,7 +242,7 @@ typedef float dsamp_t;
 static const int DLEN = DLEN_MAX;
 static inline float DG(float v) { return v; }
 static inline float DS(float x) { return x; }
-#ifndef RACK_LITE
+#ifdef HAVE_CLOUDS
 static uint8_t clouds_large_[CL_LARGE];
 static uint8_t clouds_small_[CL_SMALL];
 #endif
@@ -544,10 +573,10 @@ static void reset_voice_modules(int slot) {
 }
 
 static void init_fx(int id) {
-#ifndef RACK_LITE
+#ifdef HAVE_CLOUDS
   if (id == M_CLOUDS) {
-    clouds_.Init(clouds_large_, CL_LARGE, clouds_small_, CL_SMALL);
-    clouds_.set_num_channels(2); clouds_.set_low_fidelity(false); clouds_quality_ = 0;
+    clouds_->Init(clouds_large_, CL_LARGE, clouds_small_, CL_SMALL);
+    clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
   }
 #endif
   if (id == M_REVERB) { reverb_.Init(reverb_buf_); if (shim_buf_) memset(shim_buf_, 0, 4096 * 2); memset(pre_buf_l_, 0, (pre_mask_ + 1) * 2); memset(pre_buf_r_, 0, (pre_mask_ + 1) * 2); shim_fb_ = 0; }
@@ -566,6 +595,9 @@ static void init_fx(int id) {
 #define RACK_ARENA_ATTR
 #endif
 static uint8_t arena_[RACK_ARENA_KB * 1024] RACK_ARENA_ATTR __attribute__((aligned(16)));
+#ifndef RACK_CLOUDS_VOICES
+#define RACK_CLOUDS_VOICES 4   // the voices a patch with Clouds keeps its reverb for (a four-note chord); fewer fit -> the reverb gives way
+#endif
 static int req_[NSLOT];           // what the patch asks for
 static int want_voices_ = 2, dropped_ = 0;
 static size_t arena_used_ = 0;
@@ -581,8 +613,8 @@ static size_t carve(const int* eff, int nv, bool commit) {
   auto take = [&](size_t n) -> uint8_t* { at = (at + 15) & ~(size_t)15; uint8_t* p = arena_ + at; at += n; return p; };
   for (int s = S_FX1; s <= S_FX2; ++s) {
     int id = eff[s];
-#ifndef RACK_LITE
-    if (id == M_CLOUDS) { uint8_t* a = take(CL_LARGE); uint8_t* b = take(CL_SMALL); if (commit) { clouds_large_ = a; clouds_small_ = b; } }
+#ifdef HAVE_CLOUDS
+    if (id == M_CLOUDS) { uint8_t* a = take(CL_LARGE); uint8_t* b = take(CL_SMALL); uint8_t* c = take(sizeof(clouds::GranularProcessor)); if (commit) { clouds_large_ = a; clouds_small_ = b; clouds_ = (clouds::GranularProcessor*)c; } }
 #endif
     if (id == M_REVERB) { uint8_t* a = take(32768); uint8_t* b = fit_shim_ ? take(8192) : nullptr;
                           size_t pl = (size_t)(fit_pre_mask_ + 1) * 2; uint8_t* c = take(pl); uint8_t* d = take(pl);
@@ -614,6 +646,20 @@ static void fm1_layout() {
   const size_t cap = sizeof(arena_);
   int eff[NSLOT]; for (int s = 0; s < NSLOT; ++s) eff[s] = req_[s];
   dropped_ = 0;
+#ifdef HAVE_CLOUDS
+  // CLOUDS (FM1 Phase 2 step 5). One engine instance: a second CLOUDS in the other slot is refused. Then, when the arena
+  // can't hold everything, Clouds keeps its buffers and the others give way in Josh's order: the REVERB first (when the
+  // effects and RACK_CLOUDS_VOICES voices don't fit), the DELAY only if absolutely necessary (when, the reverb gone, the
+  // effects and one voice still don't fit). Without Clouds the order below is as before (FX 2, then FX 1).
+  if (eff[S_FX1] == M_CLOUDS && eff[S_FX2] == M_CLOUDS) { eff[S_FX2] = 0; dropped_ |= 1 << S_FX2; }
+  if (eff[S_FX1] == M_CLOUDS || eff[S_FX2] == M_CLOUDS) {
+    for (int step = 0; step < 2; ++step) {
+      int victim = step == 0 ? M_REVERB : M_DELAY;
+      if (carve(eff, step == 0 ? RACK_CLOUDS_VOICES : 1, false) <= cap) break;
+      for (int s = S_FX1; s <= S_FX2; ++s) if (eff[s] == victim) { eff[s] = 0; dropped_ |= 1 << s; }
+    }
+  }
+#endif
   if (carve(eff, 0, false) > cap && eff[S_FX2]) { eff[S_FX2] = 0; dropped_ |= 1 << S_FX2; }
   if (carve(eff, 0, false) > cap && eff[S_FX1]) { eff[S_FX1] = 0; dropped_ |= 1 << S_FX1; }
   int nv = MAXV;
@@ -639,6 +685,9 @@ static void fm1_layout() {
     if (eff[S_SHP] == M_WARPS) new (&warps_[i]) warps::Modulator();
 #endif
   }
+#ifdef HAVE_CLOUDS
+  for (int s = S_FX1; s <= S_FX2; ++s) if (eff[s] == M_CLOUDS) new (clouds_) clouds::GranularProcessor();
+#endif
   mod_id_[S_SRC] = eff[S_SRC]; mod_id_[S_SHP] = eff[S_SHP]; mod_id_[S_FX1] = eff[S_FX1]; mod_id_[S_FX2] = eff[S_FX2];
 #ifdef RACK_WITH_GRAIN
   if (eff[S_SRC] == M_GRAIN) grain_fill_test();
@@ -704,8 +753,11 @@ EXPORT int fm1_status(int what) {
 
 EXPORT void set_module(int slot, int id) {
 #ifdef RACK_LITE
-  // the Lite firmware ships without Elements, Warps, Marbles and Clouds: they play as an empty slot
-  if (id == M_ELEMENTS || id == M_WARPS || id == M_MARBLES || id == M_CLOUDS) id = M_NONE;
+  // the Lite firmware ships without Elements, Warps and Marbles (and without Clouds unless built with -DRACK_CLOUDS): they play as an empty slot
+  if (id == M_ELEMENTS || id == M_WARPS || id == M_MARBLES) id = M_NONE;
+#ifndef RACK_CLOUDS
+  if (id == M_CLOUDS) id = M_NONE;
+#endif
 #endif
 #ifndef RACK_WITH_GRAIN
   // GRAIN is shelved (FM1 Phase 2 step 4): without -DRACK_WITH_GRAIN a source that asks for it plays Braids
@@ -1728,16 +1780,29 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
 static void run_fx(int slot, float* l, float* r) {
   int id = mod_id_[slot];
   if (fx_off_[slot - S_FX1]) return;   // switched off from the panel (set_fx_bypass)
-#ifndef RACK_LITE
+#ifdef HAVE_CLOUDS
   if (id == M_CLOUDS) {
-    clouds::Parameters* p = clouds_.mutable_parameters();
+    clouds::Parameters* p = clouds_->mutable_parameters();
     p->position = P(slot, 0, 0); p->size = P(slot, 1, 0); p->pitch = P(slot, 2, 0) * 24.0f;
     p->density = P(slot, 3, 0); p->texture = P(slot, 4, 0); p->dry_wet = P(slot, 5, 0);
     p->stereo_spread = P(slot, 6, 0); p->feedback = P(slot, 7, 0); p->reverb = P(slot, 8, 0);
-    clouds_.set_playback_mode((clouds::PlaybackMode)PI(slot, 9, 0));
+    int cmode = PI(slot, 9, 0);
+#ifdef RACK_CLOUDS_NO_STRETCH
+    // The Lite firmware's MODE list is GRANULR, LOOPDLY, SPECTRL: Clouds' STRETCH is left out, because with the Mutable
+    // checkout used (f4cfa76) it plays silence (clouds/dsp/window.h: Window::Start never clears done_, so no WSOLA window
+    // ever plays; found by running Clouds alone, not through this engine)
+    cmode = cmode <= 0 ? clouds::PLAYBACK_MODE_GRANULAR : cmode == 1 ? clouds::PLAYBACK_MODE_LOOPING_DELAY : clouds::PLAYBACK_MODE_SPECTRAL;
+#endif
+    clouds_->set_playback_mode((clouds::PlaybackMode)cmode);
     p->freeze = PI(slot, 10, 0) == 1;
     // page 3-4: QUALITY (16/8-bit, stereo/mono, as the hardware's button), IN GAIN, NOTE TRG (a grain on each new note), PITCH TRK
-    int qual = PI(slot, 11, 0); if (qual != clouds_quality_) { clouds_quality_ = qual; clouds_.set_quality(qual); }
+    int qual = PI(slot, 11, 0);
+#ifdef CL_TRIMMED
+    // the trimmed buffers hold the spectral mode's frames (fft 16 KB x 2, analysis 24 KB, 3 textures) only in the whole
+    // large buffer, as mono: SPECTRL plays as its mono QUALITY (16 or 8 bit as chosen), the others as chosen
+    if (cmode == clouds::PLAYBACK_MODE_SPECTRAL) qual |= 1;
+#endif
+    if (qual != clouds_quality_) { clouds_quality_ = qual; clouds_->set_quality(qual); }
     static bool cl_prev = false; bool trg = PI(slot, 13, 0) == 1 && any_gate_ && !cl_prev; cl_prev = any_gate_;
     // page 4-6 (1.5): GRN SYNC fires grains on the tempo; SPRAY, PITCH RND and SIZE RND give each grain its own
     // position, pitch and length; PITCH QNT keeps the scatter musical; SCAN moves the read point; TONE colours the wet only
@@ -1764,13 +1829,22 @@ static void run_fx(int slot, float* l, float* r) {
     float user_mix = p->dry_wet;
     if (tone != 0.0f) p->dry_wet = 1.0f;     // TONE: take the wet signal alone, filter it, and mix it back ourselves
     float ig = P(slot, 12, 0), igain = ig != 0.0f ? powf(10.0f, ig * 12.0f / 20.0f) : 1.0f;
-    clouds_.Prepare();
+    clouds_->Prepare();
     clouds::ShortFrame in[BLOCK], out[BLOCK];
     for (int n = 0; n < BLOCK; ++n) {
       in[n].l = (int16_t)(clampf(l[n] * igain, -1.0f, 1.0f) * 32767.0f);
       in[n].r = (int16_t)(clampf(r[n] * igain, -1.0f, 1.0f) * 32767.0f);
     }
-    clouds_.Process(in, out, BLOCK);
+    // Clouds' own arrays hold kMaxBlockSize (32) frames and the FM-1's block is 48: Process in chunks of at most 32 (24), the
+    // trigger only on the first (an edge, not a level)
+    {
+      const int chunk = BLOCK <= (int)clouds::kMaxBlockSize ? BLOCK : BLOCK / 2;
+      static_assert(BLOCK <= 2 * 32 && (BLOCK % 24) == 0, "Clouds takes at most 32 frames at a time: BLOCK is 24 or 48");
+      for (int at = 0; at < BLOCK; at += chunk) {
+        clouds_->Process(in + at, out + at, chunk);
+        p->trigger = false; p->gate = false;
+      }
+    }
     if (tone == 0.0f) for (int n = 0; n < BLOCK; ++n) { l[n] = out[n].l / 32768.0f; r[n] = out[n].r / 32768.0f; }
     else {
       float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone);

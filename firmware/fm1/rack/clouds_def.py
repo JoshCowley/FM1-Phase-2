@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
+"""CLOUDS in the Lite firmware (FM1 Phase 2 step 5, 14 Nov 2026): the module's parameter ranges, as the page's set_meta
+calls give them (web/src/6-engine.js meta()). No preset uses CLOUDS yet, so presets.h's META has no entry for it from
+the presets' calls; make_presets.py adds this one, and make_ui.py checks it against the page's definition."""
+CLOUDS_ID = 30
+# the page's parameters in order (web/src/1-data.js CLOUDS): "n" 0..1, "b" -1..1, an int: a list of that many options
+# (the Lite firmware's MODE list has 3 options, GRANULR LOOPDLY SPECTRL: lite_page below; the page's has 4)
+KINDS = ["n", "n", "b", "n",              # POSITION SIZE PITCH DENSITY
+         "n", "n", "n", "n",              # TEXTURE BLEND SPREAD FEEDBACK
+         "n", 3, 2, 4,                    # REVERB MODE FREEZE QUALITY
+         "b", 2, 2, 5,                    # IN GAIN NOTE TRG PITCH TRK GRN SYNC
+         "n", "n", 4, "n",                # SPRAY PITCH RND PITCH QNT SIZE RND
+         "b", "b"]                        # SCAN TONE
+
+
+def clouds_meta():
+    """param -> (lo, hi, span), as func_def.func_meta"""
+    return {i: ((0, k - 1, k - 1) if isinstance(k, int) else (-1, 1, 2) if k == "b" else (0, 1, 1)) for i, k in enumerate(KINDS)}
+
+
+def lite_page(page):
+    """the page's CLOUDS entry (evaluated by make_ui.py) as the Lite firmware has it: STRETCH out of MODE (silent with the
+    Mutable checkout used: engine/rack.cc RACK_CLOUDS_NO_STRETCH), and DENSITY at 0.7 (at the page's 0.5 GRANULR plays
+    no grains: Clouds' DENSITY is silent at noon). Checked against KINDS"""
+    flat = [p for pg in page["pages"] for p in pg]
+    for p in flat:
+        if p["l"] == "MODE":
+            assert p["opts"] == ["GRANULR", "STRETCH", "LOOPDLY", "SPECTRL"], "clouds_def: the page's MODE list changed"
+            p["opts"] = ["GRANULR", "LOOPDLY", "SPECTRL"]
+            p["def"] = 0
+        if p["l"] == "DENSITY":
+            p["def"] = 0.7
+    check_page(page)
+    return page
+
+
+def check_page(page):
+    """page: the CLOUDS entry of the page's MODULES (evaluated by make_ui.py): the same parameters in the same order"""
+    flat = [p for pg in page["pages"] for p in pg]
+    kinds = [len(p["opts"]) if p["t"] == "list" else "b" if p["t"] == "bip" else "n" for p in flat]
+    if kinds != KINDS:
+        raise SystemExit("make_ui: clouds_def.KINDS differs from the page's CLOUDS parameters")

@@ -9,7 +9,7 @@ The definitions are evaluated with Node (the same JavaScript the page runs), the
   UI_MODS[]          the Lite firmware's modules: engine id, name, blurb, kind, pages, outputs (matrix sources)
   UI_GLO, UI_SEL, UI_ARP the GLOBAL (its first five pages, then SYSTEM with none), SEL (CHORD) and ARP pages
   TUNE_*, SCALE_*    the tunings (cents per degree) and the scales (semitones per degree)
-Run by fm1.toml's gen step before each build (needs node). The Lite module set: no Elements, Warps, Marbles or Clouds.
+Run by fm1.toml's gen step before each build (needs node). The Lite module set: no Elements, Warps or Marbles (Clouds since FM1 Phase 2 step 5).
 """
 import json
 import subprocess
@@ -24,9 +24,9 @@ TOOLS = HERE / "../../../web/src/5c-tools.js"
 GLO_PAGES = 5                     # SETTINGS PLAYING TUNING MIDI MASTER (the page's STEP ADV, HARDWARE, FIRMWARE: not here)
 OUT = HERE / "ui_defs.h"
 # FM1 Phase 2 (14 Nov 2026): no Plaits (fm1.toml RACK_NO_PLAITS): the picker offers Braids as the source
-LITE = ["BRAIDS", "RINGS", "FILTER", "PEAKS", "TIDES", "GRIDS", "FUNC", "DELAY", "REVERB", "CHORUS"]
+LITE = ["BRAIDS", "RINGS", "FILTER", "PEAKS", "TIDES", "GRIDS", "FUNC", "CLOUDS", "DELAY", "REVERB", "CHORUS"]   # + CLOUDS (step 5)
 MID = {"PLAITS": 1, "BRAIDS": 2, "RINGS": 10, "FILTER": 12, "PEAKS": 20, "TIDES": 21, "GRIDS": 23, "FUNC": 24,
-       "DELAY": 31, "REVERB": 32, "CHORUS": 33}
+       "CLOUDS": 30, "DELAY": 31, "REVERB": 32, "CHORUS": 33}
 KIND = {"src": 0, "shp": 1, "mod": 2, "fx": 3, "amp": 4, "lfo": 5}
 TYPE = {"num": 0, "bip": 1, "list": 2, "int": 3}
 
@@ -92,6 +92,8 @@ def main():
         return len(pages), len(flat)
 
     mods = []
+    from clouds_def import lite_page
+    lite_page(d["MODULES"]["CLOUDS"])
     d["MODULES"]["FUNC"] = FUNC
     for name in LITE:
         m = d["MODULES"][name]

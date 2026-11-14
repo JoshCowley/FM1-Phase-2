@@ -64,7 +64,7 @@ static struct {
 static const uint8_t SRC_CH[] = {1, 2};
 static const uint8_t SHP_CH[] = {10, 12, 0};
 static const uint8_t MOD_CH[] = {20, 21, 23, 24, 0};
-static const uint8_t FX_CH[] = {31, 32, 33, 0};
+static const uint8_t FX_CH[] = {30, 31, 32, 33, 0};
 static const char *const SRC_NAMES[] = {"-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1",
                                         "A OUT 2", "B OUT 1", "B OUT 2", "LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1",
                                         "SEQ 2", "SEQ 3", "SEQ 4"};
@@ -131,7 +131,7 @@ static void choices(int slot, const uint8_t **ch, int *n)
     if (slot == RS_SRC) { *ch = SRC_CH; *n = 2; }
     else if (slot == RS_SHP) { *ch = SHP_CH; *n = 3; }
     else if (slot == RS_MODA || slot == RS_MODB) { *ch = MOD_CH; *n = 5; }
-    else { *ch = FX_CH; *n = 4; }
+    else { *ch = FX_CH; *n = 5; }
 }
 static int page_first(const ui_mod_t *m, int sub)
 {

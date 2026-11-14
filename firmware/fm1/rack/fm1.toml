@@ -22,7 +22,11 @@ cpu2_fallback = true
 gen = ["make_units.py", "make_font.py {gen}"]   # (update 51: make_font.py, FM1 Rack's own typeface, over fm1-base's)
 o2 = ["units/*.cc"]
 o2_cflags = ["-std=gnu++11", "-w", "-fbuiltin", "-fno-exceptions", "-fno-rtti", "-DTEST", "-DRACK_FM1", "-DRACK_LITE",
-             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-O2", "-fdata-sections"]
+             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-DRACK_CLOUDS", "-DRACK_CLOUDS_NO_STRETCH", "-O2", "-fdata-sections"]
+# CLOUDS (Mutable's texture processor, MIT; FM1 Phase 2 step 5) is in the Lite build: -DRACK_CLOUDS (the engine builds it in, with its buffers trimmed to
+# 98,304 + 49,152 B, engine/rack.cc RACK_CLOUDS_SMALL; its object lives in the arena) and -DRACK_CLOUDS_NO_STRETCH (STRETCH is silent with the Mutable
+# checkout used, so MODE is GRANULR, LOOPDLY, SPECTRL). With it loaded and the arena short, the reverb gives way first, the delay only if nothing else will do
+# (rack.cc fm1_layout). Flash and CPU on an FM-1 are NOT measured (no device build here)
 # GRAIN (the home-made granular source) is SHELVED: compiled only with -DRACK_WITH_GRAIN, which is not in o2_cflags above. To build it in, add
 # "-DRACK_WITH_GRAIN" to o2_cflags (and to the bench's fm1.toml); on a computer: RACK_FLAGS=-DRACK_WITH_GRAIN sh build_host.sh
 # FM1 Rack's Plaits shim (first: it stands in for one of Plaits' headers), the Mutable code (a checkout of

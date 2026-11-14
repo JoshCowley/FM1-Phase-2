@@ -142,6 +142,8 @@ def main():
     from func_def import FUNC_ID, func_meta     # FUNC: the firmware's own module: its ranges as func_def has them
     if meta.setdefault(FUNC_ID, func_meta()) != func_meta():
         raise SystemExit("make_presets: FUNC's ranges differ from func_def's")
+    from clouds_def import CLOUDS_ID, clouds_meta   # CLOUDS (step 5): no preset uses it yet, so its ranges are added here
+    meta.setdefault(CLOUDS_ID, clouds_meta())
     byname = {p["name"]: p for p in data}
     init = final_state(byname["INIT"]["calls"])
     keep = [p for p in data if not any(c[0] == "set_module" and c[2] in LITE_OUT for c in p["calls"])]

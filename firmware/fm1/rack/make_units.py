@@ -8,7 +8,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ENG = HERE.parent.parent.parent / "engine"
-LITE_OUT = ("elements/", "warps/", "clouds/", "marbles/", "plaits/")   # FM1 Phase 2: no Plaits (fm1.toml RACK_NO_PLAITS)
+LITE_OUT = ("elements/", "warps/", "marbles/", "plaits/")   # FM1 Phase 2: no Plaits (fm1.toml RACK_NO_PLAITS); Clouds is in (step 5, RACK_CLOUDS)
 
 units = HERE / "units"
 units.mkdir(exist_ok=True)

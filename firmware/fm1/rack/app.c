@@ -69,6 +69,7 @@ static const char *module_name(int id)
     case 21: return "TIDES";
     case 23: return "GRIDS";
     case 24: return "FUNC";
+    case 30: return "CLOUDS";
     case 31: return "DELAY";
     case 32: return "REVERB";
     case 33: return "CHORUS";
@@ -506,6 +507,7 @@ static int module_icon(int id)
     case 21: return IC_TIDES;
     case 23: return IC_GRIDS;
     case 24: return IC_FUNC;
+    case 30: return IC_CLOUDS;
     case 31: return IC_DELAY;
     case 32: return IC_REVERB;
     case 33: return IC_CHORUS;

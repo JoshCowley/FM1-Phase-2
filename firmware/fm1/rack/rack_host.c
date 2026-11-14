@@ -6,13 +6,16 @@
  *      sample (each played by a fresh process: the engine keeps some state across init());
  *   2. the resampler keeps the pitch (the same cycles in the same time at 48 and 44.1 kHz), no step at block edges;
  *   3. every preset makes sound through rc_render, with a chord, no NaN;
- *   4. the unison modes play 2 and 4 voices per key.
+ *   4. the unison modes play 2 and 4 voices per key;
+ *   5. the overload shed;
+ *   6. CLOUDS: its modes sound, the arena holds, the reverb gives way first (clouds_check.c).
  * Build and run: sh build_host.sh */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include "rack_core.c"
+#include "clouds_check.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
 #include "presets_full.h"
@@ -209,6 +212,8 @@ int main(int argc, char **argv)
             fails++;
         rc_pause(); rc_load(0); rc_resume();
     }
+    /* 6: CLOUDS (clouds_check.c) */
+    fails += check_clouds();
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }
