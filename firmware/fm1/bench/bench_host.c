@@ -139,7 +139,8 @@ int main(int argc, char **argv)
                 continue;
             for (c1 = 0; c1 < bncases; c1++)
                 if (bcases[c1].group != G_CORES2 && bcases[c1].preset == bcases[c2].preset
-                    && bcases[c1].notes == bcases[c2].notes && bcases[c1].ch[0][0] == 0)
+                    && bcases[c1].notes == bcases[c2].notes && bcases[c1].grains == bcases[c2].grains
+                    && bcases[c1].ch[0][0] == 0)
                     break;
             if (c1 == bncases) {
                 printf("2 cores %-14s no one-core twin\n", bcases[c2].name);

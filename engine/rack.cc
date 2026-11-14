@@ -21,6 +21,7 @@
 
 #include "plaits/dsp/voice.h"
 #include "braids/macro_oscillator.h"
+#include "grain.h"   // GRAIN (FM1 Phase 2): the Bento-style granular source
 #include "rings/dsp/part.h"
 #ifndef RACK_LITE
 #include "elements/dsp/part.h"
@@ -74,9 +75,18 @@ static const int BLOCK = 48;
 static const int BLOCK = 24;
 #endif
 static const int MAXV = 6;
+// GRAIN's capture buffer: 8-bit mu-law at GRAIN_RATE (half the engine's rate), shared by every voice.
+// 128 KB holds about 5.5 s. (The FM-1: carved from the arena when GRAIN is the source.)
+#ifndef GRAIN_BUF_KB
+#define GRAIN_BUF_KB 128
+#endif
+static const float GRAIN_RATE = 24000.0f;
+static const int GRAIN_LEN = GRAIN_BUF_KB * 1024;
+static bool grain_filled_ = false;
+static void grain_fill_test();
 
 enum Slot { S_SRC, S_SHP, S_MODA, S_MODB, S_FX1, S_FX2, S_AMP, S_GLO, S_LFO, NSLOT };
-enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3,
+enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4,
              M_RINGS = 10, M_WARPS = 11, M_FILTER = 12,
              M_PEAKS = 20, M_TIDES = 21, M_MARBLES = 22, M_GRIDS = 23, M_FUNC = 24,
              M_CLOUDS = 30, M_DELAY = 31, M_REVERB = 32, M_CHORUS = 33 };
@@ -140,6 +150,7 @@ static VoiceState vs_[MAXV];
 static plaits::Voice* plaits_; static char (*plaits_buf_)[16384];
 static braids::MacroOscillator* braids_;
 static rings::Part* rings_; static uint16_t (*rings_rev_)[32768];
+static uint8_t* grain_buf_; static grain::Voice* grain_v_;
 #ifndef RACK_LITE
 static elements::Part* elements_; static uint16_t (*elements_rev_)[32768];
 static warps::Modulator* warps_;
@@ -150,6 +161,8 @@ static char plaits_buf_[MAXV][16384];
 static braids::MacroOscillator braids_[MAXV];
 static rings::Part rings_[MAXV];
 static uint16_t rings_rev_[MAXV][32768];
+static uint8_t grain_buf_[GRAIN_BUF_KB * 1024];
+static grain::Voice grain_v_[MAXV];
 #ifndef RACK_LITE
 static elements::Part elements_[MAXV];
 static uint16_t elements_rev_[MAXV][32768];
@@ -492,6 +505,7 @@ static void reset_voice_modules(int slot) {
       BufferAllocator alloc(plaits_buf_[i], 16384);
       if (mod_id_[S_SRC] == M_PLAITS) plaits_[i].Init(&alloc);
       if (mod_id_[S_SRC] == M_BRAIDS) braids_[i].Init();
+      if (mod_id_[S_SRC] == M_GRAIN) memset(&grain_v_[i], 0, sizeof(grain::Voice));
 #ifndef RACK_LITE
       if (mod_id_[S_SRC] == M_ELEMENTS) { elements_[i].Init(elements_rev_[i]); }
 #endif
@@ -561,6 +575,8 @@ static size_t carve(const int* eff, int nv, bool commit) {
   if (nv > 0) {
     if (eff[S_SRC] == M_PLAITS) { uint8_t* a = take(nv * sizeof(plaits::Voice)); uint8_t* b = take(nv * 16384); if (commit) { plaits_ = (plaits::Voice*)a; plaits_buf_ = (char (*)[16384])b; } }
     if (eff[S_SRC] == M_BRAIDS) { uint8_t* a = take(nv * sizeof(braids::MacroOscillator)); if (commit) braids_ = (braids::MacroOscillator*)a; }
+    if (eff[S_SRC] == M_GRAIN) { uint8_t* a = take(GRAIN_LEN); uint8_t* b = take(nv * sizeof(grain::Voice));
+                                 if (commit) { grain_buf_ = a; grain_v_ = (grain::Voice*)b; } }
 #ifndef RACK_LITE
     if (eff[S_SRC] == M_ELEMENTS) { uint8_t* a = take(nv * sizeof(elements::Part)); uint8_t* b = take(nv * 65536); if (commit) { elements_ = (elements::Part*)a; elements_rev_ = (uint16_t (*)[32768])b; } }
 #endif
@@ -584,6 +600,7 @@ static void fm1_layout() {
   if (nv == 0 && eff[S_SRC]) { eff[S_SRC] = 0; dropped_ |= 1 << S_SRC; nv = MAXV; }
   arena_used_ = carve(eff, nv, true);
   memset(arena_, 0, arena_used_);   // the modules expect zeroed memory, as static objects are
+  grain_filled_ = false;
   nalloc_ = nv;
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
     if (eff[S_SRC] == M_PLAITS) new (&plaits_[i]) plaits::Voice();
@@ -597,6 +614,7 @@ static void fm1_layout() {
 #endif
   }
   mod_id_[S_SRC] = eff[S_SRC]; mod_id_[S_SHP] = eff[S_SHP]; mod_id_[S_FX1] = eff[S_FX1]; mod_id_[S_FX2] = eff[S_FX2];
+  if (eff[S_SRC] == M_GRAIN) grain_fill_test();
   reset_voice_modules(S_SRC); reset_voice_modules(S_SHP);
   init_fx(eff[S_FX1]); init_fx(eff[S_FX2]);
   int n = want_voices_ < nalloc_ ? want_voices_ : nalloc_; if (n < 1) n = 1;
@@ -666,6 +684,7 @@ EXPORT void set_module(int slot, int id) {
 #endif
   if (mod_id_[slot] == id) return;
   mod_id_[slot] = id;
+  if (slot == S_SRC && id == M_GRAIN && !grain_filled_) grain_fill_test();
   if (slot == S_SRC || slot == S_SHP) reset_voice_modules(slot);
   if (slot == S_MODA || slot == S_MODB) {
     int k = slot - S_MODA;
@@ -1172,6 +1191,109 @@ static float rings_note_ = 60.0f;
 static int rings_fm1_model(int m) { return m == 0 || m == 1 || m == 4 ? 2 : m; }   // MODAL SYMPATH SYM QNT: STRING
 #endif
 
+// ------------------------------------------------------------------ GRAIN
+// SRC parameters (all 0..1 here; the menus' ranges come later):
+//   0 SIZE     grain length, 10 ms .. 1 s
+//   1 DENSITY  grains a second, 0.25 .. 1000 (as many play as GRAINS allows)
+//   2 POSITION where in the buffer, 0 .. 1
+//   3 SPEED    how POSITION travels: 0.5 still, 0 back and 1 forward at twice real time
+//   4 JITTER   randomness of each grain's start time and place
+//   5 DETUNE   each grain off pitch by up to a semitone
+//   6 PAN RND  each grain's random place in the stereo field
+//   7 LEVEL
+//   8 OCTAVE   -2 .. +2 octaves (0.5: none)    9 FINE  -1 .. +1 semitone (0.5: none)
+//  10 GRAINS   the most a voice plays, 1 .. grain::kMaxGrains
+//  11 SHAPE    window: 0 smooth (parabolic), 1 flat-topped
+//  12 REVERSE  the share of grains played backwards
+// The buffer's root is C4 (note 60): the key sets each grain's playback rate from it.
+static void grain_fill_test() {
+  // until capture exists: a deterministic test recording, so the grains have something to play (a slow sequence of
+  // saw chords with decays, and a little noise), the buffer's length. Cheap enough for a module load on the FM-1:
+  // the pitches are worked out once a chord, the decay is a multiply
+  uint32_t r = 0x9E3779B9u;
+  static const float roots[8] = { 48, 55, 51, 58, 53, 60, 50, 57 };
+  float ph[3] = { 0, 0, 0 }, inc[3] = { 0, 0, 0 }, env = 0.0f;
+  const float decay = expf(-1.6f / GRAIN_RATE);
+  const int seg = GRAIN_LEN / 8;
+  for (int n = 0; n < GRAIN_LEN; ++n) {
+    if (n % seg == 0) {
+      int k = n / seg; env = 1.0f;
+      for (int j = 0; j < 3; ++j)
+        inc[j] = 440.0f * exp2f((roots[k] + (j == 1 ? 7.02f : j == 2 ? 12.05f : 0.0f) - 69.0f) / 12.0f) / GRAIN_RATE;
+    }
+    float x = 0.0f;
+    for (int j = 0; j < 3; ++j) { ph[j] += inc[j]; if (ph[j] >= 1.0f) ph[j] -= 1.0f; x += ph[j] * 2.0f - 1.0f; }
+    r = r * 1664525u + 1013904223u;
+    x = x * 0.25f * env + ((float)(r >> 9) / 8388608.0f - 1.0f) * 0.03f;
+    env *= decay;
+    grain_buf_[n] = grain::mulaw_encode(x);
+  }
+  grain_filled_ = true;
+}
+
+// not inlined: in render_voice, -O2 unrolled it to 8 KB of code (FM-1 build, 14 Nov 2026)
+__attribute__((noinline)) static void render_grain(int i, VoiceState& v, float note, float* out_l, float* out_r) {
+  grain::Voice& gv = grain_v_[i];
+  const float* const ml = grain::kMuLaw;
+  const uint8_t* const buf = grain_buf_;
+  const float len = (float)GRAIN_LEN;
+  float size_s = 0.01f * powf(100.0f, P(S_SRC, 0, &v));
+  float rate = 0.25f * powf(4000.0f, P(S_SRC, 1, &v));
+  float pos = P(S_SRC, 2, &v), speed = (P(S_SRC, 3, &v) - 0.5f) * 4.0f;
+  float jit = P(S_SRC, 4, &v), det = P(S_SRC, 5, &v), pan = P(S_SRC, 6, &v), lvl = P(S_SRC, 7, &v);
+  float oct = floorf((P(S_SRC, 8, &v) - 0.5f) * 4.0f + 0.5f), fine = (P(S_SRC, 9, &v) - 0.5f) * 2.0f;
+  int maxg = 1 + (int)(P(S_SRC, 10, &v) * (grain::kMaxGrains - 1) + 0.5f);
+  float shape = P(S_SRC, 11, &v), rev = P(S_SRC, 12, &v);
+  if (v.retrig) { gv.n = 0; gv.wait = 0.0f; gv.scan = 0.0f; gv.rng = 0x2545F491u ^ ((uint32_t)i * 0x9E3779B9u) ^ (uint32_t)(note * 256.0f); }
+  // POSITION travels with SPEED (1.0: real time), wrapping round the buffer
+  gv.scan += speed * (float)BLOCK * (GRAIN_RATE / SR) / len;
+  gv.scan -= floorf(gv.scan);
+  float overlap = rate * size_s; if (overlap > (float)maxg) overlap = (float)maxg; if (overlap < 1.0f) overlap = 1.0f;
+  float norm = lvl / sqrtf(overlap);
+  float base_inc = exp2f((note + oct * 12.0f + fine - 60.0f) / 12.0f) * (GRAIN_RATE / SR);
+  float frames = size_s * SR;
+  // new grains due this block (at its start: a grain's start is quantised to the block, 1 ms)
+  gv.wait -= (float)BLOCK;
+  while (gv.wait <= 0.0f) {
+    gv.wait += SR / rate * (1.0f + (grain::rnd(gv.rng) * 2.0f - 1.0f) * jit);
+    if (gv.wait < 1.0f) gv.wait = 1.0f;
+    if (gv.n >= maxg) continue;
+    grain::Grain& g = gv.g[gv.n++];
+    float p = pos + gv.scan + (grain::rnd(gv.rng) * 2.0f - 1.0f) * jit * 0.1f;   // JITTER also spreads the start: up to 10 %
+    p -= floorf(p);
+    g.pos = p * len;
+    float d = det > 0.0f ? (grain::rnd(gv.rng) * 2.0f - 1.0f) * det : 0.0f;
+    g.inc = base_inc * (d != 0.0f ? exp2f(d / 12.0f) : 1.0f);
+    if (rev > 0.0f && grain::rnd(gv.rng) < rev) g.inc = -g.inc;
+    g.w = 0.0f; g.winc = 1.0f / frames;
+    float pp = 0.5f + (grain::rnd(gv.rng) - 0.5f) * pan;          // 0 left .. 1 right
+    g.gl = norm * (1.0f - pp) * 1.4142f; g.gr = norm * pp * 1.4142f;
+  }
+  for (int n = 0; n < BLOCK; ++n) { out_l[n] = 0.0f; out_r[n] = 0.0f; }
+  // play every grain over the block; a finished one is replaced by the last
+  for (int k = 0; k < gv.n; ) {
+    grain::Grain& g = gv.g[k];
+    float gp = g.pos, w = g.w;
+    const float inc = g.inc, winc = g.winc, gl = g.gl, gr = g.gr;
+    int m = BLOCK; bool done = false;
+    float left = (1.0f - w) / winc; if (left < (float)m) { m = (int)left; done = true; if (m < 0) m = 0; }
+    for (int n = 0; n < m; ++n) {
+      int ip = (int)gp; float fr = gp - (float)ip;
+      int ip1 = ip + 1; if (ip1 >= GRAIN_LEN) ip1 = 0;
+      float s = ml[buf[ip]]; s += (ml[buf[ip1]] - s) * fr;
+      float e = 4.0f * w * (1.0f - w);                  // smooth
+      float t = (w < 0.5f ? w : 1.0f - w) * 8.0f; if (t > 1.0f) t = 1.0f;   // flat-topped
+      e += (t - e) * shape;
+      s *= e;
+      out_l[n] += s * gl; out_r[n] += s * gr;
+      w += winc; gp += inc;
+      if (gp >= len) gp -= len; else if (gp < 0.0f) gp += len;
+    }
+    if (done) { gv.g[k] = gv.g[--gv.n]; continue; }
+    g.pos = gp; g.w = w; ++k;
+  }
+}
+
 static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
   float* const vbuf_ = vbuf_c_[core];
   float* const vaux_ = vaux_c_[core];
@@ -1252,6 +1374,8 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
       vbuf_[n] = f * P(S_SRC, 7, &v);
     }
     if (vca) for (int n = 0; n < BLOCK; ++n) vbuf_[n] *= v.benv;
+  } else if (src == M_GRAIN) {
+    render_grain(i, v, note, vbuf_, vaux_);
 #ifndef RACK_LITE
   } else if (src == M_ELEMENTS) {
     elements::Patch* ep = elements_[i].mutable_patch();
@@ -1278,7 +1402,7 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
   } else {
     memset(vbuf_, 0, BLOCK * sizeof(float));
   }
-  bool stereo = src == M_ELEMENTS;
+  bool stereo = src == M_ELEMENTS || src == M_GRAIN;
   osc_mix(i, v, note, vbuf_, vaux_, stereo, paux);   // OSC, the source's MAIN LVL and Plaits' AUX LVL
   if (!stereo) memcpy(vaux_, vbuf_, BLOCK * sizeof(float));
 

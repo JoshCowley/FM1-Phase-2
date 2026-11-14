@@ -23,7 +23,9 @@ BASE_SRC = HERE.parent.parent / "tests" / "bench-base-calls.json"
 PRESETS = list(BASE)
 # the factory presets played: the FM-1's own set (14 Nov 2026), its heaviest 20 by the 13 Nov run's figures
 # (presets_fm1.py), and the three Rings ones, as all 67 don't fit the app slot (27 didn't: 1.4 KB over)
-PLAYED = ['PD SLOW BLOOM', 'FX CHIMES', 'CH MUSIC BOX', 'FX DRONE', 'FX CHORD DRIFT', 'PD ORGAN AIR', 'PD WARM STRINGS', 'PD EVOLVING', 'PD ANALOG', 'PD BELL PAD', 'CH ROUND EP', 'CH SOFT PIANO', 'PD CHOIR', 'CH BRIGHT EP', 'FX GLASS RAIN', 'PD SHIMMER', 'CH VIBES', 'PD TEMPO GATE', 'FX SINGING BOWL', 'CH DRAWBAR', 'PD RESONANT', 'FX STRING BLOOM', 'FX RESONATOR']
+# FM1 Phase 2 (14 Nov 2026): CH VIBES, PD TEMPO GATE, CH DRAWBAR, PD RESONANT, CH SOFT PIANO, PD CHOIR and CH BRIGHT EP
+# left out to make room for the GRAIN cases (4.5 KB); all seven were measured on 13 Nov (results/fm1-bench-2026-11-13.csv)
+PLAYED = ['PD SLOW BLOOM', 'FX CHIMES', 'CH MUSIC BOX', 'FX DRONE', 'FX CHORD DRIFT', 'PD ORGAN AIR', 'PD WARM STRINGS', 'PD EVOLVING', 'PD ANALOG', 'PD BELL PAD', 'CH ROUND EP', 'FX GLASS RAIN', 'PD SHIMMER', 'FX SINGING BOWL', 'FX STRING BLOOM', 'FX RESONATOR']
 LITE_OUT = {3, 11, 22, 30}   # Elements, Warps, Marbles, Clouds
 
 # op codes (bench.c applies them)

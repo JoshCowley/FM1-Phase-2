@@ -67,9 +67,9 @@ static void run_ops(const bop_t *o, int n)
 }
 
 /* ------------------------------------------------------------------ the cases --- */
-enum { G_CORE, G_PLAITS, G_BRAIDS, G_RINGS, G_SHP, G_MOD, G_FX, G_VOICES, G_PRESET, G_CORES2, NGROUP };
+enum { G_CORE, G_PLAITS, G_BRAIDS, G_RINGS, G_SHP, G_MOD, G_FX, G_VOICES, G_PRESET, G_GRAIN, G_CORES2, NGROUP };
 static const char *const GROUP[NGROUP] = {"CORE", "PLAITS", "BRAIDS", "RINGS", "FILTER", "MOD", "FX", "VOICES",
-                                           "PRESETS", "2 CORES"};
+                                           "PRESETS", "GRAIN", "2 CORES"};
 static const char *const PLAITS_MODEL[24] = {"VA VCF", "PHASE D", "6OP FM 1", "6OP FM 2", "6OP FM 3", "TERRAIN",
     "STR MACH", "CHIPTUNE", "PAIR VA", "WAVESHP", "2OP FM", "FORMANT", "ADDITIVE", "WAVETBL", "CHORDS", "SPEECH",
     "SWARM", "NOISE", "PARTICLE", "STRING", "MODAL", "BASS DR", "SNARE", "HI-HAT"};
@@ -81,7 +81,8 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 
 /* a case: the preset, up to four changes (fn 1 set_module, 2 set_param; 0 none), notes held, and the case it is
  * compared with (the module's own cost is the difference; -1 none) */
-typedef struct { uint8_t group, preset, notes; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+/* grains: a GRAIN case (FM1 Phase 2): the granular source with at most this many grains a voice (0: not one) */
+typedef struct { uint8_t group, preset, notes, grains; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
 #define NCASE_MAX 200
 static bcase_t bcases[NCASE_MAX];
@@ -93,9 +94,17 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->group = (uint8_t)group;
     c->preset = (uint8_t)preset;
     c->notes = (uint8_t)notes;
+    c->grains = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
+}
+/* a GRAIN case: INIT with GRAIN as the source, as many grains a voice as asked, held at the most (bench_setup) */
+static int bc_grain(int group, int notes, int grains, const char *name)
+{
+    int k = bc_add(group, P_INIT, notes, name);
+    bcases[k].grains = (uint8_t)grains;
+    return k;
 }
 static void bc_change(int k, int i, int fn, int slot, int param, float v)
 {
@@ -188,6 +197,19 @@ static void bench_cases(void)
     bc_add(G_VOICES, P_INIT, 2, "VA VCF x2");
     bc_add(G_VOICES, P_INIT, 4, "VA VCF x4");
     bc_add(G_VOICES, P_INIT, 6, "VA VCF x6");
+    /* GRAIN (FM1 Phase 2, 14 Nov 2026): the granular source playing as many grains a voice as GRAINS allows (each
+     * 316 ms, 1000 a second wanted: every grain slot full, the worst case for the CPU), from a test recording in its
+     * 128 KB buffer; one voice at 4 to 32 grains, then 4 and 6 voices at 8, 16 and 32 */
+    bc_grain(G_GRAIN, 1, 4, "4 GR x1");
+    bc_grain(G_GRAIN, 1, 8, "8 GR x1");
+    bc_grain(G_GRAIN, 1, 16, "16 GR x1");
+    bc_grain(G_GRAIN, 1, 32, "32 GR x1");
+    bc_grain(G_GRAIN, 4, 8, "8 GR x4");
+    bc_grain(G_GRAIN, 4, 16, "16 GR x4");
+    bc_grain(G_GRAIN, 4, 32, "32 GR x4");
+    bc_grain(G_GRAIN, 6, 8, "8 GR x6");
+    bc_grain(G_GRAIN, 6, 16, "16 GR x6");
+    bc_grain(G_GRAIN, 6, 32, "32 GR x6");
     /* the factory presets the Lite firmware can play, a chord of as many notes as the preset has voices (one for
      * the mono presets) */
     for (i = P_PLAYED; i < NPRESETS; i++) {
@@ -202,6 +224,11 @@ static void bench_cases(void)
     bc_add(G_CORES2, P_INIT, 2, "VA VCF x2");
     bc_add(G_CORES2, P_INIT, 4, "VA VCF x4");
     bc_add(G_CORES2, P_INIT, 6, "VA VCF x6");
+    bc_grain(G_CORES2, 4, 16, "16 GR x4");
+    bc_grain(G_CORES2, 4, 32, "32 GR x4");
+    bc_grain(G_CORES2, 6, 8, "8 GR x6");
+    bc_grain(G_CORES2, 6, 16, "16 GR x6");
+    bc_grain(G_CORES2, 6, 32, "32 GR x6");
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
@@ -223,6 +250,21 @@ static bres_t bres[NCASE_MAX];
 
 static const float CHORD[6] = {48, 52, 55, 59, 62, 65};   /* C3 E3 G3 B3 D4 F4 */
 
+/* GRAIN's settings for the cases: SIZE 316 ms, DENSITY at most (1000 a second), POSITION 0.3 travelling slowly
+ * forward, some JITTER, DETUNE and PAN RND, a little REVERSE; GRAINS as the case asks */
+#define M_GRAIN 4
+static void grain_setup(int grains)
+{
+    static const float v[13] = {0.75f, 1.0f, 0.3f, 0.55f, 0.3f, 0.2f, 0.6f, 0.8f, 0.5f, 0.5f, 0.0f, 0.0f, 0.1f};
+    int p;
+    rk_set_module(S_SRC, M_GRAIN);
+    for (p = 0; p < 13; p++) {
+        rk_set_meta(S_SRC, p, 0.0f, 1.0f, 1.0f);
+        rk_set_param(S_SRC, p, v[p]);
+    }
+    rk_set_param(S_SRC, 10, (float)(grains - 1) / 31.0f);
+}
+
 static void bench_setup(int k)
 {
     const bcase_t *c = &bcases[k];
@@ -234,6 +276,8 @@ static void bench_setup(int k)
     run_ops(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
     if (c->preset != P_INIT)
         run_ops(p->ops, p->nops);
+    if (c->grains)
+        grain_setup(c->grains);
     for (i = 0; i < 4; i++) {
         if (c->ch[i][0] == 1)
             rk_set_module(c->ch[i][1], (int)c->chv[i]);
