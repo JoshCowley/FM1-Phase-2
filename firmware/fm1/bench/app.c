@@ -16,7 +16,7 @@ static uint32_t ticks(void) { return plat_ticks24(); }
 
 /* the run: the case being done and its step (0 set up, 1..NRUN timed runs), or done */
 static struct {
-    int k, step, done;                       /* step: 0 set up, then WARM_STEPS untimed, then NRUN timed */
+    int k, step, done;                       /* step: 0 set up, then bench_warm_steps untimed, then NRUN timed */
     uint32_t fpu, fpu_ticks;
     uint32_t started, took_ms;
     int top;                                 /* the first result line shown */
@@ -341,11 +341,11 @@ void app_frame(void)
         int k = bn.k;
         if (bn.step == 0)
             bench_setup(k);
-        else if (bn.step <= WARM_STEPS)
-            bench_warm();
+        else if (bn.step <= bench_warm_steps(k))
+            bench_warm(k, bn.step);
         else
             bench_run(k, ticks);
-        if (++bn.step > WARM_STEPS + NRUN) {
+        if (++bn.step > bench_warm_steps(k) + NRUN) {
             bench_done(k);
             bn.step = 0;
             if (++bn.k >= bncases) {

@@ -15,8 +15,9 @@ mkdir -p $OUT
 RACK_FLAGS="${RACK_FLAGS:-}"
 [ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc; echo "$RACK_FLAGS" > $OUT/.flags; }
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)
-CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 $RACK_FLAGS -I$ENG/shim -I$EURORACK"
-for src in $(grep -vE '^(elements|warps|clouds|marbles)/' $ENG/sources.txt) ; do
+CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH $RACK_FLAGS -I$ENG/shim -I$EURORACK"
+rm -f $OUT/plaits_*.o   # FM1 Phase 2: no Plaits
+for src in $(grep -vE '^(elements|warps|marbles|plaits)/' $ENG/sources.txt) ; do
   o="$OUT/$(echo "$src" | sed 's#/#_#g; s#\.cc$##').o"
   [ -f "$o" ] || { echo "c++ $src"; $CXX -c "$EURORACK/$src" -o "$o"; }
 done

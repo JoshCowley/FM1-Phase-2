@@ -114,8 +114,8 @@ int main(int argc, char **argv)
     printf("%d cases\n", bncases);
     for (k = 0; k < bncases; k++) {
         bench_setup(k);
-        for (i = 0; i < WARM_STEPS; i++)
-            bench_warm();
+        for (i = 0; i < bench_warm_steps(k); i++)
+            bench_warm(k, i + 1);
         for (i = 0; i < NRUN; i++)
             bench_run(k, host_ticks);
         bench_done(k);
@@ -142,6 +142,7 @@ int main(int argc, char **argv)
             for (c1 = 0; c1 < bncases; c1++)
                 if (bcases[c1].group != G_CORES2 && bcases[c1].preset == bcases[c2].preset
                     && bcases[c1].notes == bcases[c2].notes && bcases[c1].grains == bcases[c2].grains
+                    && bcases[c1].cl == bcases[c2].cl
                     && bcases[c1].ch[0][0] == 0)
                     break;
             if (c1 == bncases) {

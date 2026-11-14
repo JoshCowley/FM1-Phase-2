@@ -46,7 +46,7 @@ typedef struct { const char *name; const bop_t *ops; uint16_t nops; uint8_t voic
 #include "cases.h"
 
 enum { P_INIT, P_FOLDED_BASS, P_KARPLUS, P_TIDAL_FM, P_GRID_GATE, P_CH_GLASS_PNO, P_BS_SUB_MONO, P_LD_SQUARE_CHIP,
-       P_PLAYED };   /* cases.h order (make_cases.py PRESETS): the ones the cases are built on, then the ones played */
+       P_P2INIT, P_PLAYED };   /* cases.h order (make_cases.py PRESETS): the ones the cases are built on, then the ones played */
 enum { S_SRC, S_SHP, S_MODA, S_MODB, S_FX1, S_FX2 };
 
 static void run_ops(const bop_t *o, int n)
@@ -70,20 +70,17 @@ static void run_ops(const bop_t *o, int n)
 
 /* ------------------------------------------------------------------ the cases --- */
 /* GRAIN is shelved (FM1 Phase 2 step 4): its group, cases and setup exist only with -DRACK_WITH_GRAIN (the engine's flag) */
-enum { G_CORE, G_PLAITS, G_BRAIDS, G_RINGS, G_SHP, G_MOD, G_FX, G_VOICES, G_PRESET,
+enum { G_CORE, G_BRAIDS, G_RINGS, G_SHP, G_MOD, G_FX, G_VOICES, G_CLOUDS, G_PRESET,
 #ifdef RACK_WITH_GRAIN
        G_GRAIN,
 #endif
        G_CORES2, NGROUP };
-static const char *const GROUP[NGROUP] = {"CORE", "PLAITS", "BRAIDS", "RINGS", "FILTER", "MOD", "FX", "VOICES",
-                                           "PRESETS",
+static const char *const GROUP[NGROUP] = {"CORE", "BRAIDS", "RINGS", "FILTER", "MOD", "FX", "VOICES",
+                                           "CLOUDS", "PRESETS",
 #ifdef RACK_WITH_GRAIN
                                            "GRAIN",
 #endif
                                            "2 CORES"};
-static const char *const PLAITS_MODEL[24] = {"VA VCF", "PHASE D", "6OP FM 1", "6OP FM 2", "6OP FM 3", "TERRAIN",
-    "STR MACH", "CHIPTUNE", "PAIR VA", "WAVESHP", "2OP FM", "FORMANT", "ADDITIVE", "WAVETBL", "CHORDS", "SPEECH",
-    "SWARM", "NOISE", "PARTICLE", "STRING", "MODAL", "BASS DR", "SNARE", "HI-HAT"};
 static const char *const BRAIDS_MODEL[47] = {"CSAW", "/\\-_", "//-_", "FOLD", "UUUU", "SUB-", "SUB/", "SYN-",
     "SYN/", "//x3", "-_x3", "/\\x3", "SIx3", "RING", "////", "//uu", "TOY*", "ZLPF", "ZPKF", "ZBPF", "ZHPF", "VOSM",
     "VOWL", "VFOF", "HARM", "FM", "FBFM", "WTFM", "PLUK", "BOWD", "BLOW", "FLUT", "BELL", "DRUM", "KICK", "CYMB",
@@ -92,8 +89,9 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 
 /* a case: the preset, up to four changes (fn 1 set_module, 2 set_param; 0 none), notes held, and the case it is
  * compared with (the module's own cost is the difference; -1 none) */
-/* grains: a GRAIN case (FM1 Phase 2): the granular source with at most this many grains a voice (0: not one) */
-typedef struct { uint8_t group, preset, notes, grains; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+/* grains: a GRAIN case (FM1 Phase 2): the granular source with at most this many grains a voice (0: not one)
+ * cl: a CLOUDS case (FM1 Phase 2): 1 + its row in CLC (the settings), 0 none */
+typedef struct { uint8_t group, preset, notes, grains, cl; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
 #define NCASE_MAX 200
 static bcase_t bcases[NCASE_MAX];
@@ -106,6 +104,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->preset = (uint8_t)preset;
     c->notes = (uint8_t)notes;
     c->grains = 0;
+    c->cl = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -127,6 +126,52 @@ static void bc_change(int k, int i, int fn, int slot, int param, float v)
     bcases[k].chv[i] = v;
 }
 
+/* CLOUDS (FM1 Phase 2, 15 Nov 2026): every CLOUDS case is the firmware's own INIT (P2 INIT: a Braids tone) with the notes held,
+ * Clouds in FX 1 when on, and the row of CLC it names. Clouds' settings, for every row: POSITION 0.2, SIZE 0.5, PITCH 0,
+ * TEXTURE 0.4, BLEND 1.0 (full wet), SPREAD 0.5, FEEDBACK 0.3, REVERB 0.3, the rest at the page's defaults; MODE, QUALITY, DENSITY,
+ * FREEZE as the row says. fx2: what is in FX 2 (0 nothing, 1 the reverb of CH GLASS PNO, 2 the delay of LD SQUARE CHIP). */
+typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; } clc_t;
+enum { CM_GRAN, CM_LOOP, CM_SPEC };                       /* the firmware's MODE list (STRETCH is out) */
+enum { CQ_16ST, CQ_16MO, CQ_8ST, CQ_8MO };                /* the page's QUALITY list */
+static const clc_t CLC[] = {
+    /* 0 */ {0, 0, 0, 0, 0, 0.0f},                         /* Braids only (the reference) */
+    /* 1 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f},
+    /* 2 */ {1, CM_GRAN, CQ_8ST, 0, 0, 0.9f},
+    /* 3 */ {1, CM_GRAN, CQ_16MO, 0, 0, 0.9f},
+    /* 4 */ {1, CM_GRAN, CQ_8MO, 0, 0, 0.9f},
+    /* 5 */ {1, CM_LOOP, CQ_16ST, 0, 0, 0.9f},
+    /* 6 */ {1, CM_LOOP, CQ_8ST, 0, 0, 0.9f},
+    /* 7 */ {1, CM_LOOP, CQ_16MO, 0, 0, 0.9f},
+    /* 8 */ {1, CM_LOOP, CQ_8MO, 0, 0, 0.9f},
+    /* 9 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.9f},
+    /* 10 */ {1, CM_SPEC, CQ_8ST, 0, 0, 0.9f},
+    /* 11 */ {1, CM_SPEC, CQ_16MO, 0, 0, 0.9f},
+    /* 12 */ {1, CM_SPEC, CQ_8MO, 0, 0, 0.9f},
+    /* 13 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f},            /* the default DENSITY */
+    /* 14 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f},            /* the most */
+    /* 15 */ {0, 0, 0, 1, 0, 0.0f},                        /* the reverb alone */
+    /* 16 */ {0, 0, 0, 2, 0, 0.0f},                        /* the delay alone */
+    /* 17 */ {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f},           /* Clouds + the reverb */
+    /* 18 */ {1, CM_GRAN, CQ_16ST, 2, 0, 0.9f},           /* Clouds + the delay */
+    /* 19 */ {1, CM_GRAN, CQ_16ST, 0, 1, 0.9f},           /* FREEZE */
+};
+#define CL_REF 0
+#define CL_REVERB 15
+#define CL_DELAY 16
+#define M_CLOUDS 30
+/* the Clouds page's parameters (clouds_def.py KINDS): 0 0..1, -1 -1..1, k a list of k options */
+static const int8_t CL_KIND[22] = {0, 0, -1, 0, 0, 0, 0, 0, 0, 3, 2, 4, -1, 2, 2, 5, 0, 0, 4, 0, -1, -1};
+static const float CL_VAL[22] = {0.2f, 0.5f, 0.0f, 0.9f, 0.4f, 1.0f, 0.5f, 0.3f, 0.3f, 0, 0, 0, 0.0f, 0, 0, 0, 0.0f, 0.0f, 0, 0.0f, 0.0f, 0.0f};
+
+/* a CLOUDS case: P2 INIT, the row, the notes held; minus: the same without Clouds (the case it is compared with) */
+static int bc_cl(int group, int notes, int row, const char *name, int minus)
+{
+    int k = bc_add(group, P_P2INIT, notes, name);
+    bcases[k].cl = (uint8_t)(row + 1);
+    bcases[k].minus = (int8_t)minus;
+    return k;
+}
+
 static void bench_cases(void)
 {
     int i, k, base;
@@ -134,11 +179,6 @@ static void bench_cases(void)
     /* the engine with no source: envelopes, matrix, LFOs, master, for one voice */
     k = bc_add(G_CORE, P_INIT, 1, "NO SOURCE");
     bc_change(k, 0, 1, S_SRC, 0, 0);
-    /* Plaits, each model, one voice (INIT: Plaits alone) */
-    for (i = 0; i < 24; i++) {
-        k = bc_add(G_PLAITS, P_INIT, 1, PLAITS_MODEL[i]);
-        bc_change(k, 0, 2, S_SRC, 0, (float)i);
-    }
     /* Braids, each shape, one voice (FOLDED BASS with its filter taken out) */
     for (i = 0; i < 47; i++) {
         k = bc_add(G_BRAIDS, P_FOLDED_BASS, 1, BRAIDS_MODEL[i]);
@@ -192,7 +232,7 @@ static void bench_cases(void)
     bc_change(k, 1, 1, S_FX2, 0, 0);
     bcases[k].minus = (int8_t)base;
     /* the effects, once a block: LD SQUARE CHIP's delay, CH GLASS PNO's reverb, BS SUB MONO's chorus, each minus
-     * its preset without it (all three on Plaits) */
+     * its preset without it (the Phase 2 build has no Plaits: the three presets' source plays Braids) */
     base = bc_add(G_FX, P_LD_SQUARE_CHIP, 1, "(NO DELAY)");
     bc_change(base, 0, 1, S_FX1, 0, 0);
     k = bc_add(G_FX, P_LD_SQUARE_CHIP, 1, "DELAY");
@@ -205,11 +245,11 @@ static void bench_cases(void)
     bc_change(base, 0, 1, S_FX1, 0, 0);
     k = bc_add(G_FX, P_BS_SUB_MONO, 1, "CHORUS");
     bcases[k].minus = (int8_t)base;
-    /* voices: INIT's Plaits (VA VCF) with 1, 2, 4 and 6 notes held */
-    bc_add(G_VOICES, P_INIT, 1, "VA VCF x1");
-    bc_add(G_VOICES, P_INIT, 2, "VA VCF x2");
-    bc_add(G_VOICES, P_INIT, 4, "VA VCF x4");
-    bc_add(G_VOICES, P_INIT, 6, "VA VCF x6");
+    /* voices: INIT (its Plaits source plays Braids in this build, shape 0) with 1, 2, 4 and 6 notes held */
+    bc_add(G_VOICES, P_INIT, 1, "INIT x1");
+    bc_add(G_VOICES, P_INIT, 2, "INIT x2");
+    bc_add(G_VOICES, P_INIT, 4, "INIT x4");
+    bc_add(G_VOICES, P_INIT, 6, "INIT x6");
 #ifdef RACK_WITH_GRAIN
     /* GRAIN (FM1 Phase 2, 14 Nov 2026): the granular source playing as many grains a voice as GRAINS allows (each
      * 316 ms, 1000 a second wanted: every grain slot full, the worst case for the CPU), from a test recording in its
@@ -225,20 +265,46 @@ static void bench_cases(void)
     bc_grain(G_GRAIN, 6, 16, "16 GR x6");
     bc_grain(G_GRAIN, 6, 32, "32 GR x6");
 #endif
+    /* CLOUDS (FM1 Phase 2, 15 Nov 2026): on a base of Braids with four notes held; the first case is the reference every
+     * other is compared with ("own" = the difference), settings as CLC says */
+    {
+        static const char *const BCL_NAME[12] = {"GRAN 16ST", "GRAN 8ST", "GRAN 16MO", "GRAN 8MO", "LOOP 16ST", "LOOP 8ST",
+                                            "LOOP 16MO", "LOOP 8MO", "SPEC 16ST", "SPEC 8ST", "SPEC 16MO", "SPEC 8MO"};
+        int i, r4, v;
+        r4 = bc_cl(G_CLOUDS, 4, CL_REF, "BRAIDS x4", -1);
+        for (i = 0; i < 12; i++)                  /* CLC rows 1 to 12: GRANULR, LOOPDLY, SPECTRL x 16 ST, 8 ST, 16 MONO, 8 MONO */
+            bc_cl(G_CLOUDS, 4, 1 + i, BCL_NAME[i], r4);
+        bc_cl(G_CLOUDS, 4, 13, "GRAN D0.7", r4);
+        bc_cl(G_CLOUDS, 4, 14, "GRAN D1.0", r4);
+        bc_cl(G_CLOUDS, 4, 19, "GRAN FREEZE", r4);
+        k = bc_cl(G_CLOUDS, 4, CL_REVERB, "REVERB x4", r4);
+        bc_cl(G_CLOUDS, 4, 17, "CL+REVERB", k);
+        k = bc_cl(G_CLOUDS, 4, CL_DELAY, "DELAY x4", r4);
+        bc_cl(G_CLOUDS, 4, 18, "CL+DELAY", k);
+        {
+            static const uint8_t NV[4] = {1, 2, 4, 6};
+            static const char *const BN[4] = {"BRAIDS x1", "BRAIDS x2", "BRAIDS x4", "BRAIDS x6"};
+            static const char *const CN[4] = {"CL 16ST x1", "CL 16ST x2", "CL 16ST x4", "CL 16ST x6"};
+            for (v = 0; v < 4; v++) {
+                int b = NV[v] == 4 ? r4 : bc_cl(G_CLOUDS, NV[v], CL_REF, BN[v], -1);
+                bc_cl(G_CLOUDS, NV[v], 1, CN[v], b);
+            }
+        }
+    }
     /* the factory presets the Lite firmware can play, a chord of as many notes as the preset has voices (one for
      * the mono presets) */
     for (i = P_PLAYED; i < NPRESETS; i++) {
         const bpreset_t *p = &PRESETS[i];
         bc_add(G_PRESET, i, p->mode ? 1 : p->voices > 6 ? 6 : p->voices, p->name);
     }
-    /* the same on two cores (the second core renders the upper half of the voices): VA VCF with 2, 4 and 6 notes,
+    /* the same on two cores (the second core renders the upper half of the voices): INIT with 2, 4 and 6 notes,
      * and every played preset with more than one voice, at its voices (12 Nov 2026: the Rings presets, at 2-4, had
      * no 2-core figure); CPU % is the first core's time, waiting for the second included */
     if (!bench_cpu2_run)                     /* one core only (it didn't start): no 2 CORES cases */
         return;
-    bc_add(G_CORES2, P_INIT, 2, "VA VCF x2");
-    bc_add(G_CORES2, P_INIT, 4, "VA VCF x4");
-    bc_add(G_CORES2, P_INIT, 6, "VA VCF x6");
+    bc_add(G_CORES2, P_INIT, 2, "INIT x2");
+    bc_add(G_CORES2, P_INIT, 4, "INIT x4");
+    bc_add(G_CORES2, P_INIT, 6, "INIT x6");
 #ifdef RACK_WITH_GRAIN
     bc_grain(G_CORES2, 4, 16, "16 GR x4");
     bc_grain(G_CORES2, 4, 32, "32 GR x4");
@@ -246,6 +312,12 @@ static void bench_cases(void)
     bc_grain(G_CORES2, 6, 16, "16 GR x6");
     bc_grain(G_CORES2, 6, 32, "32 GR x6");
 #endif
+    /* CLOUDS (15 Nov 2026): the three heaviest of its one-core cases (by total CPU, the highest in each of four runs on a computer, which
+     * is a rough guide only): GRAN D1.0, CL+REVERB and CL+DELAY, on two cores: the second core takes two of the four Braids voices;
+     * Clouds itself runs once, on the first */
+    bc_cl(G_CORES2, 4, 14, "GRAN D1.0", -1);
+    bc_cl(G_CORES2, 4, 17, "CL+REVERB", -1);
+    bc_cl(G_CORES2, 4, 18, "CL+DELAY", -1);
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
@@ -256,6 +328,10 @@ static void bench_cases(void)
 #define RUN_FRAMES 480
 #define NRUN 5
 #define WARM_STEPS (WARM_FRAMES / RUN_FRAMES)   /* the untimed 0.1 s, in steps of RUN_FRAMES (the firmware does one a frame) */
+/* a CLOUDS case warms for 1 s (Clouds listens to the notes, its grains read what it has recorded: after 0.1 s a granular cloud is
+ * still silent), the others for 0.1 s */
+#define CL_WARM_STEPS 100
+static int bench_warm_steps(int k);
 
 typedef struct {
     uint32_t best, worst;        /* ticks (PLAT_TICKS_PER_US a microsecond) for RUN_FRAMES */
@@ -284,6 +360,42 @@ static void grain_setup(int grains)
 }
 #endif
 
+/* a CLOUDS case's modules (bench_cases, CLC): FX 2 first (the settings of a preset's FX 1 module: INIT's, then the preset's own
+ * changes to slot FX 1, put in FX 2), then Clouds in FX 1 with its 22 parameters */
+static void run_ops_to_fx2(const bop_t *o, int n)
+{
+    for (; n > 0; n--, o++)
+        if (o->a == S_FX1 && (o->fn == 1 || o->fn == 2 || o->fn == 3)) {
+            if (o->fn == 1) rk_set_module(S_FX2, o->b);
+            else if (o->fn == 2) rk_set_param(S_FX2, o->b, o->x);
+            else rk_set_meta(S_FX2, o->b, o->x, o->y, o->z);
+        }
+}
+static void cl_setup(const clc_t *r)
+{
+    int p;
+    if (r->fx2) {
+        const bpreset_t *fx = &PRESETS[r->fx2 == 1 ? P_CH_GLASS_PNO : P_LD_SQUARE_CHIP];
+        run_ops_to_fx2(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
+        run_ops_to_fx2(fx->ops, fx->nops);
+    }
+    if (!r->on)
+        return;
+    rk_set_module(S_FX1, M_CLOUDS);
+    for (p = 0; p < 22; p++) {
+        int8_t kd = CL_KIND[p];
+        float v = CL_VAL[p];
+        if (kd > 0) rk_set_meta(S_FX1, p, 0.0f, (float)(kd - 1), (float)(kd - 1));
+        else if (kd < 0) rk_set_meta(S_FX1, p, -1.0f, 1.0f, 2.0f);
+        else rk_set_meta(S_FX1, p, 0.0f, 1.0f, 1.0f);
+        if (p == 3) v = r->dens;   /* FREEZE (10) is set half way through the warm-up: bench_warm */
+        else if (p == 9) v = (float)r->mode;
+        else if (p == 10) v = 0.0f;
+        else if (p == 11) v = (float)r->qual;
+        rk_set_param(S_FX1, p, v);
+    }
+}
+
 static void bench_setup(int k)
 {
     const bcase_t *c = &bcases[k];
@@ -299,13 +411,15 @@ static void bench_setup(int k)
     if (c->grains)
         grain_setup(c->grains);
 #endif
+    if (c->cl)
+        cl_setup(&CLC[c->cl - 1]);
     for (i = 0; i < 4; i++) {
         if (c->ch[i][0] == 1)
             rk_set_module(c->ch[i][1], (int)c->chv[i]);
         else if (c->ch[i][0] == 2)
             rk_set_param(c->ch[i][1], c->ch[i][2], c->chv[i]);
     }
-    if (c->group == G_PRESET || c->group == G_CORES2)
+    if (c->group == G_PRESET || c->group == G_CORES2 || c->group == G_CLOUDS)
         rk_fm1_fit();          /* as the firmware loads a preset (rc_load): buffers sized to it, the room to voices
                                 * (until 14 Nov 2026 not here, so the delay + reverb presets fit one voice) */
     rk_set_voices(c->notes);
@@ -317,7 +431,14 @@ static void bench_setup(int k)
     bres[k].bad = 0;
 }
 
-static void bench_warm(void) { rk_render(RUN_FRAMES); }
+/* one untimed step (n: 1 to the number of steps); FREEZE is switched on half way, once the cloud has something to hold */
+static void bench_warm(int k, int n)
+{
+    rk_render(RUN_FRAMES);
+    if (bcases[k].cl && CLC[bcases[k].cl - 1].freeze && n == CL_WARM_STEPS / 2)
+        rk_set_param(S_FX1, 10, 1.0f);
+}
+static int bench_warm_steps(int k) { return bcases[k].cl ? CL_WARM_STEPS : WARM_STEPS; }
 
 /* one timed run (ticks: the platform's microsecond clock times PLAT_TICKS_PER_US) */
 static void bench_run(int k, uint32_t (*ticks)(void))
