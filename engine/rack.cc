@@ -19,7 +19,9 @@
 #include "stmlib/utils/gate_flags.h"
 #include "stmlib/utils/random.h"
 
+#ifndef RACK_NO_PLAITS
 #include "plaits/dsp/voice.h"
+#endif
 #include "braids/macro_oscillator.h"
 #include "grain.h"   // GRAIN (FM1 Phase 2): the Bento-style granular source
 #include "rings/dsp/part.h"
@@ -147,7 +149,9 @@ struct VoiceState {
 static VoiceState vs_[MAXV];
 #ifdef RACK_FM1
 // carved from arena_ by fm1_layout() for the modules loaded
+#ifndef RACK_NO_PLAITS
 static plaits::Voice* plaits_; static char (*plaits_buf_)[16384];
+#endif
 static braids::MacroOscillator* braids_;
 static rings::Part* rings_; static uint16_t (*rings_rev_)[32768];
 static uint8_t* grain_buf_; static grain::Voice* grain_v_;
@@ -502,8 +506,10 @@ static uint8_t rings_nq_[2][8]; static int rings_nqn_[2], rings_nl_[2] = {-1, -1
 static void reset_voice_modules(int slot) {
   for (int i = 0; i < NALLOC; ++i) {
     if (slot == S_SRC) {
+#ifndef RACK_NO_PLAITS
       BufferAllocator alloc(plaits_buf_[i], 16384);
       if (mod_id_[S_SRC] == M_PLAITS) plaits_[i].Init(&alloc);
+#endif
       if (mod_id_[S_SRC] == M_BRAIDS) braids_[i].Init();
       if (mod_id_[S_SRC] == M_GRAIN) memset(&grain_v_[i], 0, sizeof(grain::Voice));
 #ifndef RACK_LITE
@@ -573,7 +579,9 @@ static size_t carve(const int* eff, int nv, bool commit) {
     if (id == M_CHORUS) { uint8_t* a = take(8192); uint8_t* b = take(8192); if (commit) { chorus_l_ = (int16_t*)a; chorus_r_ = (int16_t*)b; } }
   }
   if (nv > 0) {
+#ifndef RACK_NO_PLAITS
     if (eff[S_SRC] == M_PLAITS) { uint8_t* a = take(nv * sizeof(plaits::Voice)); uint8_t* b = take(nv * 16384); if (commit) { plaits_ = (plaits::Voice*)a; plaits_buf_ = (char (*)[16384])b; } }
+#endif
     if (eff[S_SRC] == M_BRAIDS) { uint8_t* a = take(nv * sizeof(braids::MacroOscillator)); if (commit) braids_ = (braids::MacroOscillator*)a; }
     if (eff[S_SRC] == M_GRAIN) { uint8_t* a = take(GRAIN_LEN); uint8_t* b = take(nv * sizeof(grain::Voice));
                                  if (commit) { grain_buf_ = a; grain_v_ = (grain::Voice*)b; } }
@@ -603,7 +611,9 @@ static void fm1_layout() {
   grain_filled_ = false;
   nalloc_ = nv;
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
+#ifndef RACK_NO_PLAITS
     if (eff[S_SRC] == M_PLAITS) new (&plaits_[i]) plaits::Voice();
+#endif
     if (eff[S_SRC] == M_BRAIDS) new (&braids_[i]) braids::MacroOscillator();
 #ifndef RACK_LITE
     if (eff[S_SRC] == M_ELEMENTS) new (&elements_[i]) elements::Part();
@@ -678,6 +688,10 @@ EXPORT void set_module(int slot, int id) {
 #ifdef RACK_LITE
   // the Lite firmware ships without Elements, Warps, Marbles and Clouds: they play as an empty slot
   if (id == M_ELEMENTS || id == M_WARPS || id == M_MARBLES || id == M_CLOUDS) id = M_NONE;
+#endif
+#ifdef RACK_NO_PLAITS
+  // FM1 Phase 2 has no Plaits (14 Nov 2026): a source that asks for it (a user preset saved before) plays Braids
+  if (slot == S_SRC && id == M_PLAITS) id = M_BRAIDS;
 #endif
 #ifdef RACK_FM1
   if (slot == S_SRC || slot == S_SHP || slot == S_FX1 || slot == S_FX2) { if (req_[slot] == id) return; req_[slot] = id; fm1_layout(); return; }
@@ -1317,6 +1331,7 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
   // ---- SRC
   int src = mod_id_[S_SRC];
   const float* paux = nullptr;
+#ifndef RACK_NO_PLAITS
   if (src == M_PLAITS) {
     plaits::Patch p; plaits::Modulations m;
     memset(&p, 0, sizeof(p)); memset(&m, 0, sizeof(m));
@@ -1342,7 +1357,9 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
     if (aux > 0.0f) for (int n = 0; n < BLOCK; ++n) vbuf_[n] = (fr[n].out * (1.0f - aux) + fr[n].aux * aux) / 32768.0f * lvl;
     else for (int n = 0; n < BLOCK; ++n) vbuf_[n] = fr[n].out / 32768.0f * lvl;
     if (P(S_AMP, OSC_AUX, &v) > 0.0001f) { for (int n = 0; n < BLOCK; ++n) paux_c_[core][n] = fr[n].aux / 32768.0f * lvl; paux = paux_c_[core]; }
-  } else if (src == M_BRAIDS) {
+  } else
+#endif
+  if (src == M_BRAIDS) {
     braids::MacroOscillator& b = braids_[i];
     b.set_shape((braids::MacroOscillatorShape)PI(S_SRC, 0, &v));
     v.drift += (randf() * 2.0f - 1.0f) * 0.02f; v.drift *= 0.995f;

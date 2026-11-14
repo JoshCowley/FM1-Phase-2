@@ -22,6 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 WEB = HERE.parent.parent.parent / "web"
 LEVELS = HERE / "presets_fm1_levels.json"   # AMP LEVEL per preset, measured on the FM-1's path (level_fm1.py)
+BRAIDS = HERE / "presets_fm1_braids.json"   # FM1 Phase 2: the Braids model, TIMBRE, COLOR each Plaits preset now plays (match_braids.py)
 sys.path.insert(0, str(WEB))
 import presets_src as S                     # noqa: E402
 from presets_src import PLATE, HALL, SHIM, CHOR, ECHO   # noqa: E402
@@ -550,7 +551,56 @@ TWEAK = {
     "LD PHASE SWEEP": lambda q: _lead(q, echo=0.12, velcut=0, drift=("SRC.MORPH", 0.04), MORPH=0.2, HARMO=0.3),
 }
 
-def fm1_presets(page):
+# ---------------------------------------------------------------------------------------- FM1 Phase 2: no Plaits
+# Plaits is left out of FM1 Phase 2 (14 Nov 2026, Josh: "remove the plaits synth engine to make more room"; 148 KB of
+# flash). Every preset that played Plaits plays Braids instead: the model, TIMBRE and COLOR chosen by match_braids.py
+# (the closest in spectrum and envelope to the Plaits original, played through the whole preset), and the rest
+# carried over: OCTAVE, FINE (the source's LEVEL at 1.0, level_fm1.py setting AMP LEVEL); Plaits' decay envelope (LPG, DECAY, ENV>TIMB, ENV>MRPH, ENV>FM) as Braids' AD
+# (AD VCA, AD DEC, AD>TIMB, AD>COLR, AD>PTCH); macros, matrix rows and LFO targets on HARMO or MORPH move to COLOR
+# (Braids' second dimension), on TIMBRE stay on TIMBRE. COLOUR (the LPG's tone) and AUX MIX have no Braids match.
+PLAITS_DST = {"SRC.HARMO": "SRC.COLOR", "SRC.MORPH": "SRC.COLOR", "SRC.TIMBRE": "SRC.TIMBRE", "SRC.LEVEL": "SRC.LEVEL",
+              "SRC.ENV>TIMB": "SRC.AD>TIMB", "SRC.ENV>MRPH": "SRC.AD>COLR", "SRC.ENV>FM": "SRC.AD>PTCH",
+              "SRC.DECAY": "SRC.AD DEC", "SRC.OCTAVE": "SRC.OCTAVE", "SRC.FINE": "SRC.FINE"}
+
+
+def to_braids(q, ch):
+    """preset q (its SRC Plaits) on Braids, as ch chooses: {"model", "timbre", "color"}"""
+    old = q["p"].get("SRC", {})
+    q["slots"]["SRC"] = "BRAIDS"
+    def dst(d):
+        if not d.startswith("SRC."):
+            return d
+        if d not in PLAITS_DST:
+            raise SystemExit(f"presets_fm1: {q['name']}: no Braids parameter for {d}")
+        return PLAITS_DST[d]
+    rows = [[r[0], dst(r[1]), *r[2:]] for r in q.get("matrix", [])]
+    q["matrix"] = rows
+    if q.get("lfo_tgt"):
+        q["lfo_tgt"] = [(dst(t[0]), t[1]) if t else t for t in q["lfo_tgt"]]
+    # a macro row's base is its designed value less half its amount (presets_src.P): so at the macro's middle the
+    # parameter sits at the chosen value
+    half = lambda d: sum(r[2] for r in rows if r[0] in ("M1", "M2", "M3", "M4") and r[1] == d) / 2.0
+    clip = lambda v: round(min(1.0, max(0.0, v)), 3)
+    new = {"MODEL": ch["model"], "TIMBRE": clip(ch["timbre"] - half("SRC.TIMBRE")),
+           "COLOR": clip(ch["color"] - half("SRC.COLOR")), "DRIFT": 0.1}
+    for k in ("OCTAVE", "FINE"):
+        if k in old:
+            new[k] = old[k]
+    new["LEVEL"] = 1.0                  # Braids at full level; AMP LEVEL sets the loudness (level_fm1.py)
+    ad = False
+    for a, b, scale in (("ENV>TIMB", "AD>TIMB", 1.0), ("ENV>MRPH", "AD>COLR", 1.0), ("ENV>FM", "AD>PTCH", 0.25)):
+        if old.get(a):
+            new[b] = round(old[a] * scale, 3); ad = True
+    if old.get("LPG") == "ON":
+        new["AD VCA"] = "ON"; ad = True
+    if ad or any(r[1].startswith("SRC.AD") for r in rows):
+        new["AD ATK"] = 0.0
+        new["AD DEC"] = old.get("DECAY", 0.5)
+    q["p"]["SRC"] = new
+    return q
+
+
+def fm1_presets(page, braids=None):
     """the FM-1's set: the page's (presets.json, in its order) as changed above, then the new ones"""
     designed = {p["name"]: p for p in S.presets()}
     C = changed()
@@ -574,6 +624,15 @@ def fm1_presets(page):
     unknown = set(C) - set(names)
     if unknown or len(names) != len(set(names)) or any(len(n) > 16 for n in names):
         raise SystemExit(f"presets_fm1: {unknown or 'a name twice, or longer than 16'}")
+    # FM1 Phase 2: Plaits presets on Braids (braids={} keeps them on Plaits: match_braids.py's originals)
+    if braids is None:
+        braids = json.loads(BRAIDS.read_text()) if BRAIDS.exists() else {}
+        missing = [q["name"] for q in out if q["slots"].get("SRC") == "PLAITS" and q["name"] not in braids]
+        if missing:
+            raise SystemExit(f"presets_fm1: no Braids choice for {missing[:4]} (run match_braids.py)")
+    for q in out:
+        if q["slots"].get("SRC") == "PLAITS" and q["name"] in braids:
+            to_braids(q, braids[q["name"]])
     if LEVELS.exists():
         lv = json.loads(LEVELS.read_text())
         for p in out:

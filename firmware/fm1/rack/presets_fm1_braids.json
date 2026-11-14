@@ -1,0 +1,380 @@
+{
+ "BS DEEP HOUSE": {
+  "color": 0.9,
+  "distance": 7.28,
+  "from": "VA VCF",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "BS DNB SUB": {
+  "color": 0.1,
+  "distance": 5.96,
+  "from": "2OP FM",
+  "model": "HARM",
+  "timbre": 0.3
+ },
+ "BS DUB SINE": {
+  "color": 0.9,
+  "distance": 4.81,
+  "from": "2OP FM",
+  "model": "HARM",
+  "timbre": 0.5
+ },
+ "BS FINGER": {
+  "color": 0.9,
+  "distance": 7.02,
+  "from": "STRING",
+  "model": "RING",
+  "timbre": 0.9
+ },
+ "BS PICKED": {
+  "color": 0.9,
+  "distance": 6.61,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.1
+ },
+ "BS PULSE": {
+  "color": 0.9,
+  "distance": 7.57,
+  "from": "VA VCF",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "BS ROUND SUB": {
+  "color": 0.9,
+  "distance": 3.93,
+  "from": "VA VCF",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "BS SOFT KEYS": {
+  "color": 0.7,
+  "distance": 8.58,
+  "from": "WAVESHP",
+  "model": "////",
+  "timbre": 0.1
+ },
+ "BS SUB BOOM": {
+  "color": 0.7,
+  "distance": 7.96,
+  "from": "BASS DR",
+  "model": "RING",
+  "timbre": 0.1
+ },
+ "BS WARM MOOG": {
+  "color": 0.5,
+  "distance": 6.28,
+  "from": "PAIR VA",
+  "model": "SYN-",
+  "timbre": 0.5
+ },
+ "CH BRIGHT EP": {
+  "color": 0.9,
+  "distance": 14.14,
+  "from": "2OP FM",
+  "model": "FOLD",
+  "timbre": 0.7
+ },
+ "CH CLAV": {
+  "color": 0.9,
+  "distance": 11.74,
+  "from": "WAVESHP",
+  "model": "SYN-",
+  "timbre": 0.7
+ },
+ "CH DEEP STAB": {
+  "color": 0.9,
+  "distance": 5.54,
+  "from": "VA VCF",
+  "model": "ZHPF",
+  "timbre": 0.3
+ },
+ "CH DRAWBAR": {
+  "color": 0.9,
+  "distance": 15.76,
+  "from": "ADDITIVE",
+  "model": "ZHPF",
+  "timbre": 0.5
+ },
+ "CH GLASS BELL": {
+  "color": 0.9,
+  "distance": 7.44,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "CH HOUSE ORGAN": {
+  "color": 0.9,
+  "distance": 7.95,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "CH MARIMBA": {
+  "color": 0.3,
+  "distance": 5.81,
+  "from": "MODAL",
+  "model": "ZHPF",
+  "timbre": 0.3
+ },
+ "CH MUSIC BOX": {
+  "color": 0.7,
+  "distance": 11.78,
+  "from": "MODAL",
+  "model": "////",
+  "timbre": 0.1
+ },
+ "CH NYLON": {
+  "color": 0.3,
+  "distance": 11.99,
+  "from": "STRING",
+  "model": "WLIN",
+  "timbre": 0.3
+ },
+ "CH REED KEYS": {
+  "color": 0.9,
+  "distance": 10.27,
+  "from": "WAVESHP",
+  "model": "FOLD",
+  "timbre": 0.9
+ },
+ "CH ROUND EP": {
+  "color": 0.9,
+  "distance": 8.99,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.5
+ },
+ "CH SOFT PIANO": {
+  "color": 0.7,
+  "distance": 6.01,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "CH VIBES": {
+  "color": 0.9,
+  "distance": 9.68,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.7
+ },
+ "FX BOUNCE": {
+  "color": 0.9,
+  "distance": 9.54,
+  "from": "WAVESHP",
+  "model": "FOLD",
+  "timbre": 0.9
+ },
+ "FX CHIMES": {
+  "color": 0.1,
+  "distance": 7.79,
+  "from": "MODAL",
+  "model": "CYMB",
+  "timbre": 0.9
+ },
+ "FX CHORD DRIFT": {
+  "color": 0.5,
+  "distance": 9.89,
+  "from": "CHORDS",
+  "model": "WTx4",
+  "timbre": 0.7
+ },
+ "FX DRONE": {
+  "color": 0.3,
+  "distance": 6.21,
+  "from": "CHORDS",
+  "model": "SYN/",
+  "timbre": 0.5
+ },
+ "FX ECHO KEYS": {
+  "color": 0.9,
+  "distance": 7.06,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.3
+ },
+ "FX GLASS RAIN": {
+  "color": 0.9,
+  "distance": 8.01,
+  "from": "WAVETBL",
+  "model": "SYN/",
+  "timbre": 0.3
+ },
+ "FX RAIN": {
+  "color": 0.9,
+  "distance": 10.28,
+  "from": "PARTICLE",
+  "model": "PRTC",
+  "timbre": 0.3
+ },
+ "FX RESONATOR": {
+  "color": 0.3,
+  "distance": 5.76,
+  "from": "2OP FM",
+  "model": "WTx4",
+  "timbre": 0.5
+ },
+ "FX SINGING BOWL": {
+  "color": 0.1,
+  "distance": 2.84,
+  "from": "2OP FM",
+  "model": "//-_",
+  "timbre": 0.7
+ },
+ "FX SPEAK": {
+  "color": 0.5,
+  "distance": 14.2,
+  "from": "SPEECH",
+  "model": "VOWL",
+  "timbre": 0.5
+ },
+ "FX STRING BLOOM": {
+  "color": 0.3,
+  "distance": 9.84,
+  "from": "VA VCF",
+  "model": "HARM",
+  "timbre": 0.3
+ },
+ "FX WIND": {
+  "color": 0.9,
+  "distance": 6.87,
+  "from": "NOISE",
+  "model": "RING",
+  "timbre": 0.3
+ },
+ "INIT": {
+  "color": 0.7,
+  "distance": 8.44,
+  "from": "VA VCF",
+  "model": "FOLD",
+  "timbre": 0.5
+ },
+ "LD PHASE SWEEP": {
+  "color": 0.1,
+  "distance": 12.28,
+  "from": "PHASE D",
+  "model": "WTBL",
+  "timbre": 0.1
+ },
+ "LD REED": {
+  "color": 0.3,
+  "distance": 8.21,
+  "from": "FORMANT",
+  "model": "HARM",
+  "timbre": 0.3
+ },
+ "LD SQUARE": {
+  "color": 0.3,
+  "distance": 13.61,
+  "from": "VA VCF",
+  "model": "HARM",
+  "timbre": 0.5
+ },
+ "LD WHISTLE": {
+  "color": 0.9,
+  "distance": 8.46,
+  "from": "2OP FM",
+  "model": "RING",
+  "timbre": 0.3
+ },
+ "PD AMBIENT WASH": {
+  "color": 0.9,
+  "distance": 6.04,
+  "from": "SWARM",
+  "model": "SYN-",
+  "timbre": 0.5
+ },
+ "PD ANALOG": {
+  "color": 0.9,
+  "distance": 7.19,
+  "from": "VA VCF",
+  "model": "WMAP",
+  "timbre": 0.1
+ },
+ "PD BELL PAD": {
+  "color": 0.5,
+  "distance": 8.28,
+  "from": "2OP FM",
+  "model": "BOWD",
+  "timbre": 0.9
+ },
+ "PD CHOIR": {
+  "color": 0.7,
+  "distance": 5.9,
+  "from": "FORMANT",
+  "model": "FLUT",
+  "timbre": 0.9
+ },
+ "PD EVOLVING": {
+  "color": 0.7,
+  "distance": 7.79,
+  "from": "TERRAIN",
+  "model": "BOWD",
+  "timbre": 0.5
+ },
+ "PD FROZEN": {
+  "color": 0.9,
+  "distance": 8.84,
+  "from": "STR MACH",
+  "model": "SYN/",
+  "timbre": 0.7
+ },
+ "PD GLASS": {
+  "color": 0.5,
+  "distance": 6.08,
+  "from": "WAVETBL",
+  "model": "BOWD",
+  "timbre": 0.1
+ },
+ "PD LIQUID": {
+  "color": 0.1,
+  "distance": 6.5,
+  "from": "VA VCF",
+  "model": "WTBL",
+  "timbre": 0.1
+ },
+ "PD ORGAN AIR": {
+  "color": 0.9,
+  "distance": 21.22,
+  "from": "ADDITIVE",
+  "model": "ZHPF",
+  "timbre": 0.5
+ },
+ "PD RESONANT": {
+  "color": 0.1,
+  "distance": 9.05,
+  "from": "VA VCF",
+  "model": "HARM",
+  "timbre": 0.3
+ },
+ "PD SAW SWARM": {
+  "color": 0.9,
+  "distance": 6.34,
+  "from": "SWARM",
+  "model": "SYN/",
+  "timbre": 0.3
+ },
+ "PD SHIMMER": {
+  "color": 0.1,
+  "distance": 3.92,
+  "from": "2OP FM",
+  "model": "HARM",
+  "timbre": 0.3
+ },
+ "PD SOFT SINE": {
+  "color": 0.7,
+  "distance": 7.33,
+  "from": "2OP FM",
+  "model": "FM",
+  "timbre": 0.9
+ },
+ "PD WARM STRINGS": {
+  "color": 0.9,
+  "distance": 7.82,
+  "from": "STR MACH",
+  "model": "SYN/",
+  "timbre": 0.7
+ }
+}

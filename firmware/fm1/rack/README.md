@@ -6,6 +6,18 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## FM1 Phase 2: no Plaits (14 Nov 2026)
+
+Plaits is left out of this firmware (`fm1.toml`: `-DRACK_NO_PLAITS`; `make_units.py` and `build_host.sh` skip its
+sources; the module picker offers Braids as the source), for room: the image went from 579,168 to 415,116 bytes of
+581,632. The 54 factory presets that played Plaits now play Braids: `match_braids.py` played each one on this
+computer, Plaits against every Braids model and TIMBRE/COLOR, through the whole preset, and chose the closest in
+spectrum, brightness over time, loudness envelope and tonality (instrument presets keep a pitched model; FX SPEAK a
+voice). The choices are in `presets_fm1_braids.json`; `presets_fm1.py` (`to_braids`) carries the rest over (Plaits'
+decay envelope as Braids' AD, macros and routes on HARMO or MORPH onto COLOR), and `level_fm1.py` levelled them
+again. A user preset saved with Plaits loads on Braids. The weakest matches: PD ORGAN AIR, CH DRAWBAR (ADDITIVE has
+no close Braids model), FX SPEAK, CH BRIGHT EP, LD SQUARE. The benchmark firmware (`fm1/bench`) keeps Plaits.
+
 ## What it does
 
 The FM-1's 67 factory presets (the page's 57, fitted to the FM-1's CPU, and ten of its own), from the Lite modules

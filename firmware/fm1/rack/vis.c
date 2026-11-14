@@ -216,52 +216,7 @@ static void ellipse(float cx, float cy, float rx, float ry, uint16_t c)
 static void vlabel(const char *s) { cv_text(6, 2, &FONT_T, s, K_DIM); }
 static float P(const float *mon, int i) { return i < 16 ? mon[i] : mon[168 + i - 16]; }
 
-static void vis_plaits(const float *mon, uint16_t c)
-{
-    int model = (int)(P(mon, 0) + 0.5f), x, k;
-    float har = P(mon, 1), tim = P(mon, 2), mor = P(mon, 3), e = env_max(mon), amp = 0.22f + 0.78f * e, t = vis_t();
-    int16_t ys[115];
-    if (model >= 16 && model <= 18) {         /* swarm, noise, particles: a field of dots */
-        vz.rng = 12345u;
-        for (k = 0; k < 50; k++) {
-            float s = rnd(), px = rnd(), py = rnd();
-            float xx = px + t * (0.02f + s * 0.1f) * (1.0f + tim * 3.0f);
-            xx -= (float)(int)xx;
-            dot((int32_t)(xx * VW), ycl(21.0f + fm_sinf(py * TAU + t * (1.0f + har * 4.0f) + s * 9.0f) * 15.0f * amp),
-                mor > 0.5f ? 1 : 0, mix565(c, K_WELL, (uint32_t)(60.0f + 196.0f * s * amp)));
-        }
-    } else if (model >= 21) {                 /* drums: a burst on each note */
-        int any = 0;
-        for (k = 0; k < 8; k++) {
-            float age = (float)(plat_ms() - vz.pulse_t[k]) * 0.001f, kk;
-            if (age > 1.2f || !vz.pulse_t[k])
-                continue;
-            any = 1;
-            kk = fm_expf(-age * (3.0f + (1.0f - P(mon, 5)) * 6.0f)) * (float)vz.pulse_v[k] / 127.0f;
-            for (x = 0; x < 115; x++) {
-                float u = (float)x / 114.0f;
-                ys[x] = ycl(21.0f - fm_sinf(u * TAU * (2.0f + har * 6.0f) * (1.0f + (1.0f - u) * mor * 3.0f)) * fm_expf(-u * 3.0f) * kk * 17.0f);
-            }
-            glow(ys, 115, c);
-        }
-        if (!any)
-            cv_rect(4, 21, 220, 1, mix565(c, K_WELL, 100));
-    } else {                                  /* the rest: a wave the timbre folds and the morph turns to a saw */
-        float cycles = 1.5f + har * 3.5f, fold = 1.0f + tim * 2.6f, norm = 1.0f / fm_sinf(fold < 1.57f ? fold : 1.57f);
-        for (x = 0; x < 115; x++) {
-            float ph = (float)x / 114.0f * cycles * TAU - t * 3.0f, y, saw;
-            y = fm_sinf(ph) + har * 0.55f * fm_sinf(2.0f * ph + t) + har * har * 0.35f * fm_sinf(3.0f * ph - t * 0.5f);
-            y = fm_sinf(y * fold) * norm;
-            saw = ph / TAU;
-            saw = (saw - fm_floorf(saw)) * 2.0f - 1.0f;
-            y = y * (1.0f - mor * 0.55f) + saw * mor * 0.55f;
-            ys[x] = ycl(21.0f - y * amp * 16.0f);
-        }
-        glow(ys, 115, kc(2, c));              /* TIMBRE's knob: the wave it folds */
-    }
-    if (model >= 0 && model < 24)
-        vlabel(UI_OPT[UP_PLAITS[0].opt + model]);
-}
+/* (Plaits' well, vis_plaits: gone with Plaits, FM1 Phase 2, 14 Nov 2026) */
 
 static void vis_braids(const float *mon, uint16_t c)
 {
@@ -535,7 +490,6 @@ static void vis_draw(int slot, int id, int sub, uint16_t c)
         return;
     }
     switch (id) {
-    case 1: vis_plaits(mon, c); break;
     case 2: vis_braids(mon, c); break;
     case 10: vis_rings(mon, c); break;
     case 12: vis_filter(mon, c); break;

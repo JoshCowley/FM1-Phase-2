@@ -22,7 +22,7 @@ cpu2_fallback = true
 gen = ["make_units.py", "make_font.py {gen}"]   # (update 51: make_font.py, FM1 Rack's own typeface, over fm1-base's)
 o2 = ["units/*.cc"]
 o2_cflags = ["-std=gnu++11", "-w", "-fbuiltin", "-fno-exceptions", "-fno-rtti", "-DTEST", "-DRACK_FM1", "-DRACK_LITE",
-             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-O2", "-fdata-sections"]
+             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-O2", "-fdata-sections"]
 # FM1 Rack's Plaits shim (first: it stands in for one of Plaits' headers), the Mutable code (a checkout of
 # pichenettes/eurorack beside MODFM1)
 include = ["../../../engine/shim", "../../../../eurorack"]

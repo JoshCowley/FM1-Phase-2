@@ -21,7 +21,8 @@ SRC = HERE / "../../../web/src/1-data.js"
 TOOLS = HERE / "../../../web/src/5c-tools.js"
 GLO_PAGES = 5                     # SETTINGS PLAYING TUNING MIDI MASTER (the page's STEP ADV, HARDWARE, FIRMWARE: not here)
 OUT = HERE / "ui_defs.h"
-LITE = ["PLAITS", "BRAIDS", "RINGS", "FILTER", "PEAKS", "TIDES", "GRIDS", "FUNC", "DELAY", "REVERB", "CHORUS"]
+# FM1 Phase 2 (14 Nov 2026): no Plaits (fm1.toml RACK_NO_PLAITS): the picker offers Braids as the source
+LITE = ["BRAIDS", "RINGS", "FILTER", "PEAKS", "TIDES", "GRIDS", "FUNC", "DELAY", "REVERB", "CHORUS"]
 MID = {"PLAITS": 1, "BRAIDS": 2, "RINGS": 10, "FILTER": 12, "PEAKS": 20, "TIDES": 21, "GRIDS": 23, "FUNC": 24,
        "DELAY": 31, "REVERB": 32, "CHORUS": 33}
 KIND = {"src": 0, "shp": 1, "mod": 2, "fx": 3, "amp": 4, "lfo": 5}
