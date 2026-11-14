@@ -18,7 +18,11 @@
  *            The ribbon's small column-to-column texture is cosmetic (it only ever scales the real level).
  * Cost: no floating point and no maths functions per pixel: glows are const sprites (clouds_sprites.h, in flash) added
  * with saturation into RGB565; at most CP_NM motes; the picture is drawn at most 30 times a second and not at all
- * while the sound is silent and nothing on it moves. */
+ * while the sound is silent and nothing on it moves.
+ * Update 8: at most 20 pictures a second, and only the ROWS THAT CHANGED are sent to the LCD (a hash of each row of the picture and of the
+ * read-outs, kept from the last frame: rows alike are not sent; runs of changed rows within CP_GAP of each other go in one transfer). The
+ * picture is composed in full as before (the compose is cheap, 130-160 us on the host); what is saved is the SPI transfer, which is what the
+ * FM-1's 25-30 ms a frame (update 7's debug read-out) is made of, and the wait for it at the next canvas clear. */
 #include "clouds_sprites.h"
 #ifdef PLAT_HOST
 #include <stdio.h>
@@ -29,7 +33,8 @@
 #define CP_RY 200
 #define CP_CY 146                             /* the ribbon's centre line (picture rows), in the lower third */
 #define CP_NM 48
-#define CP_MIN_MS 30u                         /* at most ~33 pictures a second */
+#define CP_MIN_MS 50u                         /* at most 20 pictures a second (update 8; was 30 ms, ~33) */
+#define CP_GAP 3                              /* changed rows this close (or closer) go in one transfer */
 typedef struct {
     int32_t x, y, vx, vy;                     /* picture pixels x 256; pixels a second x 256 */
     uint16_t age, life;                       /* ms */
@@ -49,6 +54,10 @@ static struct {
     float prev[4];
     int pkey, force, dbg, oct_both, still, nlive;
     uint32_t us, us_max, nd, us_sum;          /* the picture's draw time (ticks24 / 24): last, worst, count, sum */
+    uint32_t rh[CP_H + 40];                   /* a hash of each row as last sent: the picture's 190 rows, then the read-outs' 40 */
+    int rh_ok;                                /* 0: the screen's own content is not what rh says (a page change, a toast): send all */
+    uint32_t t_lcd, t_sec, a_draw, a_lcd, a_n, a_rows, a_xf;   /* update 8: one second's sums: the LCD's ticks, when it began, draw ticks, LCD ticks, frames, rows and transfers sent */
+    uint32_t sh_draw10, sh_lcd10, sh_fps, sh_rows, sh_xf;      /* the last second's figures: ms x 10 of a frame, frames, rows and transfers a frame x 10 */
     int by, bh, freeze, mode;                 /* the band being drawn */
 } cp = {.rng = 2463534242u, .pkey = -1, .force = 1};
 
@@ -97,7 +106,7 @@ static uint32_t cp_hue(int32_t k)             /* HUE step k (0-15) as 0xRRGGBB *
     return (uint32_t)HUE[k * 3] << 16 | (uint32_t)HUE[k * 3 + 1] << 8 | HUE[k * 3 + 2];
 }
 static const char *const CP_MODE[3] = {"GRANULR", "LOOPDLY", "SPECTRL"};
-static const uint16_t CP_BUF_MS[4] = {510, 930, 1020, 1850};   /* the buffer's length for QUALITY 16 ST, 16 MONO, 8 ST, 8 MONO */
+static const uint16_t CP_BUF_MS[4] = {510, 930, 1020, 1850};   /* the buffer's length at 48 kHz for QUALITY 16 ST, 16 MONO, 8 ST, 8 MONO (1.5 x as long at 32 kHz, update 8) */
 
 static int clouds_page(int pg)
 {
@@ -140,7 +149,7 @@ static void cp_step(const float *mon, uint32_t dt)
     cp.freeze = (int)(P(mon, 10) + 0.5f) == 1;
     if (mode == 2)
         qual |= 1;                            /* SPECTRL plays as the mono QUALITY (engine: CL_TRIMMED) */
-    bufms = CP_BUF_MS[qual];
+    bufms = CP_BUF_MS[qual] * (rk_fm1_status(5) ? 3u : 2u) / 2u;   /* (Clouds at 32 kHz holds the same samples 1.5 x as long) */
     lv8 = (uint32_t)(cp.lv * 255.0f);
     cp.gain = 52 + (int32_t)(cp.lv * 2.2f > 1.0f ? 203.0f : cp.lv * 2.2f * 203.0f);
     pitch = pitch < -1.0f ? -1.0f : pitch > 1.0f ? 1.0f : pitch;
@@ -460,12 +469,47 @@ static void cp_prepare(const float *mon)
     }
 }
 
+/* update 8: the canvas (hb rows, drawn for screen row y) to the LCD, only the rows that are not what was last sent there (rh: the hash of
+ * each); runs of changed rows no more than CP_GAP rows apart are one transfer. rh_ok = 0 (the screen was cleared or drawn over): all. */
+static void cp_send(uint32_t y, int hb, uint32_t *rh)
+{
+    int r, a = -1, e = -1;
+    uint32_t t0 = plat_ticks24(), keep = cv_h;
+    for (r = 0; r <= hb; r++) {
+        int changed = 0;
+        if (r < hb) {
+            const uint16_t *q = cv_px + (uint32_t)r * 240u;
+            uint32_t h = 2166136261u, i;
+            for (i = 0; i < 240u; i += 2u)
+                h = (h ^ ((uint32_t)q[i] | (uint32_t)q[i + 1u] << 16)) * 16777619u;
+            changed = !cp.rh_ok || h != rh[r];
+            rh[r] = h;
+        }
+        if (changed) {
+            if (a < 0) a = r;
+            e = r;
+        } else if (a >= 0 && (r - e > CP_GAP || r == hb)) {      /* a run ends: rows a .. e */
+            cv_h = (uint32_t)e + 1u;
+            cv_blit_from(0, y, (uint32_t)a);
+            cp.a_rows += (uint32_t)(e + 1 - a);
+            cp.a_xf++;
+            a = -1;
+        }
+    }
+    cv_h = keep;
+    cp.a_lcd += plat_ticks24() - t0;
+}
+
 /* the four read-outs under the picture: name, a small arc, the value, in the slider colours; the one being turned grows */
 static void cp_readouts(int pg, const ui_mod_t *m)
 {
     uint32_t now = plat_ms();
     int slot = page_slot(pg), off = page_first(m, mn.sub), k, key = pg << 4 | mn.sub, a;
-    cv_begin(240, 40, K_BG);
+    {
+        uint32_t tl = plat_ticks24();
+        cv_begin(240, 40, K_BG);
+        cp.a_lcd += plat_ticks24() - tl;      /* (it waits for the transfer before: LCD time) */
+    }
     cv_rect(0, 0, 240, 1, K_FAINT);
     for (k = 0; k < 4; k++) {
         int pi = off + k, np = m->pages[mn.sub];
@@ -514,13 +558,12 @@ static void cp_readouts(int pg, const ui_mod_t *m)
         }
     }
     cp.pkey = key;
-    cv_blit(0, CP_RY);
+    cp_send(CP_RY, 40, cp.rh + CP_H);
 }
 
 static void cp_text_layers(const float *mon, int pg, const ui_mod_t *m)
 {
     int np = npages(pg), sb = mn.sub, i;
-    char t[16];
     (void)mon; (void)m;
     if (has_mod_page(pg)) { np -= MOD_ROWS - 1; if (sb > m->npages) sb = m->npages; }
     if (cp.by < 26) {
@@ -537,24 +580,55 @@ static void cp_text_layers(const float *mon, int pg, const ui_mod_t *m)
             cv_text(20, 12, &FONT_T, "FROZEN", 0xBF7Fu);
         }
     }
-    if (cp.dbg && cp.by + cp.bh >= CP_H - 14) {
-        char n[12];
-        t[0] = 0;
-        cat(t, "DRAW ");
-        int_text((int32_t)cp.us, n);
-        cat(t, n);
-        cat(t, "US");
-        cv_text(6, CP_H - 12, &FONT_T, t, K_GOLD);
-        n[0] = 0;
-        int_text((int32_t)cp.us_max, n);
-        cv_text(100, CP_H - 12, &FONT_T, "MAX", K_DIM);
-        cv_text(124, CP_H - 12, &FONT_T, n, K_GOLD);
+    if (cp.dbg) {   /* update 8: three lines in the page's big number font, a one-second average, refreshed once a second */
+        static const char *const NAME[3] = {"DRAW ", "LCD ", "FPS "};
+        uint32_t v[3], k;
+        v[0] = cp.sh_draw10; v[1] = cp.sh_lcd10; v[2] = cp.sh_fps;
+        for (k = 0; k < 3; k++) {
+            char n[12], q[24];
+            q[0] = 0;
+            cat(q, NAME[k]);
+            if (k < 2) {
+                int_text((int32_t)(v[k] / 10u), n);
+                cat(q, n);
+                cat(q, ".");
+                int_text((int32_t)(v[k] % 10u), n);
+                cat(q, n);
+                cat(q, " MS");
+            } else {
+                int_text((int32_t)v[k], n);
+                cat(q, n);
+            }
+            cv_text(6, CP_H - 52 + (int32_t)k * 16, &FONT_B, q, K_GOLD);
+        }
     }
 }
 
 /* the whole CLOUDS screen between the status strip and the bottom: the picture, then the read-outs */
 static void help(const char *s);
+static int cp_screen_do(int pg, const ui_mod_t *m, int force);
 static void clouds_screen(int pg, const ui_mod_t *m, int force)
+{
+    uint32_t ta = plat_ticks24(), now = plat_ms();
+    if (!cp_screen_do(pg, m, force))
+        return;                               /* (not due yet: no frame) */
+    cp.a_draw += plat_ticks24() - ta;
+    cp.a_n++;
+    if (!cp.t_sec)
+        cp.t_sec = now;
+    if (now - cp.t_sec >= 1000u) {            /* the last second's averages, for the read-out (and, on the host, stderr) */
+        uint32_t n = cp.a_n ? cp.a_n : 1u;        /* ticks (24 a microsecond) -> ms x 10: x 10 / 24000, rounded */
+        cp.sh_draw10 = (uint32_t)(((uint64_t)cp.a_draw * 10u + 12000u * n) / (24000u * n));
+        cp.sh_lcd10 = (uint32_t)(((uint64_t)cp.a_lcd * 10u + 12000u * n) / (24000u * n));
+        cp.sh_fps = (cp.a_n * 1000u + (now - cp.t_sec) / 2u) / (now - cp.t_sec);
+        cp.sh_rows = cp.a_rows * 10u / n; cp.sh_xf = cp.a_xf * 10u / n;
+#ifdef PLAT_HOST
+        fprintf(stderr, "clouds picture: a second: %u frames, %u.%u rows and %u.%u transfers a frame (before update 8: 230 rows, 6 transfers)\n", cp.a_n, cp.sh_rows / 10u, cp.sh_rows % 10u, cp.sh_xf / 10u, cp.sh_xf % 10u);
+#endif
+        cp.t_sec = now; cp.a_draw = cp.a_lcd = cp.a_n = cp.a_rows = cp.a_xf = 0;
+    }
+}
+static int cp_screen_do(int pg, const ui_mod_t *m, int force)
 {
     uint32_t now = plat_ms(), dt, t0;
     const float *mon = rk_monitor(page_slot(pg));
@@ -563,9 +637,10 @@ static void clouds_screen(int pg, const ui_mod_t *m, int force)
     if (cp.force) {
         force = 1;
         cp.force = 0;
+        cp.rh_ok = 0;                         /* the screen was cleared or drawn over: every row is sent again */
     }
     if (!force && now - cp.draw_ms < CP_MIN_MS)
-        return;
+        return 0;
     dt = cp.t_ms ? now - cp.t_ms : 0u;
     dt = dt > 100u ? 100u : dt;
     cp.t_ms = now;
@@ -581,8 +656,9 @@ static void clouds_screen(int pg, const ui_mod_t *m, int force)
         if (!force && quiet && sig == cp.sig && !cp.dbg) {
             cp.still = 1;
             cp_readouts(pg, m);
+            cp.rh_ok = 1;
             if (mn.learn) help("");
-            return;
+            return 1;
         }
         cp.sig = sig;
         cp.still = 0;
@@ -590,7 +666,11 @@ static void clouds_screen(int pg, const ui_mod_t *m, int force)
     cp_prepare(mon);
     for (band = 0; band * 40 < CP_H; band++) {
         int32_t y0 = band * 40, hb = CP_H - y0 < 40 ? CP_H - y0 : 40;
-        cv_begin(240, (uint32_t)hb, RGB(2, 3, 7));
+        {
+            uint32_t tl = plat_ticks24();
+            cv_begin(240, (uint32_t)hb, RGB(2, 3, 7));
+            cp.a_lcd += plat_ticks24() - tl;
+        }
         cv_oy = -y0;
         cp.by = y0;
         cp.bh = hb;
@@ -602,17 +682,15 @@ static void clouds_screen(int pg, const ui_mod_t *m, int force)
             cp_spectral();
         cp_text_layers(mon, pg, m);
         cv_oy = 0;
-        cv_blit(0, (uint32_t)(CP_Y + y0));
+        cp_send((uint32_t)(CP_Y + y0), hb, cp.rh + y0);
     }
+    cp_readouts(pg, m);
+    cp.rh_ok = 1;                                 /* from now on the rows' hashes say what the screen holds */
     cp.us = (plat_ticks24() - t0) / PLAT_TICKS_PER_US;
     cp.us_max = cp.us > cp.us_max ? cp.us : cp.us_max;
     cp.us_sum += cp.us;
     cp.nd++;
-#ifdef PLAT_HOST                                 /* the host simulator: the picture's own draw time, a proxy for the FM-1 only */
-    if ((cp.nd & 63u) == 0u)
-        fprintf(stderr, "clouds picture: %u draws, mean %u us, last %u us, worst %u us\n", cp.nd, cp.us_sum / cp.nd, cp.us, cp.us_max);
-#endif
-    cp_readouts(pg, m);
     if (mn.learn)
         help("");
+    return 1;
 }
