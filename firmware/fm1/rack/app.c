@@ -170,7 +170,15 @@ void app_panic(void)
  * (3 Nov 2026, the lighter engine) measured VA VCF at about 6 % plus 15 % per voice on one core (4 voices 66 %,
  * 6 voices 95 %) and about 7 % per voice on two (6 voices 52 %): so the preset's own voices (up to 6) on two cores,
  * 4 on one. The shedding takes off what doesn't fit (PD STRINGS: 104 % with 6 on two cores) */
-#define START_VOICES (plat_cpu2_on() ? 6 : 4)
+/* update 8: with Clouds in a slot a poly preset starts with 3 voices on one core (each Braids voice is about 5 points of the core; the
+ * 14 Nov run had Clouds with the reverb at 95 % with 4); SELECT asks for more. RACK_CLOUDS_VOICES (engine/rack.cc) is 3 to match. */
+static int start_voices(void)
+{
+    if (plat_cpu2_on())
+        return 6;
+    return rc_patch.mod[RS_FX1] == 30 || rc_patch.mod[RS_FX2] == 30 ? 3 : 4;
+}
+#define START_VOICES start_voices()
 static void load_preset(int k)
 {
     rc_fade_pause();

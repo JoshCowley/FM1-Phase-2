@@ -1289,6 +1289,10 @@ static void load_module(void)
         vals[i] = m->p[i].def;
     rc_fade_pause();
     rc_swap(slot, ch[mn.pick_ix], vals, m ? m->nparams : 0);
+    if (ch[mn.pick_ix] == 30 && rc_patch.mode == RVM_POLY && rc_patch.voices_now > START_VOICES && !set.voices) {   /* Clouds: starts with 3 */
+        rk_set_voices(START_VOICES);
+        rc_patch.voices_now = START_VOICES;
+    }
     rc_resume();
     mn.pick = 0;
     mn.sub = 0;

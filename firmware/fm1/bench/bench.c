@@ -27,6 +27,7 @@ void rk_set_vintage(float v);
 void rk_set_ext_slew(int i, float s);
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
+void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (this benchmark's comparison cases only) */
 void rk_note_on(float note, float vel);
 void rk_all_off(void);
 void rk_render(int n);
@@ -130,7 +131,10 @@ static void bc_change(int k, int i, int fn, int slot, int param, float v)
  * Clouds in FX 1 when on, and the row of CLC it names. Clouds' settings, for every row: POSITION 0.2, SIZE 0.5, PITCH 0,
  * TEXTURE 0.4, BLEND 1.0 (full wet), SPREAD 0.5, FEEDBACK 0.3, REVERB 0.3, the rest at the page's defaults; MODE, QUALITY, DENSITY,
  * FREEZE as the row says. fx2: what is in FX 2 (0 nothing, 1 the reverb of CH GLASS PNO, 2 the delay of LD SQUARE CHIP). */
-typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; } clc_t;
+/* update 8: no32 = 1 runs Clouds at 48 kHz (RACK_CLOUDS_32K off), noskip = 1 keeps Clouds' internal reverb running at REVERB 0, cap: the grain
+ * ceiling (0 the build's own, 40; 1 none: Mutable's own count, 32 stereo 16-bit, 45 stereo 8-bit, 57 mono 8-bit; n the ceiling n), revz = 1 REVERB 0.
+ * They are set per case (rk_clouds_opts in bench_setup); the firmware itself never changes them. */
+typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz; } clc_t;
 enum { CM_GRAN, CM_LOOP, CM_SPEC };                       /* the firmware's MODE list (STRETCH is out) */
 enum { CQ_16ST, CQ_16MO, CQ_8ST, CQ_8MO };                /* the page's QUALITY list */
 static const clc_t CLC[] = {
@@ -154,6 +158,21 @@ static const clc_t CLC[] = {
     /* 17 */ {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f},           /* Clouds + the reverb */
     /* 18 */ {1, CM_GRAN, CQ_16ST, 2, 0, 0.9f},           /* Clouds + the delay */
     /* 19 */ {1, CM_GRAN, CQ_16ST, 0, 1, 0.9f},           /* FREEZE */
+    /* update 8 (16 Nov 2026): one run shows what each change is worth. Rows 13, 1 and 14 above are GRANULR 16 ST at 0.7, 0.9, 1.0 with all
+     * three on (the build's setting); these are the same with 32K off (48 kHz), with all three off (update 7), the ceiling off, a lower one, and
+     * the 8-bit mono quality where the ceiling acts; and the reverb-skip pair */
+    /* 20 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 1, 0, 0, 0},  /* 48 kHz */
+    /* 21 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 1, 0, 0, 0},
+    /* 22 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 1, 0, 0, 0},
+    /* 23 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 1, 1, 1, 0},  /* all off: update 7 */
+    /* 24 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 1, 1, 1, 0},
+    /* 25 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 1, 1, 1, 0},
+    /* 26 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 1, 0},  /* no grain ceiling (Mutable's own 32 at 16 ST) */
+    /* 27 */ {1, CM_GRAN, CQ_8MO, 0, 0, 1.0f, 0, 0, 0, 0},   /* 8 MONO, ceiling 40 (of Mutable's 57) */
+    /* 28 */ {1, CM_GRAN, CQ_8MO, 0, 0, 1.0f, 0, 0, 1, 0},   /* 8 MONO, no ceiling */
+    /* 29 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0}, /* 16 ST, a ceiling of 24 (what a lower one would buy) */
+    /* 30 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 0, 0, 0, 1},  /* REVERB 0, skip on */
+    /* 31 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 0, 1, 0, 1},  /* REVERB 0, skip off */
 };
 #define CL_REF 0
 #define CL_REVERB 15
@@ -277,6 +296,18 @@ static void bench_cases(void)
         bc_cl(G_CLOUDS, 4, 13, "GRAN D0.7", r4);
         bc_cl(G_CLOUDS, 4, 14, "GRAN D1.0", r4);
         bc_cl(G_CLOUDS, 4, 19, "GRAN FREEZE", r4);
+        bc_cl(G_CLOUDS, 4, 20, "G.7 48K", r4);                /* update 8: the comparison cases (CLC rows 20 to 31) */
+        bc_cl(G_CLOUDS, 4, 21, "G.9 48K", r4);
+        bc_cl(G_CLOUDS, 4, 22, "G1.0 48K", r4);
+        bc_cl(G_CLOUDS, 4, 23, "G.7 OLD", r4);
+        bc_cl(G_CLOUDS, 4, 24, "G.9 OLD", r4);
+        bc_cl(G_CLOUDS, 4, 25, "G1.0 OLD", r4);
+        bc_cl(G_CLOUDS, 4, 26, "G1.0 NOCAP", r4);
+        bc_cl(G_CLOUDS, 4, 29, "G1.0 CAP24", r4);
+        bc_cl(G_CLOUDS, 4, 27, "8MO D1.0", r4);
+        bc_cl(G_CLOUDS, 4, 28, "8MO NOCAP", r4);
+        bc_cl(G_CLOUDS, 4, 30, "CL REV0", r4);
+        bc_cl(G_CLOUDS, 4, 31, "CL REV0 NOSKIP", r4);
         k = bc_cl(G_CLOUDS, 4, CL_REVERB, "REVERB x4", r4);
         bc_cl(G_CLOUDS, 4, 17, "CL+REVERB", k);
         k = bc_cl(G_CLOUDS, 4, CL_DELAY, "DELAY x4", r4);
@@ -330,7 +361,7 @@ static void bench_cases(void)
 #define WARM_STEPS (WARM_FRAMES / RUN_FRAMES)   /* the untimed 0.1 s, in steps of RUN_FRAMES (the firmware does one a frame) */
 /* a CLOUDS case warms for 1 s (Clouds listens to the notes, its grains read what it has recorded: after 0.1 s a granular cloud is
  * still silent), the others for 0.1 s */
-#define CL_WARM_STEPS 100
+#define CL_WARM_STEPS 200                      /* 2 s (update 8: was 1 s; at 32 kHz the 8-bit mono buffer fills 1.5 x slower) */
 static int bench_warm_steps(int k);
 
 typedef struct {
@@ -374,6 +405,7 @@ static void run_ops_to_fx2(const bop_t *o, int n)
 static void cl_setup(const clc_t *r)
 {
     int p;
+    rk_clouds_opts(!r->no32, !r->noskip, r->cap == 0 ? 40 : r->cap == 1 ? 0 : r->cap);
     if (r->fx2) {
         const bpreset_t *fx = &PRESETS[r->fx2 == 1 ? P_CH_GLASS_PNO : P_LD_SQUARE_CHIP];
         run_ops_to_fx2(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
@@ -392,6 +424,7 @@ static void cl_setup(const clc_t *r)
         else if (p == 9) v = (float)r->mode;
         else if (p == 10) v = 0.0f;
         else if (p == 11) v = (float)r->qual;
+        else if (p == 8 && r->revz) v = 0.0f;       /* REVERB 0 (Clouds' own) */
         rk_set_param(S_FX1, p, v);
     }
 }
@@ -402,6 +435,7 @@ static void bench_setup(int k)
     const bpreset_t *p = &PRESETS[c->preset];
     int i;
     rk_seed(0x21u);
+    rk_clouds_opts(1, 1, 40);                  /* (update 8: the build's own Clouds settings, unless a case's row changes them) */
     rk_set_worker(c->group == G_CORES2 ? bench_cpu2_run : 0, bench_cpu2_wait);
     rk_init();
     run_ops(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);

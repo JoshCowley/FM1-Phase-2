@@ -9,9 +9,16 @@ Rack: it plays no sound and saves nothing. It answers two questions on the board
    built the same way, then checks a known single-precision sum at power-on.
 2. **How much of the CPU does each module take?** It runs FM1 Rack's real engine (`engine/rack.cc`, built
    `-DRACK_FM1 -DRACK_LITE`, and as the FM1 Phase 2 firmware is built: `-DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH`,
-   arena 304 KB) and times 138 cases (15 Nov 2026; 132 before): every Braids shape, every Rings model, the filter, Tides,
+   arena 304 KB) and times 150 cases (16 Nov 2026; 138 before): every Braids shape, every Rings model, the filter, Tides,
    Peaks, Grids, the delay, reverb and chorus, 1 to 6 voices, the CLOUDS group (below), and the 16 heaviest of the Phase 2
    factory presets plus the eight earlier ones (the module cases are still built on eight presets of the first set, kept in `tests/bench-base-calls.json`); then, when the second core starts, the 6-voice ones again on two cores (the 2 CORES group: the second core renders half the voices).
+
+**Update 8 (16 Nov 2026): Clouds' three changes, each measurable from one run.** The build has the three flags on (`RACK_CLOUDS_32K`, `RACK_CLOUDS_MAX_GRAINS=40`,
+`RACK_CLOUDS_SKIP_REVERB`; rack/README.md, Update 8) and the bench's Clouds cases run with them; twelve cases (own = minus `BRAIDS x4`) change them per case at run time
+(`rk_clouds_opts`; the firmware never does): `G.7 48K`, `G.9 48K`, `G1.0 48K` (GRANULR 16 ST at DENSITY 0.7, 0.9, 1.0 at 48 kHz, to compare with `GRAN D0.7`, `GRAN 16ST`, `GRAN D1.0`,
+which run with all three on); `G.7 OLD`, `G.9 OLD`, `G1.0 OLD` (all three off: update 7); `G1.0 NOCAP` (no grain ceiling: Mutable's own 32 at 16 ST: the same as `GRAN D1.0`, as the
+ceiling does not act there), `G1.0 CAP24` (a ceiling of 24: what a lower one would buy); `8MO D1.0` and `8MO NOCAP` (8-bit mono, where the ceiling takes 57 to 40); `CL REV0` and `CL REV0 NOSKIP`
+(Clouds' own REVERB 0, the skip on and off). Every Clouds case now warms for 2 s (was 1 s): at 32 kHz the 8-bit mono buffer fills 1.5 x slower and GRAN 8MO was still silent at 1 s.
 
 **Plaits is out of this build (15 Nov 2026), as in the FM1 Phase 2 firmware.** The 24 PLAITS cases are gone; the eight
 first-set presets the module cases stand on ask for Plaits and now play Braids at their own settings (a source that

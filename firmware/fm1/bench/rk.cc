@@ -21,6 +21,7 @@ void rk_set_vintage(float v) { set_vintage(v); }
 void rk_set_ext_slew(int i, float s) { set_ext_slew(i, s); }
 void rk_set_tune(int note, float semis) { set_tune(note, semis); }
 void rk_set_voices(int n) { set_voices(n); }
+void rk_clouds_opts(int k32, int skip_rev, int grains) { set_clouds_opts(k32, skip_rev, grains); }
 void rk_note_on(float note, float vel) { note_on(note, vel); }
 void rk_all_off(void) { all_off(); }
 void rk_render(int n) { render(n); }

@@ -35,6 +35,7 @@ void rk_set_ext_slew(int i, float s);
 void rk_set_ext(int i, float v);
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
+void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (the host checks and the benchmark) */
 void rk_set_bend(float semis);
 void rk_note_on(float note, float vel);
 void rk_note_off(float note);

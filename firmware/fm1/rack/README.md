@@ -226,6 +226,45 @@ range (at once against gliding), each against the same moment with nothing chang
 `build/host/audition OUTDIR` (built by build_host.sh) plays every preset through the firmware's sound path (rc_load,
 rc_render at 44.1 kHz) with a phrase for its category and writes a WAV each, with its peak and loudness.
 
+## Update 8: Clouds costs less (16 Nov 2026; host-tested, NOT yet run on an FM-1)
+
+The owner's FM-1 measured (% of one core at 48 kHz, 4 held Braids voices): Braids x4 31.0; Clouds' own share in GRANULR 16 ST 28.2 at DENSITY 0.7,
+46.6 at 0.9, 74.3 at 1.0; LOOPDLY 33.9; SPECTRL 21.6 (bursty); 8-bit qualities 14-19 more; Clouds + reverb 95.4 (one core), 84.0 (two). Five changes,
+each behind its own compile flag, ON in the FM-1 builds (`fm1.toml`, `build_host.sh`), each switched off by `-U` (host: `RACK_FLAGS=-URACK_CLOUDS_32K`).
+
+1. **`RACK_CLOUDS_32K`: Clouds at 32 kHz**, its design rate. The engine block (48 frames at 48 kHz) is exactly Clouds' own block (32 frames at 32 kHz): the
+   stereo input goes down 3:2, Clouds runs ONCE per block (was twice, 24 frames), its all-wet output goes up 2:3. Resampler: one Kaiser-windowed sinc, 43 taps at
+   96 kHz, cut into polyphase rows (down 22 taps, up 15; ~2,800 multiply-adds a block), cutoff 14.5 kHz: -0.7 dB at 12 kHz, -4 dB at 14, -22 at 17, -36 at 18,
+   -75 from 19 (`engine/cl_resample.h`, written by `make_cl_resample.py`; `cl_resample_check.cc` measures it: gain, error, block-edge steps, alias levels).
+   Latency of the wet path 0.45 ms (21.5 samples at 48 kHz). **The dry path stays at 48 kHz, not filtered, only delayed by 21 samples to meet the wet**: Clouds
+   runs all wet and BLEND (smoothed across the block), the TONE filter and the output stage are done in the engine at 48 kHz (`run_fx`). Pitch, PITCH TRK, GRN SYNC
+   (the tempo grid is by the block), SPRAY, SCAN and the comet's time base are unchanged; what changes is in seconds: buffers, grains, the loop and Clouds' own
+   reverb last 1.5 x longer (the same samples at 2/3 the rate; QUALITY buffer lengths in seconds above), the wet loses what is above ~14 kHz, and Clouds' own
+   filters (one-pole and reverb damping, in samples) sit 1/3 lower in Hz, as Mutable tuned them. Runtime switch (the bench only): `set_clouds_opts`.
+2. **`RACK_CLOUDS_MAX_GRAINS` (default 40): a grain ceiling.** NOT what the brief assumed: Clouds' player does not run 64 grains. 64 is its array size; its count is
+   32 (stereo 16-bit), 45 (stereo 8-bit), 40 (mono 16-bit), 57 (mono 8-bit). The ceiling (a changed copy of `granular_processor.cc`, written by `make_units.py`) therefore
+   changes nothing at 16 ST (32), takes 8 ST from 45 to 40 and 8 MONO from 57 to 40; 64 and 48 never act, 32 acts on none of 16 ST. The knob range is unchanged. The number is the
+   owner's to tune by ear: below 32 it does act on 16 ST (24: -10 % RMS at DENSITY 1.0, 16: -21 %); the host tables are in the report.
+3. **`RACK_CLOUDS_SKIP_REVERB`**: Clouds' internal reverb is not run while its amount is exactly 0 (REVERB 0 and no FREEZE with FEEDBACK) and has been for 256 blocks
+   (0.13-0.26 s; until then it runs at amount 0, which changes nothing). Coming back, its memory is cleared and the amount rises over 24 blocks (no stale tail, no step).
+   Sample-identical to the unskipped path at REVERB 0: `clouds_skip_check.sh` (Clouds alone, hashes of every mode and quality, equal).
+4. **Three voices with Clouds**: a poly patch with Clouds in a slot starts with 3 voices on one core (SELECT asks for more; two cores: as before, 6); picking Clouds
+   lowers a poly patch to 3 (unless SELECT's number is kept). `RACK_CLOUDS_VOICES` (the voices the reverb is protected for when memory is short) is 3 to match, not 4: with Rings, Clouds and the
+   plate reverb 3 voices fit, so the reverb now stays (it left when 4 were asked). Host checks 6c changed to match (clouds_check.c, commented).
+5. **Lighter picture, same look** (`vis_clouds.c`): at most 20 pictures a second (was ~33); only the ROWS THAT CHANGED are sent to the LCD (a hash of each of the 230 rows;
+   runs of changed rows within 3 rows are one transfer); the picture is composed whole as before. The comet's buffer time follows the 32 kHz length.
+   Why: update 7's read-out on the FM-1 said ~24-29 ms a frame (against 130-160 us on the host). The LCD path (fm1-base `device/lcd.c`) sends a canvas as one
+   DMA transfer of w x h x 2 bytes and the next `cv_begin` waits for it (`lcd_sync`); a full frame is 230 rows x 480 B = 110 KB, in 6 transfers. The compose is in
+   microseconds; the transfer and the wait for it are the frame. The platform has no call to exclude interrupt time: the draw timer is the main loop's wall time and
+   includes the audio interrupt running over it (at 80-95 % audio load the main loop gets the rest), so DRAW is not the picture's own CPU. The status strip's CPU %
+   (`plat_cpu_pct`, fm1-base `device/main_fm1.c`) is the audio render's time in its interrupt over its budget, smoothed over ~16 blocks: it does NOT include drawing.
+   **The debug read-out** (OCT- and OCT+ held together, as before) is now three lines in the big number font, a one-second average, refreshed once a second:
+   `DRAW 24.1 MS` (a whole frame: compose + LCD), `LCD 19.8 MS` (the canvas clears, which wait for the last transfer, and the transfers) and `FPS 15`; compose = DRAW - LCD.
+   Not done: a USB-MIDI or print channel for these numbers (none cheap exists); skipping the compose of empty bands (compose is microseconds; the hash skips their transfer).
+
+Checks: `rack_host` (6d: the reverb switched 0 -> 0.5 -> 0, no click; 6e: pitch right at 32 kHz; 6b/6c), `clouds_asan.sh` (32-frame blocks, exact-size buffers), `clouds_skip_check.sh`,
+`cl_resample_check.cc`, `clouds_demo --cost2` (before/after on the host: a proxy), the bench's comparison cases (bench README), sim_clouds_pic.txt (rows and transfers a frame on stderr).
+
 ## Update 7: the CLOUDS picture (15 Nov 2026; simulator-tested, NOT yet seen on an FM-1)
 
 The CLOUDS page is "picture first": the picture fills the screen from under the status strip to a 40 px band at the bottom
@@ -235,7 +274,7 @@ through Clouds' six parameter pages; the other modules' pages keep their layout.
 its const tables `clouds_sprites.h` (generated by `make_clouds_sprites.py`, in flash).
 
 - **GRANULR:** the buffer as a ribbon across the lower third, the write head as a comet moving at the buffer's real length
-  for the QUALITY (0.51 s at 16 ST, 0.93 s 16 MONO, 1.02 s 8 ST, 1.85 s 8 MONO; SPECTRL plays mono), POSITION as a thin
+  for the QUALITY (0.51 s at 16 ST, 0.93 s 16 MONO, 1.02 s 8 ST, 1.85 s 8 MONO at 48 kHz; 1.5 x as long since update 8's 32 kHz Clouds: 0.77, 1.40, 1.53, 2.78 s; SPECTRL plays mono), POSITION as a thin
   thread and SPRAY as a soft halo round it, grains as glowing motes (count from DENSITY, none at 0.47-0.53; size from SIZE;
   hue from PITCH, warm up and rising, cool down and sinking; softness from TEXTURE; brightness from the output level, so
   silence is a still, dim picture). FREEZE: the ribbon turns ice blue and stops being written (as the buffer does), the

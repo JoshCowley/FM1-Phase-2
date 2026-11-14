@@ -208,6 +208,26 @@ static clouds::GranularProcessor* const clouds_ = &clouds_storage_;
 static int clouds_quality_ = 0;
 static float cl_scan_ = 0.0f, cl_tone_l_ = 0.0f, cl_tone_r_ = 0.0f;
 static int cl_grid_ = -1;
+#ifdef RACK_CLOUDS_32K
+// FM1 Phase 2 update 8, RACK_CLOUDS_32K: Clouds runs at 32 kHz, the rate it was designed for. The engine's block (48 frames at
+// 48 kHz) is exactly one block of Clouds' own 32 frames at 32 kHz: the stereo input goes down 3:2 through a polyphase FIR
+// (engine/cl_resample.h), Clouds runs once, its all-wet output goes up 2:3, and the dry/wet mix, the TONE filter and the output
+// stage are done here at 48 kHz, the dry signal delayed to meet the wet (CL_DRYD). Latency of the wet path: (21 + 22) / 96000 s
+// = 0.45 ms (21.5 samples at 48 kHz). Buffers, grain sizes, the loop and the internal reverb last 1.5 x longer in seconds
+// (the same samples at 2/3 the rate): they are as Mutable made them.
+#include "cl_resample.h"
+#define CL_DRYD 21
+static Cl32Down cl_dn_[2]; static Cl32Up cl_up_[2];
+static float cl_dry_[2][CL_DRYD]; static int cl_dry_at_ = 0;
+static float cl_mixs_ = 0.0f; static bool cl_mix_init_ = false;
+static int cl32_on_ = 1;            // runtime: the benchmark switches it per case (the firmware never does)
+#endif
+#ifdef RACK_CLOUDS_SKIP_REVERB
+namespace clouds { extern int rack_cl_skip_reverb; }
+#endif
+#ifdef RACK_CLOUDS_MAX_GRAINS
+namespace clouds { extern int rack_cl_grain_cap; }
+#endif
 namespace clouds { extern const float lut_xfade_in[]; extern const float lut_xfade_out[]; }
 #if defined(RACK_FM1) && defined(RACK_CLOUDS)
 // FM1 Phase 2 step 5: Clouds' two buffers trimmed from 118,784 + 65,408 B (184,192 B) to 98,304 + 49,152 B (147,456 B).
@@ -577,6 +597,9 @@ static void init_fx(int id) {
   if (id == M_CLOUDS) {
     clouds_->Init(clouds_large_, CL_LARGE, clouds_small_, CL_SMALL);
     clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
+#ifdef RACK_CLOUDS_32K
+    memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_mix_init_ = false;
+#endif
   }
 #endif
   if (id == M_REVERB) { reverb_.Init(reverb_buf_); if (shim_buf_) memset(shim_buf_, 0, 4096 * 2); memset(pre_buf_l_, 0, (pre_mask_ + 1) * 2); memset(pre_buf_r_, 0, (pre_mask_ + 1) * 2); shim_fb_ = 0; }
@@ -596,7 +619,7 @@ static void init_fx(int id) {
 #endif
 static uint8_t arena_[RACK_ARENA_KB * 1024] RACK_ARENA_ATTR __attribute__((aligned(16)));
 #ifndef RACK_CLOUDS_VOICES
-#define RACK_CLOUDS_VOICES 4   // the voices a patch with Clouds keeps its reverb for (a four-note chord); fewer fit -> the reverb gives way
+#define RACK_CLOUDS_VOICES 3   // the voices a patch with Clouds keeps its reverb for (update 8: it starts with 3, as app.c start_voices; was 4); fewer fit -> the reverb gives way
 #endif
 static int req_[NSLOT];           // what the patch asks for
 static int want_voices_ = 2, dropped_ = 0;
@@ -746,7 +769,11 @@ EXPORT int fm1_fit_needed() {
 // what the platform layer shows: 0 arena bytes used, 1 arena size, 2 voices that fit, 3 voices playing,
 // 4 unloaded slots (bit per slot: 0 SRC, 1 SHP, 4 FX1, 5 FX2)
 EXPORT int fm1_status(int what) {
-  switch (what) { case 0: return (int)arena_used_; case 1: return (int)sizeof(arena_); case 2: return nalloc_; case 3: return nvoices_; case 4: return dropped_; }
+  switch (what) { case 0: return (int)arena_used_; case 1: return (int)sizeof(arena_); case 2: return nalloc_; case 3: return nvoices_; case 4: return dropped_;
+#ifdef RACK_CLOUDS_32K
+    case 5: return cl32_on_;   // update 8: Clouds runs at 32 kHz (the picture's buffer times are 1.5 x longer)
+#endif
+  }
   return 0;
 }
 #endif
@@ -795,6 +822,21 @@ EXPORT void set_hw(int) {}   // always on in this build
 #else
 EXPORT void set_hw(int on) { delay_max_ = on ? DMAX_FM1 : DLEN - 1; delay_q16_ = on ? 1 : 0; }
 #endif
+// FM1 Phase 2 update 8: the Clouds changes' runtime switches, for the benchmark's comparison cases only (the firmware leaves them as
+// built): k32 1/0 (RACK_CLOUDS_32K), skip_rev 1/0 (RACK_CLOUDS_SKIP_REVERB), grains: the grain ceiling, 0 = Mutable's own (32 stereo
+// 16-bit, 45 stereo 8-bit, 40 / 57 mono); takes effect when Clouds' buffers are next set up (a module load or a QUALITY change)
+EXPORT void set_clouds_opts(int k32, int skip_rev, int grains) {
+#ifdef RACK_CLOUDS_32K
+  cl32_on_ = k32; cl_mix_init_ = false;
+#endif
+#ifdef RACK_CLOUDS_SKIP_REVERB
+  clouds::rack_cl_skip_reverb = skip_rev;
+#endif
+#ifdef RACK_CLOUDS_MAX_GRAINS
+  clouds::rack_cl_grain_cap = grains;
+#endif
+  (void)k32; (void)skip_rev; (void)grains;
+}
 EXPORT void set_voices(int n) {
   n = n < 1 ? 1 : n > MAXV ? MAXV : n;
 #ifdef RACK_FM1
@@ -1830,6 +1872,44 @@ static void run_fx(int slot, float* l, float* r) {
     if (tone != 0.0f) p->dry_wet = 1.0f;     // TONE: take the wet signal alone, filter it, and mix it back ourselves
     float ig = P(slot, 12, 0), igain = ig != 0.0f ? powf(10.0f, ig * 12.0f / 20.0f) : 1.0f;
     clouds_->Prepare();
+#ifdef RACK_CLOUDS_32K
+    if (cl32_on_) {
+      static_assert(BLOCK == 48, "RACK_CLOUDS_32K: the engine block is 48 frames, Clouds' 32 at 32 kHz");
+      float g[2][BLOCK], d[2][32], w[2][BLOCK];
+      clouds::ShortFrame in32[32], out32[32];
+      for (int n = 0; n < BLOCK; ++n) { g[0][n] = clampf(l[n] * igain, -1.0f, 1.0f); g[1][n] = clampf(r[n] * igain, -1.0f, 1.0f); }
+      cl_dn_[0].run(g[0], d[0]); cl_dn_[1].run(g[1], d[1]);
+      for (int m = 0; m < 32; ++m) {
+        in32[m].l = (int16_t)(clampf(d[0][m], -1.0f, 1.0f) * 32767.0f);
+        in32[m].r = (int16_t)(clampf(d[1][m], -1.0f, 1.0f) * 32767.0f);
+      }
+      p->dry_wet = 1.0f;                      // all wet out of Clouds: the mix is made here, at 48 kHz, with the dry signal untouched
+      static_assert(clouds::kMaxBlockSize == 32, "Clouds' arrays hold 32 frames: exactly what is passed");
+      clouds_->Process(in32, out32, 32);      // exactly Clouds' own block: its arrays hold 32 frames
+      p->trigger = false; p->gate = false;
+      for (int m = 0; m < 32; ++m) { d[0][m] = out32[m].l / 32768.0f; d[1][m] = out32[m].r / 32768.0f; }
+      cl_up_[0].run(d[0], w[0]); cl_up_[1].run(d[1], w[1]);
+      if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
+      float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
+      float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone);
+      float c = 1.0f - expf(-6.2831853f * hz / SR), dm = (user_mix - cl_mixs_) / (float)BLOCK;
+      for (int n = 0; n < BLOCK; ++n) {
+        cl_mixs_ += dm;
+        float fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f), fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f);
+        float wl = w[0][n] * norm, wr = w[1][n] * norm;
+        if (tone != 0.0f) {
+          cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
+          if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
+        }
+        float dl = cl_dry_[0][cl_dry_at_], dr = cl_dry_[1][cl_dry_at_];   // the dry signal CL_DRYD frames late, to meet the wet
+        cl_dry_[0][cl_dry_at_] = g[0][n]; cl_dry_[1][cl_dry_at_] = g[1][n];
+        if (++cl_dry_at_ == CL_DRYD) cl_dry_at_ = 0;
+        l[n] = SoftLimit((dl * fo + wl * fi) * 0.5f); r[n] = SoftLimit((dr * fo + wr * fi) * 0.5f);   // the same output stage as Clouds
+      }
+      cl_mixs_ = user_mix;
+    } else
+#endif
+    {
     clouds::ShortFrame in[BLOCK], out[BLOCK];
     for (int n = 0; n < BLOCK; ++n) {
       in[n].l = (int16_t)(clampf(l[n] * igain, -1.0f, 1.0f) * 32767.0f);
@@ -1858,6 +1938,7 @@ static void run_fx(int slot, float* l, float* r) {
         float dl = in[n].l / 32768.0f, dr = in[n].r / 32768.0f;
         l[n] = SoftLimit((dl * fo + wl * fi) * 0.5f); r[n] = SoftLimit((dr * fo + wr * fi) * 0.5f);   // the same output stage as Clouds
       }
+    }
     }
   } else
 #endif

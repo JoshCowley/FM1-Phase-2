@@ -33,6 +33,7 @@ void set_macro(int i, float v);
 void set_macro_glide(int i, float v);   // the same, reached over a few ms
 void set_master(float v);
 void set_master_fx(float low_db, float mid_db, float high_db, float comp);
+void set_clouds_opts(int k32, int skip_rev, int grains);   // update 8: the Clouds changes' runtime switches (the benchmark's comparison cases only)
 void set_voices(int n);          // 1-6; the FM-1 build caps this at what fits
 void set_legato(int on);
 void set_vintage(float amount);

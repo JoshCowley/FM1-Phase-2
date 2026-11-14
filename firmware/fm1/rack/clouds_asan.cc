@@ -2,7 +2,7 @@
 // FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 // Clouds alone, in the trimmed buffers (engine/rack.cc RACK_CLOUDS_SMALL), each as its own malloc of exactly its size, so
 // AddressSanitizer reports any read or write past it. Every mode the Lite firmware offers (GRANULAR, LOOPING DELAY, SPECTRAL;
-// STRETCH is left out) and every QUALITY, 24-frame chunks (the engine feeds Clouds 48 frames as two), random parameters, a
+// STRETCH is left out) and every QUALITY, 32-frame blocks (update 8: RACK_CLOUDS_32K gives Clouds exactly its own block, 48 frames at 48 kHz = 32 at 32 kHz; before: 24 frames, two a block), random parameters, a
 // freeze now and then. Run by clouds_asan.sh. Exit 0 = ran with no ASan report.
 //   also: CLOUDS_SMALL=n (bytes) tries another size, to show where it stops being safe
 #include <cstdio>
@@ -33,24 +33,26 @@ int main(int argc, char **argv)
                 gp->set_playback_mode((PlaybackMode)pm);
                 Parameters *p = gp->mutable_parameters();
                 float ph = 0;
-                ShortFrame in[24], out[24];
-                for (int b = 0; b < 6000; ++b) {      // 6000 x 24 = 3 s
+                static_assert(kMaxBlockSize == 32, "the engine passes Clouds exactly 32 frames");
+                const size_t N = 32;
+                ShortFrame *in = (ShortFrame *)malloc(N * sizeof(ShortFrame)), *out = (ShortFrame *)malloc(N * sizeof(ShortFrame));   // exactly 32: any read or write past them is reported
+                for (int b = 0; b < 3000; ++b) {      // 3000 x 32 frames at 32 kHz = 3 s
                     if (b % 400 == 0) {
                         p->position = rnd(); p->size = rnd(); p->pitch = (rnd() * 2 - 1) * 24; p->density = rnd();
                         p->texture = rnd(); p->dry_wet = 0.5f + 0.5f * rnd(); p->stereo_spread = rnd(); p->feedback = rnd() * 0.8f;
-                        p->reverb = rnd(); p->freeze = rnd() < 0.25f;
+                        p->reverb = rnd() < 0.3f ? 0.0f : rnd(); p->freeze = rnd() < 0.25f;
                     }
                     p->trigger = p->gate = (b % 150) == 0;
-                    for (int i = 0; i < 24; ++i) {
-                        ph += 220.0f / 48000.0f * 6.2831853f;
+                    for (size_t i = 0; i < N; ++i) {
+                        ph += 220.0f / 32000.0f * 6.2831853f;
                         in[i].l = (short)(sinf(ph) * 9000 + sinf(ph * 2.7f) * 4000);
                         in[i].r = (short)(sinf(ph * 1.01f) * 9000);
                     }
                     gp->Prepare();
-                    gp->Process(in, out, 24);
-                    frames += 24;
+                    gp->Process(in, out, N);
+                    frames += N;
                 }
-                delete gp; free(lg); free(sm);
+                delete gp; free(lg); free(sm); free(in); free(out);
             }
         }
     }

@@ -6,6 +6,9 @@
  *                             02_frozen_cloud.wav       a chord, FREEZE, the notes end and the cloud stays, its POSITION and TEXTURE moving
  *                             03_pitch_shifted_grains.wav  GRANULR with PITCH +12 then -12, the pad's own notes under it
  *   clouds_demo --cost      the x86 host's time to render (a PROXY: this PC's CPU, not the FM-1's), and the buffers
+ *   clouds_demo --cost2     update 8: Clouds' own share of the render (over Braids x4) before (update 7: 48 kHz, no grain ceiling, the reverb always
+ *                           running) and after, five runs each, for GRANULR 16 ST at DENSITY 0.7 / 0.9 / 1.0, LOOPDLY, SPECTRL; and the grain ceiling's
+ *                           table (64 / 48 / 40 / 32, none) at DENSITY 1.0 for every QUALITY
  * Built by build_host.sh beside rack_host. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -165,6 +168,121 @@ static void print_cost(void)
            2 * 49152, 49152, 3 * 49152);
 }
 
+
+/* ---- update 8: Clouds' own share, before and after (each change alone too) ------------------------------------------------------ */
+typedef struct { int mode, qual; float dens, rev; } clcfg_t;
+#define CAUDIO 16
+static double braids4(void)
+{
+    rk_clouds_opts(1, 1, 40);
+    cl_patch(0, 0, 0); rk_set_voices(4);
+    return cost(4, CAUDIO);
+}
+static double own_share(const clcfg_t *c, int k32, int skip, int grains, double four)
+{
+    double with;
+    int s;
+    rk_clouds_opts(k32, skip, grains);
+    cl_patch(30, 0, 0); s = cl_clouds_slot();
+    cl_set(s, P_MODE, (float)c->mode); cl_set(s, P_QUAL, (float)c->qual); cl_set(s, P_DENS, c->dens); cl_set(s, P_BLEND, 1.0f);
+    cl_set(s, P_POS, 0.2f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_SPREAD, 0.5f); cl_set(s, P_FB, 0.3f); cl_set(s, P_REV, c->rev);
+    rk_set_voices(4);
+    with = cost(4, CAUDIO);
+    rk_clouds_opts(1, 1, 40);
+    return (with - four) * 100.0;
+}
+static void stats(const double *v, int n, double *mean, double *lo, double *hi)
+{
+    int i;
+    *mean = 0; *lo = 1e9; *hi = -1e9;
+    for (i = 0; i < n; i++) { *mean += v[i] / n; if (v[i] < *lo) *lo = v[i]; if (v[i] > *hi) *hi = v[i]; }
+}
+static void print_grains(void)
+{
+    int q, r, g;
+    double mean, lo, hi, four;
+    printf("grain ceiling (Mutable's own count: 32 stereo 16-bit, 45 stereo 8-bit, 40 mono 16-bit, 57 mono 8-bit), GRANULR at DENSITY 1.0, 32K on, 4 notes: own share %%\n");
+    printf("    %-10s %8s %8s %8s %8s %8s %8s %8s\n", "QUALITY", "64", "48", "40", "32", "24", "16", "none");
+    for (q = 0; q < 4; q++) {
+        static const int CAP[7] = {64, 48, 40, 32, 24, 16, 0};
+        clcfg_t cf = {0, 0, 1.0f, 0.3f};
+        double a[7][3];
+        cf.qual = q;
+        for (r = 0; r < 3; r++) {
+            four = braids4();
+            for (g = 0; g < 7; g++) a[g][r] = own_share(&cf, 1, 1, CAP[g], four);
+        }
+        printf("    %-10s", q == 0 ? "16 ST" : q == 1 ? "16 MONO" : q == 2 ? "8 ST" : "8 MONO");
+        for (g = 0; g < 7; g++) { stats(a[g], 3, &mean, &lo, &hi); printf(" %8.2f", mean); }
+        printf("\n");
+    }
+}
+
+/* update 8: what the grain ceiling does to the sound: Clouds' all-wet output (GRANULR, DENSITY 1.0, 4 notes), RMS and spectral centroid over 4 s */
+static float snd[480 * 400];
+static void print_grain_sound(void)
+{
+    static const int CAP[7] = {0, 64, 48, 40, 32, 24, 16};
+    int q, g, s, ms, k, i;
+    printf("grain ceiling and the sound (GRANULR, DENSITY 1.0, all wet, 4 s after 2 s): RMS / spectral centroid in Hz; 'none' = Mutable's own count\n    %-9s", "QUALITY");
+    for (g = 0; g < 7; g++) printf("   %-13s", CAP[g] ? (CAP[g] == 64 ? "64" : CAP[g] == 48 ? "48" : CAP[g] == 40 ? "40" : CAP[g] == 32 ? "32" : CAP[g] == 24 ? "24" : "16") : "none");
+    printf("\n");
+    for (q = 0; q < 4; q++) {
+        printf("    %-9s", q == 0 ? "16 ST" : q == 1 ? "16 MONO" : q == 2 ? "8 ST" : "8 MONO");
+        for (g = 0; g < 7; g++) {
+            double e = 0, num = 0, den = 0;
+            int n = 0;
+            rk_clouds_opts(1, 1, CAP[g]);
+            cl_patch(30, 0, 0); s = cl_clouds_slot();
+            cl_set(s, P_MODE, 0.0f); cl_set(s, P_QUAL, (float)q); cl_set(s, P_DENS, 1.0f); cl_set(s, P_BLEND, 1.0f);
+            cl_set(s, P_POS, 0.2f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_TEX, 0.4f);
+            rk_set_voices(4);
+            for (i = 0; i < 4; i++) rk_note_on(48.0f + 3.0f * (float)i, 0.8f);
+            for (ms = 0, k = 0; ms < 6000; ms += 10) {
+                rk_render(480);
+                if (ms >= 2000) { memcpy(snd + (size_t)k * 480, rk_out_l(), 480 * sizeof(float)); k++; }
+            }
+            n = k * 480;
+            for (i = 0; i < n; i++) e += (double)snd[i] * snd[i];
+            for (i = 100; i < 12000; i += 100) {            /* the centroid from a Goertzel scan, 100 Hz steps up to 12 kHz, a 1 s stretch */
+                double w = 6.2831853 * i / 48000.0, c = 2.0 * cos(w), s1 = 0, s2 = 0, p2;
+                int j;
+                for (j = 0; j < 48000; j++) { double s0 = snd[j] + c * s1 - s2; s2 = s1; s1 = s0; }
+                p2 = s1 * s1 + s2 * s2 - c * s1 * s2;
+                num += i * sqrt(p2); den += sqrt(p2);
+            }
+            printf("   %.4f/%-5.0f ", sqrt(e / n), den > 0 ? num / den : 0.0);
+        }
+        printf("\n");
+    }
+    rk_clouds_opts(1, 1, 40);
+}
+
+static void print_cost2(void)
+{
+#define NRUN2 5
+    static const clcfg_t CFG[] = {{0, 0, 0.7f, 0.3f}, {0, 0, 0.9f, 0.3f}, {0, 0, 1.0f, 0.3f}, {1, 0, 0.9f, 0.3f}, {2, 1, 0.9f, 0.3f}, {0, 0, 0.9f, 0.0f}};
+    static const char *const NM[] = {"GRANULR 16 ST D0.7", "GRANULR 16 ST D0.9", "GRANULR 16 ST D1.0", "LOOPDLY 16 ST", "SPECTRL (16 MONO)", "GRANULR 16 ST D0.9 REVERB 0"};
+    /* the variants: update 7 (all off), update 8 (all on), and each change alone */
+    static const struct { const char *n; int k32, skip, grains; } V[] = {{"before (update 7)", 0, 0, 0}, {"after (update 8)", 1, 1, 40}, {"32K only", 1, 0, 0}, {"ceiling 40 only", 0, 0, 40}, {"skip only", 0, 1, 0}};
+    int c, v, r, g, q;
+    double m[5][NRUN2], mean, lo, hi, four = 0;
+    printf("Clouds' own share (extra over Braids x4, in %% of this PC's real time: a PROXY, not the FM-1's core), REVERB 0.3, BLEND 1, 4 notes held;\n"
+           "  mean (lowest-highest) of %d runs, runs of the variants interleaved\n", NRUN2);
+    for (c = 0; c < (int)(sizeof CFG / sizeof *CFG); c++) {
+        for (r = 0; r < NRUN2; r++) {
+            four = braids4();
+            for (v = 0; v < 5; v++) m[v][r] = own_share(&CFG[c], V[v].k32, V[v].skip, V[v].grains, four);
+        }
+        printf("%s   (Braids x4 alone %.2f %%)\n", NM[c], four * 100.0);
+        for (v = 0; v < 5; v++) {
+            stats(m[v], NRUN2, &mean, &lo, &hi);
+            printf("    %-20s %6.2f (%5.2f-%5.2f)\n", V[v].n, mean, lo, hi);
+        }
+    }
+    print_grains();
+}
+
 int main(int argc, char **argv)
 {
     int s;
@@ -173,10 +291,16 @@ int main(int argc, char **argv)
         print_cost();
         return 0;
     }
+    if (argc >= 2 && !strcmp(argv[1], "--cost2")) {
+        if (argc >= 3 && !strcmp(argv[2], "grains")) { print_grains(); print_grain_sound(); } else print_cost2();
+        return 0;
+    }
     if (argc < 2) {
-        fprintf(stderr, "clouds_demo OUTDIR | --cost\n");
+        fprintf(stderr, "clouds_demo OUTDIR | --cost | --cost2\n");
         return 1;
     }
+    if (getenv("CL_K32"))                          /* update 8: CL_K32=0 renders with Clouds at 48 kHz (RACK_CLOUDS_32K off at run time), for the A/B */
+        rk_clouds_opts(atoi(getenv("CL_K32")), 1, 40);
     s = demo_patch();
     play(PADCH, (int)(sizeof PADCH / sizeof *PADCH), 0, s);
     snprintf(path, sizeof path, "%s/01_granular_on_pad.wav", argv[1]);
