@@ -888,6 +888,11 @@ static void draw_well_only(void)
     } else if (is_seq_page(mn.page)) {
         seq_area();
     } else {
+        if (clouds_page(mn.page)) {
+            clouds_screen(mn.page, page_mod(mn.page), 0);
+            draw_toast();
+            return;
+        }
         page_well(mn.page);
         if (!is_fixed(mn.page) && !(mn.page == PG_LFO && mn.sub >= UI_LFO.npages) && !is_mod_sub(mn.page))
             param_cells(mn.page);             /* the modulated sliders' halos move with the well */
@@ -901,13 +906,14 @@ static void draw_well_only(void)
 static void draw(void)
 {
     static int shown = -1;                    /* the page on the screen: a new one starts from a clear screen */
-    int now = mn.page | mn.pick << 5 | sv.open << 6 | sv.lib << 7 | sp.layer << 8 | picture_first(mn.page) << 9 | is_mod_sub(mn.page) << 10;
+    int now = mn.page | mn.pick << 5 | sv.open << 6 | sv.lib << 7 | sp.layer << 8 | picture_first(mn.page) << 9 | is_mod_sub(mn.page) << 10 | clouds_page(mn.page) << 11;
     if (ui.clear) {                           /* a toast gone: what it covered is drawn again from clear */
         ui.clear = 0;
         shown = -1;
     }
     if (now != shown) {
         lcd_fill(0, 0, 240, 240, K_BG);
+        cp.force = 1;
         shown = now;
     }
     if (sv.open) {

@@ -426,6 +426,7 @@ static void adsr(int32_t w, int32_t h, uint16_t c)
 #undef cv_pset
 #undef cv_rect
 #undef rrect
+#include "vis_clouds.c"
 
 static void well(int pg, const ui_mod_t *m, uint16_t c)
 {
@@ -953,6 +954,10 @@ static void draw_param_page(int pg)
     }
     if (mn.sub >= npages(pg))
         mn.sub = npages(pg) - 1;
+    if (clouds_page(pg)) {                    /* CLOUDS (update 7): the picture to the read-outs, no header, no help line */
+        clouds_screen(pg, m, 0);
+        return;
+    }
     title[0] = 0;
     if (is_fixed(pg)) {
         static const char *const GT[] = {"SETTINGS", "PLAYING", "TUNING", "MIDI", "MASTER", "SYSTEM", "CLICK", "DISPLAY"};
@@ -1638,6 +1643,16 @@ static void fx_toggle(int slot)
 /* the buttons and encoders of the menus; 1 when they were the menus' (input() does the rest) */
 static int menu_input(uint32_t press, uint32_t btn)
 {
+    {   /* CLOUDS page: OCT- and OCT+ held together turn the picture's draw-time read-out on or off (their octave steps cancel) */
+        int oc = (btn >> B_OCTDN & 1u) && (btn >> B_OCTUP & 1u);
+        if (oc && !cp.oct_both && clouds_page(mn.page)) {
+            cp.dbg ^= 1;
+            cp.us_max = 0;
+            cp.force = 1;
+            app_say("CLOUDS PICTURE", cp.dbg ? "DRAW TIME ON" : "DRAW TIME OFF");
+        }
+        cp.oct_both = oc;
+    }
     static const uint8_t ENV_CYC[] = {PG_AMP, PG_SHP}, LFO_CYC[] = {PG_MODA, PG_MODB, PG_LFO, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2};
     static const uint8_t SRC_CYC[] = {PG_SRC, PG_OSC}, ARP_CYC[] = {PG_ARP}, SEL_CYC[] = {PG_SEL}, GLO_CYC[] = {PG_GLO};
     int32_t e;

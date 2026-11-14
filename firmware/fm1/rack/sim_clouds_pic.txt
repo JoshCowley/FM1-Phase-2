@@ -1,0 +1,85 @@
+# FM1 Phase 2 update 7: the CLOUDS picture (vis_clouds.c). Open FX 1, load CLOUDS, play a chord and take shots of GRANULR,
+# FREEZE, PITCH up and down, DENSITY at its silent middle, the draw-time read-out (OCT- and OCT+ held together), LOOPDLY,
+# SPECTRL and silence. Exit 0 = it ran; the shots are the pictures to look at (make_clouds_anim.py takes the long run).
+wait 500
+press HOME
+release HOME
+wait 200
+tap FX
+wait 300
+turn ALGO 1
+wait 300
+tap FX
+wait 500
+spin K1 15
+key w0 down 100
+key w2 down 100
+key w4 down 100
+key w7 down 90
+wait 1500
+shot pic_granular_1.png
+wait 80
+shot pic_granular_2.png
+wait 80
+shot pic_granular_3.png
+spin K4 10
+wait 1200
+shot pic_density_up.png
+spin K4 -18
+wait 1500
+shot pic_density_mid_empty.png
+spin K4 18
+wait 800
+turn SELECT 2
+wait 100
+spin K3 1
+wait 1800
+shot pic_freeze_1.png
+wait 120
+shot pic_freeze_2.png
+spin K3 -1
+turn SELECT -2
+wait 100
+spin K3 12
+wait 1500
+shot pic_pitch_up.png
+spin K3 -24
+wait 1800
+shot pic_pitch_down.png
+spin K3 12
+press OCT-
+press OCT+
+wait 100
+release OCT-
+release OCT+
+wait 600
+shot pic_draw_time_on.png
+press OCT-
+press OCT+
+wait 100
+release OCT-
+release OCT+
+wait 300
+turn SELECT 2
+wait 100
+spin K2 1
+wait 1500
+shot pic_loopdly_1.png
+wait 200
+shot pic_loopdly_2.png
+spin K2 1
+wait 1500
+shot pic_spectrl_1.png
+wait 200
+shot pic_spectrl_2.png
+key w0 up
+key w2 up
+key w4 up
+key w7 up
+wait 3500
+shot pic_silence.png
+wait 500
+shot pic_silence_still.png
+tap HOME
+wait 400
+shot pic_home.png
