@@ -10,8 +10,12 @@ EURORACK="${EURORACK:-../../../../eurorack}"
 ENG=../../../engine
 OUT=build/host
 mkdir -p $OUT
+# RACK_FLAGS: extra compiler flags, e.g. RACK_FLAGS=-DRACK_WITH_GRAIN to build the shelved GRAIN source in (off by default).
+# A change of flags clears the objects (a stale .o from the other setting would be linked otherwise).
+RACK_FLAGS="${RACK_FLAGS:-}"
+[ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc; echo "$RACK_FLAGS" > $OUT/.flags; }
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)
-CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -I$ENG/shim -I$EURORACK"
+CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 $RACK_FLAGS -I$ENG/shim -I$EURORACK"
 for src in $(grep -vE '^(elements|warps|clouds|marbles)/' $ENG/sources.txt) ; do
   o="$OUT/$(echo "$src" | sed 's#/#_#g; s#\.cc$##').o"
   [ -f "$o" ] || { echo "c++ $src"; $CXX -c "$EURORACK/$src" -o "$o"; }
@@ -19,6 +23,6 @@ done
 $CXX -c $ENG/grids_nodes.cc -o $OUT/x_grids_nodes.o
 $CXX -c $ENG/rack.cc -o $OUT/rack.o
 $CXX -c rk.cc -o $OUT/rk.o
-${CC:-cc} -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c bench_host.c -o $OUT/bench_host.o
+${CC:-cc} $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c bench_host.c -o $OUT/bench_host.o
 ${CXX%% *} -o $OUT/bench_host $OUT/*.o -lm
 echo "built $OUT/bench_host"

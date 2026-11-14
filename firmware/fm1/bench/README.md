@@ -11,7 +11,7 @@ Rack: it plays no sound and saves nothing. It answers two questions on the board
    `-DRACK_FM1 -DRACK_LITE`) and times 105 cases: every Plaits model, every Braids shape, every Rings model, the
    filter, Tides, Peaks, Grids, the delay, reverb and chorus, 1 to 6 voices, and the 26 heaviest of the Nov 2026 factory presets (the module cases are still built on eight presets of the first set, kept in `tests/bench-base-calls.json`, so they compare with earlier runs); then, when the second core starts, the 6-voice ones again on two cores (the 2 CORES group: the second core renders half the voices).
 
-**GRAIN (FM1 Phase 2, 14 Nov 2026).** A group for the new granular source (`engine/grain.h`, rendered in rack.cc):
+**GRAIN (FM1 Phase 2, 14 Nov 2026; shelved at step 4: these cases exist only when built with `-DRACK_WITH_GRAIN`, off by default).** A group for the new granular source (`engine/grain.h`, rendered in rack.cc):
 one voice at 4, 8, 16 and 32 grains, then 4 and 6 voices at 8, 16 and 32, and the heavier ones again on two cores.
 Every grain slot is kept full (316 ms grains wanted 1000 times a second), so each figure is the worst case for that
 many grains. The buffer holds a test recording until capture is built. These cases answer how many grains a voice

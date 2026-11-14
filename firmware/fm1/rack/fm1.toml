@@ -23,6 +23,8 @@ gen = ["make_units.py", "make_font.py {gen}"]   # (update 51: make_font.py, FM1 
 o2 = ["units/*.cc"]
 o2_cflags = ["-std=gnu++11", "-w", "-fbuiltin", "-fno-exceptions", "-fno-rtti", "-DTEST", "-DRACK_FM1", "-DRACK_LITE",
              "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-O2", "-fdata-sections"]
+# GRAIN (the home-made granular source) is SHELVED: compiled only with -DRACK_WITH_GRAIN, which is not in o2_cflags above. To build it in, add
+# "-DRACK_WITH_GRAIN" to o2_cflags (and to the bench's fm1.toml); on a computer: RACK_FLAGS=-DRACK_WITH_GRAIN sh build_host.sh
 # FM1 Rack's Plaits shim (first: it stands in for one of Plaits' headers), the Mutable code (a checkout of
 # pichenettes/eurorack beside MODFM1)
 include = ["../../../engine/shim", "../../../../eurorack"]

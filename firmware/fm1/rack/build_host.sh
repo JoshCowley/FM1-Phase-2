@@ -10,10 +10,14 @@ EURORACK="$(cd "${EURORACK:-../../../../eurorack}" && pwd)"
 ENG=../../../engine
 OUT=build/host
 mkdir -p $OUT
+# RACK_FLAGS: extra compiler flags, e.g. RACK_FLAGS=-DRACK_WITH_GRAIN to build the shelved GRAIN source in (off by default).
+# A change of flags clears the objects (a stale .o from the other setting would be linked otherwise).
+RACK_FLAGS="${RACK_FLAGS:-}"
+[ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc; echo "$RACK_FLAGS" > $OUT/.flags; }
 python3 make_presets.py --full
 EURORACK="$EURORACK" python3 make_units.py
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)
-CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -DRACK_NO_PLAITS -I$ENG/shim -I$EURORACK"
+CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 $RACK_FLAGS -DRACK_NO_PLAITS -I$ENG/shim -I$EURORACK"
 rm -f $OUT/plaits_*.o   # FM1 Phase 2: no Plaits
 for src in $(grep -vE '^(elements|warps|clouds|marbles|plaits)/' $ENG/sources.txt) ; do
   o="$OUT/$(echo "$src" | sed 's#/#_#g; s#\.cc$##').o"
@@ -24,12 +28,12 @@ done
 $CXX -c $ENG/grids_nodes.cc -o $OUT/x_grids_nodes.o
 $CXX -c $ENG/rack.cc -o $OUT/rack.o
 $CXX -c ../common/rk.cc -o $OUT/rk.o
-${CC:-cc} -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c rack_host.c -o $OUT/rack_host.o
-${CC:-cc} -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c audition.c -o $OUT/audition.oa
+${CC:-cc} $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c rack_host.c -o $OUT/rack_host.o
+${CC:-cc} $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c audition.c -o $OUT/audition.oa
 ${CXX%% *} -o $OUT/rack_host $OUT/*.o -lm
 ${CXX%% *} -o $OUT/audition $(ls $OUT/*.o | grep -v rack_host.o) $OUT/audition.oa -lm
-${CC:-cc} -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c click.c -o $OUT/click.oc
+${CC:-cc} $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c click.c -o $OUT/click.oc
 ${CXX%% *} -o $OUT/click $(ls $OUT/*.o | grep -v rack_host.o) $OUT/click.oc -lm
-${CC:-cc} -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c swclick.c -o $OUT/swclick.oc
+${CC:-cc} $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c swclick.c -o $OUT/swclick.oc
 ${CXX%% *} -o $OUT/swclick $(ls $OUT/*.o | grep -v rack_host.o) $OUT/swclick.oc -lm
 echo "built $OUT/rack_host $OUT/audition"

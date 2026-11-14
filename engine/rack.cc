@@ -25,7 +25,9 @@
 #include "plaits/dsp/voice.h"
 #endif
 #include "braids/macro_oscillator.h"
-#include "grain.h"   // GRAIN (FM1 Phase 2): the Bento-style granular source
+#ifdef RACK_WITH_GRAIN
+#include "grain.h"   // GRAIN (FM1 Phase 2): the Bento-style granular source. SHELVED: only with -DRACK_WITH_GRAIN (off by default)
+#endif
 #include "rings/dsp/part.h"
 #ifndef RACK_LITE
 #include "elements/dsp/part.h"
@@ -79,6 +81,7 @@ static const int BLOCK = 48;
 static const int BLOCK = 24;
 #endif
 static const int MAXV = 6;
+#ifdef RACK_WITH_GRAIN
 // GRAIN's capture buffer: 8-bit mu-law at GRAIN_RATE (half the engine's rate), shared by every voice.
 // 128 KB holds about 5.5 s. (The FM-1: carved from the arena when GRAIN is the source.)
 #ifndef GRAIN_BUF_KB
@@ -88,6 +91,7 @@ static const float GRAIN_RATE = 24000.0f;
 static const int GRAIN_LEN = GRAIN_BUF_KB * 1024;
 static bool grain_filled_ = false;
 static void grain_fill_test();
+#endif   // RACK_WITH_GRAIN
 
 enum Slot { S_SRC, S_SHP, S_MODA, S_MODB, S_FX1, S_FX2, S_AMP, S_GLO, S_LFO, NSLOT };
 enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4,
@@ -156,7 +160,9 @@ static plaits::Voice* plaits_; static char (*plaits_buf_)[16384];
 #endif
 static braids::MacroOscillator* braids_;
 static rings::Part* rings_; static uint16_t (*rings_rev_)[32768];
+#ifdef RACK_WITH_GRAIN
 static uint8_t* grain_buf_; static grain::Voice* grain_v_;
+#endif
 #ifndef RACK_LITE
 static elements::Part* elements_; static uint16_t (*elements_rev_)[32768];
 static warps::Modulator* warps_;
@@ -167,8 +173,10 @@ static char plaits_buf_[MAXV][16384];
 static braids::MacroOscillator braids_[MAXV];
 static rings::Part rings_[MAXV];
 static uint16_t rings_rev_[MAXV][32768];
+#ifdef RACK_WITH_GRAIN
 static uint8_t grain_buf_[GRAIN_BUF_KB * 1024];
 static grain::Voice grain_v_[MAXV];
+#endif
 #ifndef RACK_LITE
 static elements::Part elements_[MAXV];
 static uint16_t elements_rev_[MAXV][32768];
@@ -513,7 +521,9 @@ static void reset_voice_modules(int slot) {
       if (mod_id_[S_SRC] == M_PLAITS) plaits_[i].Init(&alloc);
 #endif
       if (mod_id_[S_SRC] == M_BRAIDS) braids_[i].Init();
+#ifdef RACK_WITH_GRAIN
       if (mod_id_[S_SRC] == M_GRAIN) memset(&grain_v_[i], 0, sizeof(grain::Voice));
+#endif
 #ifndef RACK_LITE
       if (mod_id_[S_SRC] == M_ELEMENTS) { elements_[i].Init(elements_rev_[i]); }
 #endif
@@ -585,8 +595,10 @@ static size_t carve(const int* eff, int nv, bool commit) {
     if (eff[S_SRC] == M_PLAITS) { uint8_t* a = take(nv * sizeof(plaits::Voice)); uint8_t* b = take(nv * 16384); if (commit) { plaits_ = (plaits::Voice*)a; plaits_buf_ = (char (*)[16384])b; } }
 #endif
     if (eff[S_SRC] == M_BRAIDS) { uint8_t* a = take(nv * sizeof(braids::MacroOscillator)); if (commit) braids_ = (braids::MacroOscillator*)a; }
+#ifdef RACK_WITH_GRAIN
     if (eff[S_SRC] == M_GRAIN) { uint8_t* a = take(GRAIN_LEN); uint8_t* b = take(nv * sizeof(grain::Voice));
                                  if (commit) { grain_buf_ = a; grain_v_ = (grain::Voice*)b; } }
+#endif
 #ifndef RACK_LITE
     if (eff[S_SRC] == M_ELEMENTS) { uint8_t* a = take(nv * sizeof(elements::Part)); uint8_t* b = take(nv * 65536); if (commit) { elements_ = (elements::Part*)a; elements_rev_ = (uint16_t (*)[32768])b; } }
 #endif
@@ -610,7 +622,9 @@ static void fm1_layout() {
   if (nv == 0 && eff[S_SRC]) { eff[S_SRC] = 0; dropped_ |= 1 << S_SRC; nv = MAXV; }
   arena_used_ = carve(eff, nv, true);
   memset(arena_, 0, arena_used_);   // the modules expect zeroed memory, as static objects are
+#ifdef RACK_WITH_GRAIN
   grain_filled_ = false;
+#endif
   nalloc_ = nv;
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
 #ifndef RACK_NO_PLAITS
@@ -626,7 +640,9 @@ static void fm1_layout() {
 #endif
   }
   mod_id_[S_SRC] = eff[S_SRC]; mod_id_[S_SHP] = eff[S_SHP]; mod_id_[S_FX1] = eff[S_FX1]; mod_id_[S_FX2] = eff[S_FX2];
+#ifdef RACK_WITH_GRAIN
   if (eff[S_SRC] == M_GRAIN) grain_fill_test();
+#endif
   reset_voice_modules(S_SRC); reset_voice_modules(S_SHP);
   init_fx(eff[S_FX1]); init_fx(eff[S_FX2]);
   int n = want_voices_ < nalloc_ ? want_voices_ : nalloc_; if (n < 1) n = 1;
@@ -691,6 +707,10 @@ EXPORT void set_module(int slot, int id) {
   // the Lite firmware ships without Elements, Warps, Marbles and Clouds: they play as an empty slot
   if (id == M_ELEMENTS || id == M_WARPS || id == M_MARBLES || id == M_CLOUDS) id = M_NONE;
 #endif
+#ifndef RACK_WITH_GRAIN
+  // GRAIN is shelved (FM1 Phase 2 step 4): without -DRACK_WITH_GRAIN a source that asks for it plays Braids
+  if (slot == S_SRC && id == M_GRAIN) id = M_BRAIDS;
+#endif
 #ifdef RACK_NO_PLAITS
   // FM1 Phase 2 has no Plaits (14 Nov 2026): a source that asks for it (a user preset saved before) plays Braids
   if (slot == S_SRC && id == M_PLAITS) id = M_BRAIDS;
@@ -700,7 +720,9 @@ EXPORT void set_module(int slot, int id) {
 #endif
   if (mod_id_[slot] == id) return;
   mod_id_[slot] = id;
+#ifdef RACK_WITH_GRAIN
   if (slot == S_SRC && id == M_GRAIN && !grain_filled_) grain_fill_test();
+#endif
   if (slot == S_SRC || slot == S_SHP) reset_voice_modules(slot);
   if (slot == S_MODA || slot == S_MODB) {
     int k = slot - S_MODA;
@@ -1207,6 +1229,7 @@ static float rings_note_ = 60.0f;
 static int rings_fm1_model(int m) { return m == 0 || m == 1 || m == 4 ? 2 : m; }   // MODAL SYMPATH SYM QNT: STRING
 #endif
 
+#ifdef RACK_WITH_GRAIN
 // ------------------------------------------------------------------ GRAIN
 // SRC parameters (all 0..1 here; the menus' ranges come later):
 //   0 SIZE     grain length, 10 ms .. 1 s
@@ -1309,6 +1332,7 @@ __attribute__((noinline)) static void render_grain(int i, VoiceState& v, float n
     g.pos = gp; g.w = w; ++k;
   }
 }
+#endif   // RACK_WITH_GRAIN
 
 static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
   float* const vbuf_ = vbuf_c_[core];
@@ -1393,8 +1417,10 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
       vbuf_[n] = f * P(S_SRC, 7, &v);
     }
     if (vca) for (int n = 0; n < BLOCK; ++n) vbuf_[n] *= v.benv;
+#ifdef RACK_WITH_GRAIN
   } else if (src == M_GRAIN) {
     render_grain(i, v, note, vbuf_, vaux_);
+#endif
 #ifndef RACK_LITE
   } else if (src == M_ELEMENTS) {
     elements::Patch* ep = elements_[i].mutable_patch();
@@ -1421,7 +1447,11 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
   } else {
     memset(vbuf_, 0, BLOCK * sizeof(float));
   }
+#ifdef RACK_WITH_GRAIN
   bool stereo = src == M_ELEMENTS || src == M_GRAIN;
+#else
+  bool stereo = src == M_ELEMENTS;
+#endif
   osc_mix(i, v, note, vbuf_, vaux_, stereo, paux);   // OSC, the source's MAIN LVL and Plaits' AUX LVL
   if (!stereo) memcpy(vaux_, vbuf_, BLOCK * sizeof(float));
 
