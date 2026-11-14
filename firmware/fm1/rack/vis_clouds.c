@@ -618,8 +618,8 @@ static void clouds_screen(int pg, const ui_mod_t *m, int force)
         cp.t_sec = now;
     if (now - cp.t_sec >= 1000u) {            /* the last second's averages, for the read-out (and, on the host, stderr) */
         uint32_t n = cp.a_n ? cp.a_n : 1u;        /* ticks (24 a microsecond) -> ms x 10: x 10 / 24000, rounded */
-        cp.sh_draw10 = (uint32_t)(((uint64_t)cp.a_draw * 10u + 12000u * n) / (24000u * n));
-        cp.sh_lcd10 = (uint32_t)(((uint64_t)cp.a_lcd * 10u + 12000u * n) / (24000u * n));
+        cp.sh_draw10 = (cp.a_draw * 10u + 12000u * n) / (24000u * n);      /* (a second of ticks, 24 M, x 10 fits 32 bits) */
+        cp.sh_lcd10 = (cp.a_lcd * 10u + 12000u * n) / (24000u * n);
         cp.sh_fps = (cp.a_n * 1000u + (now - cp.t_sec) / 2u) / (now - cp.t_sec);
         cp.sh_rows = cp.a_rows * 10u / n; cp.sh_xf = cp.a_xf * 10u / n;
 #ifdef PLAT_HOST
