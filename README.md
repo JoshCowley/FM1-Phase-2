@@ -1,3 +1,16 @@
+# FM1 Phase 2
+
+The foundation for a new family of synths for the M-VAVE FM-1, forked on 14 Nov 2026 from **MODFM1** (FM1 Rack, update 59) with its whole history. Everything FM1 Rack does is here as the starting point: the Mutable Instruments module rack, 77 presets, scale chords, STYLE and RHYTHM, the arpeggiator, the sequencer, the A/B-chosen look with DAYLIGHT mode, USB audio and tight MIDI clock.
+
+What differs from MODFM1 so the two can sit side by side:
+
+- firmware name **FM1 PHASE 2** (the splash and the screen reader), USB device **FM1 PHASE 2**, package identity **FM-1_79xx** (MODFM1 is FM-1_78xx);
+- this repo: `JoshCowley/FM1-Phase-2`.
+
+Building, testing and installing work exactly as in MODFM1 (see below and `firmware/fm1/rack/README.md`); this repo needs a checkout of pichenettes/eurorack beside it, as MODFM1 does.
+
+---
+
 # MODFM1 · FM1 Rack 1.9.2
 
 A sound-design firmware design for the M-VAVE FM-1 pocket synth. You build a voice by slotting open-source eurorack modules into a fixed chain (source → shaper → amp, two modulators, two effects), patch them with a 12-row mod matrix, and play them through four macros, scale chords (SCL), a Clipper-style sequencer (SEQ, PLAY, REC: up to 64 steps, a piano roll, live and free-take recording, hold layers, parameter locks, ratchets, fills, spice and pattern generators), an arpeggiator with a Turing mode (ARP), modulation lanes, undo / morph / randomize tools, 13 tunings, a master EQ / compressor / limiter and full MIDI in and out over USB. 1.4 adds deeper editing pages on every menu: a filter with LP24, notch and peak types, its own ADSR, velocity, saturation styles and audio-rate FM; envelope delay, hold and curves; pitch envelope; LFO fade, phase, polarity and one-shot; the modules' hidden settings (Braids' AD envelope, Plaits' envelope amounts and AUX, Rings' internal exciter, Clouds' quality, Marbles' scales); and more delay, reverb and chorus controls. 1.5 adds granular controls to Clouds (tempo-synced grains, spray, pitch scatter with quantise, size scatter, scan and a wet-only tone) and lets the LFOs reach every effect parameter, switches included, with two direct targets per LFO. 1.6 reworks SEL (scale, root, chord and voicing on one page, Melodee-style QNT, and ChordStep's chord zone on the lowest keys) and adds Melodee-style pattern banks A-H, a 16-row song with transpose, jam-to-song, capture and quantize-on-take. 1.7 adds a library of 30 categorised presets (Bass, Pads, Lead, Chord, FX). 1.8 gives SAVE 64 named user slots (4 pages of 16, each with a category, stored compactly) and a second SAVE page that browses every preset by category, with load, copy, rename and delete. 1.9 adds an FM-1 hardware preview (GLOBAL > HARDWARE, on by default): each module's real memory size and measured CPU cost are checked against an assumed FM-1 budget, voices drop to what fits, patches that can't fit are flagged, and the delay is capped at 1 s in 16-bit. 1.9.1 adds `firmware/`: the engine made ready for FM-1 firmware (one memory arena, voices limited to what fits, 1 s 16-bit delay), built and tested on a computer, with the board interface and app glue; the page's FM-1 preview now matches that engine exactly. 1.9.2 adds 25 presets for electronic-music instruments (bass, leads, pads, keys, stabs, plucks, brass, textures; no drums) and FM1 Rack Lite (`build.py --lite`), the prototype of the FM-1 module set with a flash budget. This repo holds the 1.9.2 browser build, which runs the original module code compiled to WebAssembly.
@@ -11,7 +24,7 @@ Two installable packages are in [`firmware/packages/`](firmware/packages/), with
 | Package | What it is | Install |
 | --- | --- | --- |
 | `fm1bench.fwsc` | Test firmware: checks the FPU, then times every Lite module (105 cases). Silent. | First |
-| `fm1rack.fwsc` | FM1 Rack Lite, first stage: 57 presets from the keys and MIDI, macros on K1-K4, voice modes | Only after the benchmark shows **FPU OK** |
+| `fm1ph2.fwsc` | FM1 Rack Lite, first stage: 57 presets from the keys and MIDI, macros on K1-K4, voice modes | Only after the benchmark shows **FPU OK** |
 
 Before installing anything, do the recovery round trip once: install Felucca with its [web installer](https://hugelton.github.io/Felucca/), then **Return to official V15**. Install over USB with fm1-base's `tools/fm1_install.py`. Untested firmware: install at your own risk.
 

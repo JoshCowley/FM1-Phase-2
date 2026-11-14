@@ -65,7 +65,7 @@ modulation has moved it to. The well shows the output (AMP's first page: its env
 sound for a moment (the arena is laid out again) and says how many voices fit; an edit that needs a bigger buffer (a
 longer delay, STR+VERB, SHIMMER) fits it again when the knobs rest ("MEMORY FITTED"). Edits are not kept when the
 preset changes unless saved (SAVE). `sim_menus.txt`, `sim_save.txt`, `sim_vis.txt` and `sim_play*.txt` drive the pages in fm1-base's host simulator
-(`tools/build.py ../MODFM1/firmware/fm1/rack --host`, then `build/host/fm1rack_host sim_menus.txt OUTDIR`).
+(`tools/build.py ../MODFM1/firmware/fm1/rack --host`, then `build/host/fm1ph2_host sim_menus.txt OUTDIR`).
 
 ![A module's page](screen-module.png) ![The matrix](screen-matrix.png)
 
@@ -321,5 +321,5 @@ firmware plays.
 ## Build and install
 
 As `fm1/bench` (its README), with this folder: `tools/build.py ../MODFM1/firmware/fm1/rack`, then
-`python3 tools/fm1_install.py ../MODFM1/firmware/fm1/rack/build/fm1rack.fwsc`. Identity `FM-1_7800`
+`python3 tools/fm1_install.py ../MODFM1/firmware/fm1/rack/build/fm1ph2.fwsc`. Identity `FM-1_7800`
 (`id_prefix` picked for this project, not registered anywhere).

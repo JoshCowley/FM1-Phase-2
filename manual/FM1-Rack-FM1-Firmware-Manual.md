@@ -57,7 +57,7 @@ sh /Users/josh/Documents/iClaude/Projects/FM1-Rack/install_rack.sh
 
 The script:
 
-1. checks that `test-kit/packages/fm1rack.fwsc` is exactly the file that was built (its SHA-256 fingerprint);
+1. checks that `test-kit/packages/fm1ph2.fwsc` is exactly the file that was built (its SHA-256 fingerprint);
 2. installs the installer's MIDI library if needed;
 3. fetches fm1-base's installer at a fixed version;
 4. finds the FM-1 and installs.
@@ -68,7 +68,7 @@ By hand, from the repo's `firmware/packages` folder:
 
 ```
 shasum -a 256 -c SHA256SUMS
-python3 ~/fm1-base/tools/fm1_install.py fm1rack.fwsc
+python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc
 ```
 
 ### Getting back to the stock firmware

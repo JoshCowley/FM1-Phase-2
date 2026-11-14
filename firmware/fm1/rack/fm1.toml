@@ -1,8 +1,8 @@
-# FM1 Rack (Lite) firmware, an fm1-base app (fm1-base's tools/build.py reads this). See README.md.
-name = "FM1RACK"
-id_prefix = "FM-1_78"          # package identity: dev builds FM-1_7800 (chosen for this project; not registered anywhere)
-usb_manufacturer = "MODFM1"
-usb_product = "FM1 RACK"
+# FM1 Phase 2 firmware (forked from MODFM1's FM1 Rack at update 59, 14 Nov 2026), an fm1-base app (fm1-base's tools/build.py reads this). See README.md.
+name = "FM1PH2"
+id_prefix = "FM-1_79"          # package identity: dev builds FM-1_7900 (FM1 Phase 2, forked from MODFM1's FM-1_78; not registered anywhere)
+usb_manufacturer = "FM1PH2"
+usb_product = "FM1 PHASE 2"
 words = "words.tsv"
 ble = false
 # the second core (fm1-base's plat_cpu2_*) renders half the voices (rack.cc render_voices); with the fallback, a unit

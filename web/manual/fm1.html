@@ -74,7 +74,7 @@ img[src*="fm1-"]{width:320px;image-rendering:pixelated}
 <pre><code>sh /Users/josh/Documents/iClaude/Projects/FM1-Rack/install_rack.sh</code></pre>
 <p>The script:</p>
 <ol type="1">
-<li>checks that <code>test-kit/packages/fm1rack.fwsc</code> is exactly the file that was built (its SHA-256 fingerprint);</li>
+<li>checks that <code>test-kit/packages/fm1ph2.fwsc</code> is exactly the file that was built (its SHA-256 fingerprint);</li>
 <li>installs the installer's MIDI library if needed;</li>
 <li>fetches fm1-base's installer at a fixed version;</li>
 <li>finds the FM-1 and installs.</li>
@@ -82,7 +82,7 @@ img[src*="fm1-"]{width:320px;image-rendering:pixelated}
 <p>Don't unplug the FM-1 until it says it's done. The firmware identifies itself as <strong>FM-1_7800</strong>.</p>
 <p>By hand, from the repo's <code>firmware/packages</code> folder:</p>
 <pre><code>shasum -a 256 -c SHA256SUMS
-python3 ~/fm1-base/tools/fm1_install.py fm1rack.fwsc</code></pre>
+python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h3 id="getting-back-to-the-stock-firmware">Getting back to the stock firmware</h3>
 <p>In order of what to try:</p>
 <ol type="1">

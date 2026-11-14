@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include "plat.h"
 
-#define APP_NAME "FM1 RACK"
+#define APP_NAME "FM1 PHASE 2"
 #define APP_SPLASH_RGB RGB(90, 200, 255)
 #define APP_BIG_FONT FONT_B                  /* the splash's name and the panel's screens: the bold font (8 Nov: FONT_L and FONT_M left out, about 30 KB) */
 #define APP_SYS_TEXT                     /* the platform's own screens in FONT_XS / FONT_B (app.c): FONT_S not linked (update 44: 8.6 KB) */

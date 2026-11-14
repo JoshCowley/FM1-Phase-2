@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the two FM-1 packages from this repo, on a Mac (or Linux) with internet access:
 #   fm1bench.fwsc  the benchmark (install this first)
-#   fm1rack.fwsc   FM1 Rack Lite, first stage (only after the benchmark has run and said FPU OK)
+#   fm1ph2.fwsc   FM1 Rack Lite, first stage (only after the benchmark has run and said FPU OK)
 #
 #   sh firmware/tools/build_packages.sh     builds both, checks them on the computer, copies them to firmware/packages/
 #   WORK=~/somewhere sh firmware/tools/build_packages.sh   (default work folder: ~/fm1-work)
@@ -74,7 +74,7 @@ fi
 
 OUTP="$REPO/firmware/packages"
 mkdir -p "$OUTP"
-for f in MODFM1/firmware/fm1/bench/build/fm1bench.fwsc MODFM1/firmware/fm1/rack/build/fm1rack.fwsc; do
+for f in MODFM1/firmware/fm1/bench/build/fm1bench.fwsc FM1-Phase-2/firmware/fm1/rack/build/fm1ph2.fwsc; do
   [ -f "$f" ] || { echo "build_packages: $f wasn't built: see the lines above"; exit 1; }
   cp "$f" "$OUTP/"
 done
