@@ -268,7 +268,7 @@ def granular():
          "FX1": CL(POSITION=0.3, SIZE=0.4, PITCH=0.25, DENSITY=0.85, TEXTURE=0.7, BLEND=0.75, SPREAD=1.0, FEEDBACK=0.15,
                    **{"PITCH RND": 0.3, "PITCH QNT": "5TH+OCT", "IN GAIN": 1.0}),
          "FX2": REV("PLATE", 0.7, 0.25)},
-        {**PADAMP, "ATTACK": 0.0, "DECAY": 0.5, "SUSTAIN": 0.5, "RELEASE": 0.7},
+        {**PADAMP, "ATTACK": 0.0, "DECAY": 0.5, "SUSTAIN": 0.8, "RELEASE": 0.8, "VEL AMT": 0.0},
         [[("SRC.TIMBRE", 0.15, 0.85), ("FX 1.TONE", -0.3, 0.5)],
          [("LFO.RATE 1", 0.2, 0.7), ("FX 1.SPRAY", 0.05, 0.5)],
          [("FX 1.BLEND", 0.3, 0.8), ("FX 2.MIX", 0.1, 0.5)],
