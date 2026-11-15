@@ -954,7 +954,7 @@ static void draw_param_page(int pg)
     }
     if (mn.sub >= npages(pg))
         mn.sub = npages(pg) - 1;
-    if (clouds_page(pg)) {                    /* CLOUDS (update 7): the picture to the read-outs, no header, no help line */
+    if (pic_scene(pg) >= 0) {                 /* CLOUDS (update 7), every module's page (update 13): the picture to the read-outs, no header, no help line */
         clouds_screen(pg, m, 0);
         return;
     }
@@ -1649,11 +1649,11 @@ static int menu_input(uint32_t press, uint32_t btn)
 {
     {   /* CLOUDS page: OCT- and OCT+ held together turn the picture's draw-time read-out on or off (their octave steps cancel) */
         int oc = (btn >> B_OCTDN & 1u) && (btn >> B_OCTUP & 1u);
-        if (oc && !cp.oct_both && clouds_page(mn.page)) {
+        if (oc && !cp.oct_both && pic_scene(mn.page) >= 0) {
             cp.dbg ^= 1;
             cp.us_max = 0;
             cp.force = 1;
-            app_say("CLOUDS PICTURE", cp.dbg ? "DRAW TIME ON" : "DRAW TIME OFF");
+            app_say("PICTURE", cp.dbg ? "DRAW TIME ON" : "DRAW TIME OFF");
         }
         cp.oct_both = oc;
     }

@@ -53,7 +53,7 @@ tab("SPR_RING", v, per=15)
 v = []
 for i in range(64):
     t = i / 40.0
-    a = 0.20 * math.exp(-(t * 1.1) ** 2) + 0.95 * math.exp(-((t - 1.0) / 0.12) ** 2) + 0.30 * math.exp(-(t / 0.08) ** 2)
+    a = 0.34 * math.exp(-(t * 1.1) ** 2) + 0.70 * math.exp(-((t - 1.0) / 0.20) ** 2) + 0.30 * math.exp(-(t / 0.08) ** 2)
     if t > 1.0: a *= math.exp(-(t - 1.0) * 5.0)
     v.append(min(255, round(255 * min(1.0, a))))
 tab("PROF", v)

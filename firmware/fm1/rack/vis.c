@@ -449,6 +449,7 @@ static void vis_func(int slot, const float *mon, uint16_t c)
     }
 }
 
+static void pk_tick(const float *mon);
 /* the history of the modulators' and LFOs' outputs, ~30 times a second */
 static void vis_tick(void)
 {
@@ -458,6 +459,7 @@ static void vis_tick(void)
         return;
     vz.hist_at = plat_ms();
     mon = rk_monitor(RS_AMP);
+    pk_tick(mon);                             /* (update 13: how alive each process is, for the icons) */
     for (i = 0; i < 4; i++)
         vz.hist[i][vz.hist_w % 114u] = (int8_t)(fm_clampf(mon[40 + i], -1.27f, 1.27f) * 100.0f);
     for (i = 0; i < 3; i++)

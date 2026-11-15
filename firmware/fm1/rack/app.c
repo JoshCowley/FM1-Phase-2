@@ -498,9 +498,12 @@ static void slider(int32_t x, int32_t y, int32_t w, float f, uint16_t c, uint16_
     }
 }
 
+static int pk_icon(int ic, int32_t x, int32_t y, uint16_t c);   /* (update 13: vis_pic.c's animated icons) */
 static void icon(int ic, int32_t x, int32_t y, uint16_t c)
 {
     int32_t r, b;
+    if (pk_icon(ic, x, y, c))
+        return;
     for (r = 0; r < 12; r++)
         for (b = 0; b < 12; b++)
             if (ICON[ic][r] >> (11 - b) & 1u)
@@ -565,7 +568,7 @@ static void scope(int32_t w, int32_t h, uint16_t c)
 #include "frame.c"
 #include "seqpages.c"
 
-#define HOME_WY 198u                          /* HOME's bottom strip (the scope until update 38) */
+#define HOME_WY 184u                          /* HOME's bottom strip (the scope until update 38) */
 /* HOME's bottom strip (update 39: the scope is gone, as Josh asked): the tabs of what plays the keys besides the
  * preset (scale and chord, arp, STYLE, a tuning, the red FM-1 OFF warning), redrawn only when one of them changes */
 #define HOME_SH 16
@@ -797,49 +800,12 @@ static void home_macros(int force)            /* (update 39: drawn again only wh
     }
 }
 
-static void draw_home(void)
+#include "vis_home.c"
+
+static void draw_home(void)                   /* (update 13: the morphing picture, the macros under it, the tabs between) */
 {
-    char t[32], n[12];
-    int32_t x;
-    int pending = ui.shown != cur_entry, c = entry_cat(ui.shown);
-    char name[24];
-    const char *tag = ui.shown < NPRESETS ? PRESETS[ui.shown].cat : CAT_NAME[c];
-    entry_name(ui.shown, name);
     status_strip();
-    /* the header: the source's icon, the category in a tab (its colour), the preset; its place on the right */
-    cv_begin(240, 22, K_BAR);
-    icon(module_icon(rc_patch.mod[RS_SRC]), 6, 5, K_SRC);
-    x = text_w(&FONT_T, tag) + 8;
-    {                                         /* (update 51) the category outlined in its colour, as the pages' tags */
-        uint16_t cc = c ? CAT_COL[c] : K_SRC;
-#if FM1_HEAD == 1
-        rrect(22, 4, x, 14, mix565(cc, K_BAR, 90), 3);
-        rrect(23, 5, x - 2, 12, K_BAR, 2);
-        cv_text(26, 4, &FONT_T, tag, cc);
-#elif FM1_HEAD == 3
-        cv_text(24, 4, &FONT_T, tag, cc);
-        x -= 2;
-#else
-        x = -4;
-        (void)cc;
-#endif
-    }
-    cv_text(28 + x, 3, &FONT_B, name, pending ? K_DIM : K_FG);
-    if (pal_day) cv_text(29 + x, 3, &FONT_B, name, pending ? K_DIM : K_FG);
-    if (pending) {
-        cv_text(234 - text_w(&FONT_T, "LOADING"), 5, &FONT_T, "LOADING", K_GOLD);
-    } else if (ui.shown < NPRESETS) {
-        int_text(ui.shown + 1, t);
-        cat(t, "/");
-        int_text(NPRESETS, n);
-        cat(t, n);
-        cv_text(234 - text_w(&FONT_T, t), 5, &FONT_T, t, K_DIM);
-    } else {
-        cv_text(234 - text_w(&FONT_T, "USER"), 5, &FONT_T, "USER", K_GOLD);
-    }
-    cv_blit(0, 10);
-    home_tiles();                             /* the chain, moving; the macros under it; the tabs at the bottom */
-    home_macros(1);
+    clouds_screen(PG_HOME, 0, 0);
     home_strip(1);
 }
 
@@ -892,14 +858,13 @@ static void draw_well_only(void)
     wv_tick();
     if (sv.open || mn.pick || sp.layer || mn.page == PG_RACK || mn.page == PG_MATRIX)
         return;
-    if (mn.page == PG_HOME) {                 /* (update 39: only the tiles move; macros and tabs when they change) */
-        home_tiles();
-        home_macros(0);
+    if (mn.page == PG_HOME) {                 /* (update 13: the picture and the macros under it; the tabs when they change) */
+        clouds_screen(PG_HOME, 0, 0);
         home_strip(0);
     } else if (is_seq_page(mn.page)) {
         seq_area();
     } else {
-        if (clouds_page(mn.page)) {
+        if (pic_scene(mn.page) >= 0) {
             clouds_screen(mn.page, page_mod(mn.page), 0);
             draw_toast();
             return;
@@ -917,7 +882,7 @@ static void draw_well_only(void)
 static void draw(void)
 {
     static int shown = -1;                    /* the page on the screen: a new one starts from a clear screen */
-    int now = mn.page | mn.pick << 5 | sv.open << 6 | sv.lib << 7 | sp.layer << 8 | picture_first(mn.page) << 9 | is_mod_sub(mn.page) << 10 | clouds_page(mn.page) << 11;
+    int now = mn.page | mn.pick << 5 | sv.open << 6 | sv.lib << 7 | sp.layer << 8 | picture_first(mn.page) << 9 | is_mod_sub(mn.page) << 10 | (pic_scene(mn.page) >= 0) << 11;
     if (ui.clear) {                           /* a toast gone: what it covered is drawn again from clear */
         ui.clear = 0;
         shown = -1;

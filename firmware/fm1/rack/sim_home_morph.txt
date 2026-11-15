@@ -1,0 +1,35 @@
+# FM1 Phase 2 update 13: HOME through preset changes (Clouds patch, a non-Clouds patch and back): the picture morphs for about half a second.
+# Exit 0 = it ran; the shots are the pictures to look at.
+wait 500
+turn PRESET 2
+wait 800
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 700
+shot mo_clouds.png
+turn PRESET 87
+wait 125
+shot mo_a0.png
+wait 125
+shot mo_a1.png
+wait 125
+shot mo_a2.png
+wait 125
+shot mo_a3.png
+wait 800
+shot mo_other.png
+turn PRESET -86
+wait 125
+shot mo_b0.png
+wait 250
+shot mo_b1.png
+wait 900
+shot mo_back.png
+turn PRESET -1
+wait 300
+shot mo_p.png
+wait 900
+key w0 up
+key w4 up
+key w7 up
