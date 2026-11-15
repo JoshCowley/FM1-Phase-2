@@ -58,7 +58,7 @@ def _span(p):
     return float(len(p["opts"]) - 1) if t == "list" else 2.0 if t == "bip" else float(p["max"] - p["min"]) if t == "int" else 1.0
 
 
-BASE_TGT = [("FX 1.TONE", 0.2), ("FX 1.BLEND", 0.08), ("FX 1.POSITION", 0.08), ("FX 1.SIZE", 0.06), ("SRC.TIMBRE", 0.1), None]
+BASE_TGT = [("FX 1.TONE", 0.3), ("FX 1.BLEND", 0.1), ("FX 1.POSITION", 0.08), ("FX 1.SIZE", 0.08), ("SRC.TIMBRE", 0.12), None]
 
 
 def G(name, slots, p, amp, macros, mods=(), lfo=None, lfo_tgt=None, voices=4, md=(0.5, 0.5, 0.5, 0.5)):
@@ -141,11 +141,11 @@ def granular():
          "FX2": REV("HALL", 0.85, 0.25)},
         {**PADAMP, "ATTACK": 0.4},
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.45, 0.1)],
-         [("LFO.RATE 1", 0.1, 0.55)],
-         [("FX 1.BLEND", 0.5, 0.9), ("FX 2.MIX", 0.1, 0.5)],
-         [("FX 1.DENSITY", 0.6, 0.9), ("FX 1.SPRAY", 0.05, 0.6), ("FX 1.FREEZE", 0, 0.85)]],
-        [["LFO 1", "FX 1.POSITION", 0.4, "M2"], ["A TIDES", "SRC.TIMBRE", 0.3, "M2"], ["LFO 2", "FX 1.PITCH", 0.03, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.05)]))
+         [("LFO.RATE 1", 0.1, 0.7), ("MOD A.FREQ", 0.1, 0.6)],
+         [("FX 1.BLEND", 0.2, 0.95), ("FX 2.MIX", 0.05, 0.6)],
+         [("FX 1.DENSITY", 0.6, 0.9), ("FX 1.SPRAY", 0.05, 0.6), ("FX 1.SIZE", 0.9, 0.4), ("FX 1.FREEZE", 0, 0.6)]],
+        [["LFO 1", "FX 1.TONE", 0.5, "M2"], ["A TIDES", "SRC.TIMBRE", 0.4, "M2"]],
+        SLOWLFO, None))
 
     # 2 ------------------------------------------------------------------------------------------- the dense cloud
     # Classic: large grains at high density, smooth window, a little scatter: a buttery, smeared backdrop (a tutorial's
@@ -158,26 +158,26 @@ def granular():
          "FX2": REV("HALL", 0.8, 0.25)},
         PADAMP,
         [[("SRC.TIMBRE", 0.4, 0.85), ("FX 1.TONE", -0.3, 0.1)],
-         [("LFO.RATE 1", 0.1, 0.55), ("MOD A.FREQ", 0.1, 0.5)],
-         [("FX 1.BLEND", 0.5, 0.9), ("FX 2.MIX", 0.1, 0.5)],
-         [("FX 1.DENSITY", 0.65, 0.85), ("FX 1.SIZE", 0.95, 0.6), ("FX 1.PITCH RND", 0.0, 0.15)]],
-        [["LFO 1", "FX 1.POSITION", 0.35, "M2"], ["A TIDE+", "FX 1.TEXTURE", 0.3, "M2"], ["A TIDES", "SRC.TIMBRE", 0.2, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.05), ("FX 1.SIZE", 0.05)]))
+         [("LFO.RATE 1", 0.1, 0.6), ("MOD A.FREQ", 0.1, 0.6)],
+         [("FX 1.BLEND", 0.4, 0.95), ("FX 2.MIX", 0.05, 0.55)],
+         [("FX 1.DENSITY", 0.65, 0.8), ("FX 1.SIZE", 0.9, 0.65), ("FX 1.PITCH RND", 0.0, 0.15)]],
+        [["A TIDE+", "FX 1.TEXTURE", 0.4, "M2"], ["A TIDES", "SRC.TIMBRE", 0.3, "M2"], ["LFO 2", "FX 1.SIZE", 0.3, "M2"]],
+        SLOWLFO, None))
 
     # 3 ---------------------------------------------------------------------------------------------- the time smear
     # Classic: time-stretch. Short plucks go in, their attacks are smeared into a long cloud by big overlapping grains
     # read from a slowly moving place in the buffer.
     a(G("TIME SMEAR", {"SRC": "BRAIDS", "FX1": "CLOUDS", "FX2": "REVERB"},
-        {"SRC": {"MODEL": "PLUK", "TIMBRE": 0.5, "COLOR": 0.5, "DRIFT": 0.1, "LEVEL": 1.0, "AD VCA": "ON", "AD DEC": 0.65},
+        {"SRC": {"MODEL": "PLUK", "TIMBRE": 0.5, "COLOR": 0.5, "DRIFT": 0.1, "LEVEL": 1.0, "AD VCA": "ON", "AD DEC": 0.8},
          "FX1": CL(POSITION=0.15, SIZE=0.8, DENSITY=0.75, TEXTURE=0.9, BLEND=0.75, SPREAD=0.8, FEEDBACK=0.3, **{"IN GAIN": 0.9}),
          "FX2": REV("HALL", 0.85, 0.2)},
         {**PADAMP, "ATTACK": 0.0, "DECAY": 0.5, "SUSTAIN": 0.5, "RELEASE": 0.5},
         [[("SRC.TIMBRE", 0.2, 0.9), ("FX 1.TONE", -0.6, 0.1)],
          [("FX 1.SCAN", 0.0, 0.6), ("LFO.RATE 1", 0.1, 0.5)],
-         [("FX 1.FEEDBACK", 0.1, 0.55), ("FX 2.MIX", 0.1, 0.45)],
-         [("FX 1.SIZE", 0.45, 0.9), ("FX 1.DENSITY", 0.65, 0.82), ("FX 1.POSITION", 0.05, 0.4)]],
-        [["LFO 1", "FX 1.POSITION", 0.2, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.04)]))
+         [("FX 1.FEEDBACK", 0.05, 0.7), ("FX 2.MIX", 0.05, 0.6)],
+         [("FX 1.SIZE", 0.5, 0.9), ("FX 1.DENSITY", 0.65, 0.8), ("FX 1.POSITION", 0.05, 0.4)]],
+        [["LFO 1", "FX 1.TONE", 0.4, "M2"]],
+        SLOWLFO, None))
 
     # 4 ------------------------------------------------------------------------------------------------ the slow swell
     # Approximation of a reverse-like swell (Clouds cannot play grains backwards): a Peaks envelope with a slow attack
@@ -190,25 +190,25 @@ def granular():
          "FX2": REV("HALL", 0.9, 0.3)},
         {**PADAMP, "RELEASE": 0.7},
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.45, 0.1)],
-         [("AMP.ATTACK", 0.6, 1.0), ("MOD A.K1", 0.2, 0.8), ("LFO.RATE 1", 0.1, 0.45)],
-         [("FX 1.SPREAD", 0.4, 1.0), ("FX 2.MIX", 0.15, 0.5)],
-         [("FX 1.SIZE", 0.5, 0.95), ("FX 1.SPRAY", 0.05, 0.5), ("FX 1.PITCH RND", 0.0, 0.35)]],
-        [["A PEAKS", "FX 1.BLEND", 0.65], ["A PEAKS", "FX 1.FEEDBACK", 0.25]],
-        SLOWLFO, [("FX 1.POSITION", 0.04)]))
+         [("AMP.ATTACK", 0.0, 1.0), ("MOD A.K1", 0.0, 1.0)],
+         [("FX 1.BLEND", 0.15, 0.9), ("FX 2.MIX", 0.1, 0.55)],
+         [("FX 1.TEXTURE", 0.3, 1.0), ("FX 1.SIZE", 0.95, 0.25), ("FX 1.PITCH RND", 0.0, 0.6)]],
+        [["A PEAKS", "FX 1.BLEND", 0.65], ["A PEAKS", "FX 1.FEEDBACK", 0.25], ["LFO 1", "FX 1.TONE", 0.8, "M2"]],
+        {**SLOWLFO, "RATE 1": 0.4}, None))
 
     # 5 ---------------------------------------------------------------------------------------------------- stutter
     # Classic: grains fired on the clock (GRN SYNC) with short square-ish windows: machine-exact pulses whose timbre
     # shifts with where they read. DENSITY sits at noon on purpose: only the clock makes grains.
     a(G("STUTTER", {"SRC": "BRAIDS", "FX1": "CLOUDS", "FX2": "DELAY"},
-        {"SRC": {"MODEL": "ZBPF", "TIMBRE": 0.5, "COLOR": 0.6, "DRIFT": 0.05, "LEVEL": 1.0},
-         "FX1": CL(POSITION=0.1, SIZE=0.2, DENSITY=0.5, TEXTURE=0.3, BLEND=0.85, SPREAD=0.7, FEEDBACK=0.1,
-                   **{"GRN SYNC": "1/16", "IN GAIN": 0.6, "PITCH QNT": "5TH+OCT"}),
-         "FX2": DLY("1/8D", 0.3, 0.2)},
-        {**PADAMP, "ATTACK": 0.0, "DECAY": 0.3, "SUSTAIN": 0.7, "RELEASE": 0.2},
+        {"SRC": {"MODEL": "ZLPF", "TIMBRE": 0.5, "COLOR": 0.4, "DRIFT": 0.05, "LEVEL": 1.0},
+         "FX1": CL(POSITION=0.1, SIZE=0.45, DENSITY=0.5, TEXTURE=0.3, BLEND=0.7, SPREAD=0.7, FEEDBACK=0.1,
+                   **{"GRN SYNC": "1/16", "IN GAIN": 1.0, "PITCH QNT": "5TH+OCT"}),
+         "FX2": DLY("1/8D", 0.45, 0.35)},
+        {**PADAMP, "ATTACK": 0.0, "DECAY": 0.3, "SUSTAIN": 0.8, "RELEASE": 0.45},
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.4, 0.3)],
          [("FX 1.GRN SYNC", "1/2", "1/16"), ("FX 1.POSITION", 0.05, 0.5)],
          [("FX 2.MIX", 0.05, 0.4), ("FX 2.FEEDBACK", 0.15, 0.5)],
-         [("FX 1.SIZE RND", 0.0, 0.7), ("FX 1.SPRAY", 0.0, 0.5), ("FX 1.PITCH RND", 0.0, 0.3)]],
+         [("FX 1.SIZE RND", 0.0, 0.7), ("FX 1.SPRAY", 0.0, 0.5), ("FX 1.PITCH RND", 0.0, 0.3), ("FX 1.TEXTURE", 0.1, 0.9)]],
         [["LFO 1", "FX 1.POSITION", 0.2, "M2"]],
         {**SLOWLFO, "SHAPE 1": "S&H", "SYNC 1": "1/4"}, None))
 
@@ -223,11 +223,11 @@ def granular():
          "FX2": REV("PLATE", 0.5, 0.15)},
         {**PADAMP, "ATTACK": 0.0, "DECAY": 0.3, "SUSTAIN": 0.7, "RELEASE": 0.2},
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.4, 0.3)],
-         [("MOD A.K2", 0.2, 0.6)],
+         [("MOD A.GATE", "1/4", "1/16"), ("FX 1.SIZE", 0.15, 0.4)],
          [("FX 2.MIX", 0.05, 0.4), ("FX 1.BLEND", 0.5, 0.9)],
-         [("FX 1.SIZE", 0.1, 0.6), ("FX 1.PITCH", -0.25, 0.25), ("FX 1.POSITION", 0.1, 0.6)]],
+         [("FX 1.PITCH", -0.25, 0.25), ("FX 1.POSITION", 0.1, 0.5), ("FX 1.TEXTURE", 0.2, 0.9), ("FX 1.FEEDBACK", 0.1, 0.4)]],
         [["A PEAKS", "FX 1.FREEZE", 1.0]],
-        SLOWLFO, None))
+        SLOWLFO, None, md=(0.5, 0.0, 0.5, 0.5)))
 
     # 7 -------------------------------------------------------------------------------------------------------- geiger
     # Classic: small grains at low density (a Geiger counter) with square windows: discontinuous spikes, glitch. A
@@ -254,24 +254,24 @@ def granular():
          "FX2": REV("SHIMMER", 0.9, 0.3, SHIMMER=0.4)},
         PADAMP,
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.4, 0.2)],
-         [("LFO.RATE 1", 0.1, 0.55)],
+         [("LFO.RATE 1", 0.1, 0.7), ("LFO.RATE 2", 0.1, 0.6)],
          [("FX 1.BLEND", 0.35, 0.9), ("FX 1.FEEDBACK", 0.15, 0.55), ("FX 2.MIX", 0.1, 0.5)],
-         [("FX 1.DENSITY", 0.66, 0.84), ("FX 1.SIZE", 0.9, 0.55), ("FX 1.PITCH RND", 0.0, 0.1)]],
-        [["LFO 1", "FX 1.POSITION", 0.3, "M2"], ["LFO 2", "FX 1.PITCH", 0.03, "M2"], ["LFO 3", "SRC.TIMBRE", 0.2, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.05)]))
+         [("FX 1.DENSITY", 0.66, 0.8), ("FX 1.SIZE", 0.9, 0.65), ("FX 1.PITCH RND", 0.0, 0.1)]],
+        [["LFO 1", "FX 1.TONE", 0.5, "M2"], ["LFO 2", "FX 1.PITCH", 0.03, "M2"]],
+        SLOWLFO, None))
 
     # 9 ------------------------------------------------------------------------------------------------------ sparkle
     # Classic: pitch scatter: small grains of a bell, each shifted by a random interval kept to fifths and octaves, so
     # the notes become a glitter of harmonics.
     a(G("SPARKLE", {"SRC": "BRAIDS", "FX1": "CLOUDS", "FX2": "REVERB"},
-        {"SRC": {"MODEL": "BELL", "TIMBRE": 0.5, "COLOR": 0.5, "DRIFT": 0.05, "LEVEL": 1.0, "AD VCA": "ON", "AD DEC": 0.65},
-         "FX1": CL(POSITION=0.3, SIZE=0.3, PITCH=0.25, DENSITY=0.85, TEXTURE=0.7, BLEND=0.75, SPREAD=1.0, FEEDBACK=0.15,
-                   **{"PITCH RND": 0.3, "PITCH QNT": "5TH+OCT", "IN GAIN": 0.9}),
+        {"SRC": {"MODEL": "BELL", "TIMBRE": 0.5, "COLOR": 0.5, "DRIFT": 0.05, "LEVEL": 1.0, "AD VCA": "ON", "AD DEC": 0.9},
+         "FX1": CL(POSITION=0.3, SIZE=0.4, PITCH=0.25, DENSITY=0.85, TEXTURE=0.7, BLEND=0.75, SPREAD=1.0, FEEDBACK=0.15,
+                   **{"PITCH RND": 0.3, "PITCH QNT": "5TH+OCT", "IN GAIN": 1.0}),
          "FX2": REV("PLATE", 0.7, 0.25)},
-        {**PADAMP, "ATTACK": 0.0, "DECAY": 0.5, "SUSTAIN": 0.3, "RELEASE": 0.5},
+        {**PADAMP, "ATTACK": 0.0, "DECAY": 0.5, "SUSTAIN": 0.5, "RELEASE": 0.7},
         [[("SRC.TIMBRE", 0.15, 0.85), ("FX 1.TONE", -0.3, 0.5)],
          [("LFO.RATE 1", 0.2, 0.7), ("FX 1.SPRAY", 0.05, 0.5)],
-         [("FX 1.BLEND", 0.45, 0.9), ("FX 2.MIX", 0.1, 0.5)],
+         [("FX 1.BLEND", 0.3, 0.8), ("FX 2.MIX", 0.1, 0.5)],
          [("FX 1.PITCH RND", 0.05, 0.5), ("FX 1.SIZE", 0.5, 0.15), ("FX 1.DENSITY", 0.72, 0.95)]],
         [["LFO 1", "FX 1.POSITION", 0.25, "M2"]],
         SLOWLFO, None))
@@ -318,11 +318,11 @@ def granular():
          "FX2": REV("HALL", 0.9, 0.25)},
         {**PADAMP, "ATTACK": 0.35},
         [[("SRC.TIMBRE", 0.1, 0.9), ("FX 1.TONE", -0.7, 0.1)],
-         [("LFO.RATE 1", 0.1, 0.5), ("FX 1.SPRAY", 0.05, 0.7)],
+         [("LFO.RATE 1", 0.1, 0.6), ("LFO.RATE 2", 0.1, 0.8)],
          [("FX 2.MIX", 0.1, 0.5), ("FX 1.SPREAD", 0.5, 1.0)],
          [("FX 1.PITCH RND", 0.0, 0.6), ("FX 1.DENSITY", 0.7, 0.92), ("FX 1.SIZE", 0.9, 0.5)]],
-        [["LFO 1", "FX 1.POSITION", 0.3, "M2"], ["LFO 2", "FX 1.PITCH", 0.12, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.05)]))
+        [["LFO 1", "FX 1.TONE", 0.5, "M2"], ["LFO 2", "FX 1.PITCH", 0.25, "M2"], ["LFO 1", "FX 1.SPRAY", 0.3, "M2"]],
+        SLOWLFO, None))
 
     # 13 ---------------------------------------------------------------------------------------------------- rain
     # Classic: dense noise washes: tiny grains of noise at high density with scatter in position and pitch. K4 runs
@@ -338,7 +338,7 @@ def granular():
          [("FX 2.MIX", 0.05, 0.55), ("FX 1.SPREAD", 0.2, 1.0)],
          [("FX 1.DENSITY", 0.66, 0.92), ("FX 1.SIZE", 0.08, 0.25), ("FX 1.PITCH RND", 0.05, 0.3)]],
         [["LFO 1", "FX 1.TONE", 0.3, "M2"], ["LFO 2", "SRC.TIMBRE", 0.2, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.1)]))
+        SLOWLFO, None))
 
     # 14 ---------------------------------------------------------------------------------------------- spectral fog
     # Classic: spectral blur. Clouds' spectral mode (mono) smears a chord's partials: below the middle DENSITY stops
@@ -352,9 +352,9 @@ def granular():
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.4, 0.3)],
          [("LFO.RATE 1", 0.1, 0.5), ("FX 1.POSITION", 0.2, 0.7)],
          [("FX 1.BLEND", 0.5, 0.9), ("FX 2.MIX", 0.1, 0.5)],
-         [("FX 1.DENSITY", 0.45, 0.1), ("FX 1.SIZE", 0.3, 0.8), ("FX 1.TEXTURE", 0.5, 0.9)]],
+         [("FX 1.DENSITY", 0.55, 0.25), ("FX 1.SIZE", 0.5, 0.9), ("FX 1.TEXTURE", 0.5, 0.9)]],
         [["LFO 1", "FX 1.SIZE", 0.2, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.05)]))
+        SLOWLFO, None))
 
     # 15 ---------------------------------------------------------------------------------------------- tape decay
     # My own: lo-fi tape. The looping delay at 8-bit (Clouds' companded mode, which its manual likens to a cassette)
@@ -366,10 +366,10 @@ def granular():
          "FX2": DLY("1/8", 0.35, 0.25, "TAPE", WOW=0.4, TONE=0.4)},
         {**PADAMP, "ATTACK": 0.05, "RELEASE": 0.5},
         [[("SRC.TIMBRE", 0.15, 0.85), ("FX 1.TONE", -0.7, 0.0)],
-         [("FX 2.WOW", 0.1, 0.9), ("LFO.RATE 1", 0.1, 0.45)],
+         [("FX 2.WOW", 0.1, 0.9), ("LFO.RATE 2", 0.1, 0.8)],
          [("FX 1.BLEND", 0.3, 0.9), ("FX 2.MIX", 0.05, 0.5)],
          [("FX 1.FEEDBACK", 0.1, 0.6), ("SRC.BITS", "16", "6"), ("FX 1.POSITION", 0.1, 0.5)]],
-        [["LFO 1", "FX 1.POSITION", 0.2, "M2"], ["LFO 2", "FX 1.SIZE", 0.1, "M2"]],
+        [["LFO 1", "FX 1.POSITION", 0.2, "M2"], ["LFO 2", "FX 1.SIZE", 0.1, "M2"], ["LFO 2", "FX 1.BLEND", 0.3, "M2"]],
         SLOWLFO, None))
 
     # 16 --------------------------------------------------------------------------------------------- grain choir
@@ -386,7 +386,7 @@ def granular():
          [("FX 1.BLEND", 0.4, 0.95), ("FX 2.MIX", 0.1, 0.5)],
          [("FX 1.DENSITY", 0.6, 0.92), ("FX 1.SPRAY", 0.0, 0.5), ("FX 1.SIZE", 0.9, 0.4)]],
         [["LFO 1", "FX 1.SIZE", 0.2, "M2"], ["LFO 2", "SRC.TIMBRE", 0.1, "M2"]],
-        SLOWLFO, [("FX 1.POSITION", 0.05)]))
+        SLOWLFO, None))
     return L
 
 

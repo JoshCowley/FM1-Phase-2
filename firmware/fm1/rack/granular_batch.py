@@ -187,7 +187,7 @@ def ab(name, md, k, ev, tmp, t0=2.0, t1=10.0):
 def corners(name, md, ev, tmp):
     """all 16 corners of the four macros (each at 0 or 1), 14 s of the phrase: the loudest peak, the quietest 2 s RMS after the
     first second, and whether the last 4 s peak runs away from the first 4 s (feedback)"""
-    worst, quiet, grow, wc = 0.0, 9.0, 0.0, None
+    worst, quiet, grow, wc, qat = 0.0, 9.0, 0.0, None, None
     for c in range(16):
         m = [float((c >> i) & 1) for i in range(4)]
         p = tmp / "corner.wav"
@@ -196,10 +196,12 @@ def corners(name, md, ev, tmp):
         pk = float(np.abs(x).max())
         if pk > worst:
             worst, wc = pk, m
-        quiet = min(quiet, min(rms(x, t, t + 2) for t in range(1, 13, 2)))
+        qq = min(rms(x, t, t + 2) for t in range(1, 13, 2))
+        if qq < quiet:
+            quiet, qat = qq, m
         a, b = float(np.abs(x[int(1 * SR):int(5 * SR)]).max()), float(np.abs(x[int(10 * SR):int(14 * SR)]).max())
         grow = max(grow, b / max(a, 1e-6))
-    return {"peak": worst, "at": wc, "quiet": quiet, "grow": grow}
+    return {"peak": worst, "at": wc, "quiet": quiet, "qat": qat, "grow": grow}
 
 
 def measure(name, md, kind, tmp, mp3=None):

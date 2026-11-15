@@ -226,6 +226,14 @@ range (at once against gliding), each against the same moment with nothing chang
 `build/host/audition OUTDIR` (built by build_host.sh) plays every preset through the firmware's sound path (rc_load,
 rc_render at 44.1 kHz) with a phrase for its category and writes a WAV each, with its peak and loudness.
 
+## Update 12: the 16 granular presets, measured and reworked (host-tested, NOT heard, NOT run on an FM-1)
+
+`presets_granular.py` holds FROZEN PAD to GRAIN CHOIR (Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE); they come first in the bank after INIT, so the bank has 93 presets (it was 77).
+`granular_report.py` renders each one for 16 s through the firmware's own path (`render_preset`, 44.1 kHz; K1 swept in 0-4 s, K2 4-8 s, K3 8-12 s, K4 12-16 s) and prints the measures
+(peak, RMS per 4 s, centroid and RMS at the ends of each sweep with the control taken out, a clean A/B of each macro, 8 s hands-off movement, loudness against the batch median, the 16 macro corners,
+an estimate of the load on each core from the owner's FM-1 figures). `python3 granular_report.py [NAME] --host-log LOG --mp3 DIR --json FILE` (LOG: rack_host's output, for the arena and voices).
+`level_fm1.py --bank` sets only these presets' levels. `make_presets.py` holds 208 different floats (256 at most). Known: FROZEN PAD stays silent if K4 is above 0.8 before any note has filled Clouds' buffer.
+
 ## Update 10: the second core takes the work around Clouds (host-tested, NOT yet run on an FM-1)
 
 The device bench (update 9's build, 4 held Braids voices) had the first core at 55.7 / 56.2 / 56.7 % with Clouds on the second core at GRANULR DENSITY 0.7 / 0.9 / 1.0,
