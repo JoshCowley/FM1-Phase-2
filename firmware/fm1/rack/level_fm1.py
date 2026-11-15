@@ -7,6 +7,8 @@ writes presets_fm1_levels.json, which presets_fm1.py applies. A few passes settl
 LEVEL squared, so a pass moves LEVEL by 10^(dB/40); the effects and the soft clip bend it a little).
 
   EURORACK=/path/to/eurorack python3 level_fm1.py [passes] [target dB]     (defaults: 3 passes, -19 dB)
+  EURORACK=... python3 level_fm1.py --bank [passes] [target dB]            (update 11: sets only the granular batch's levels
+                                                                           (presets_granular.py); the others keep theirs)
 """
 import json
 import os
@@ -35,8 +37,10 @@ def measure():
 
 
 def main():
-    passes = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-    target = float(sys.argv[2]) if len(sys.argv) > 2 else -19.0
+    av = [a for a in sys.argv[1:] if a != "--bank"]
+    bank = "--bank" in sys.argv
+    passes = int(av[0]) if len(av) > 0 else 3
+    target = float(av[1]) if len(av) > 1 else -19.0
     sys.path.insert(0, str(HERE))
     from presets_fm1 import fm1_presets
     page = json.loads((HERE.parent.parent.parent / "web" / "presets.json").read_text())
@@ -49,6 +53,11 @@ def main():
             lv[n] = round(max(0.05, min(1.0, now[n] * 10 ** (d / 40))), 3)
             if not (lv[n] == 1.0 and d > 0):          # at full level already: as loud as it goes
                 worst = max(worst, abs(d))
+        if bank:
+            from presets_granular import granular
+            mine = {q["name"] for q in granular()}
+            old = json.loads(LEVELS.read_text()) if LEVELS.exists() else {}
+            lv = {n: (v if n in mine or n not in old else old[n]) for n, v in lv.items()}
         LEVELS.write_text(json.dumps(lv, indent=0, sort_keys=True) + "\n")
         print(f"pass {k + 1}: largest step {worst:.1f} dB")
     res = measure()

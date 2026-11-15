@@ -34,6 +34,8 @@ def defs():
     from func_def import FUNC
     d = make_ui.load()
     d["MODULES"]["FUNC"] = FUNC
+    from clouds_def import lite_page      # update 11: the Lite firmware's CLOUDS (MODE: GRANULR LOOPDLY SPECTRL; DENSITY 0.7), so a preset's MODE index is the engine's
+    d["MODULES"]["CLOUDS"] = lite_page(d["MODULES"]["CLOUDS"])
     return d
 
 
@@ -190,7 +192,7 @@ def main():
     out = []
     for pr in fm1_presets(json.loads((WEB / "presets.json").read_text())):
         c = calls_for(pr, D, tail)
-        c["fm1"] = {k: pr[k] for k in ("fm1_voices", "osc") if k in pr}
+        c["fm1"] = {k: pr[k] for k in ("fm1_voices", "osc", "bank", "cat") if k in pr}
         out.append(c)
     OUT.write_text(json.dumps(out))
     print(f"{OUT.name}: {len(out)} presets")

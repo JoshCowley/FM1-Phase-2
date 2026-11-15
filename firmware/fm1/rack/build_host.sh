@@ -16,7 +16,7 @@ RACK_FLAGS="${RACK_FLAGS:-}"
 # update 8: the Clouds changes, each on by default; switch one off with RACK_FLAGS=-URACK_CLOUDS_32K (and so on; -URACK_CLOUDS_MAX_GRAINS);
 # update 9: RACK_FX_CORE2 (Clouds on the second core) too: RACK_FLAGS=-URACK_FX_CORE2 builds without it
 CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB -DRACK_FX_CORE2"
-[ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc $OUT/*.od; echo "$RACK_FLAGS" > $OUT/.flags; }
+[ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc $OUT/*.od $OUT/*.or; echo "$RACK_FLAGS" > $OUT/.flags; }
 python3 make_presets.py --full
 EURORACK="$EURORACK" python3 make_units.py
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)
@@ -41,4 +41,6 @@ ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-fu
 ${CXX%% *} -o $OUT/swclick $(ls $OUT/*.o | grep -v rack_host.o) $OUT/swclick.oc -lm -lpthread $LDFLAGS
 ${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c clouds_demo.c -o $OUT/clouds_demo.od
 ${CXX%% *} -o $OUT/clouds_demo $(ls $OUT/*.o | grep -v rack_host.o) $OUT/clouds_demo.od -lm -lpthread $LDFLAGS
-echo "built $OUT/rack_host $OUT/audition $OUT/clouds_demo"
+${CC:-cc} $CLF $RACK_FLAGS -O2 -ffp-contract=off -std=gnu99 -Wall -Wno-unused-function -c render_preset.c -o $OUT/render_preset.or
+${CXX%% *} -o $OUT/render_preset $(ls $OUT/*.o | grep -v rack_host.o) $OUT/render_preset.or -lm -lpthread $LDFLAGS
+echo "built $OUT/rack_host $OUT/audition $OUT/clouds_demo $OUT/render_preset"
