@@ -143,7 +143,7 @@ def granular():
         [[("SRC.TIMBRE", 0.3, 0.85), ("FX 1.TONE", -0.45, 0.1)],
          [("LFO.RATE 1", 0.1, 0.7), ("MOD A.FREQ", 0.1, 0.6)],
          [("FX 1.BLEND", 0.2, 0.95), ("FX 2.MIX", 0.05, 0.6)],
-         [("FX 1.DENSITY", 0.6, 0.9), ("FX 1.SPRAY", 0.05, 0.6), ("FX 1.SIZE", 0.9, 0.4), ("FX 1.FREEZE", 0, 0.6)]],
+         [("FX 1.DENSITY", 0.6, 0.9), ("FX 1.SPRAY", 0.05, 0.8), ("FX 1.SIZE", 0.9, 0.25), ("FX 1.FREEZE", 0, 0.75)]],
         [["LFO 1", "FX 1.TONE", 0.5, "M2"], ["A TIDES", "SRC.TIMBRE", 0.4, "M2"]],
         SLOWLFO, None))
 

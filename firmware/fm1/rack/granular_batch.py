@@ -48,7 +48,7 @@ def stabs(notes, grid, pat, bars=8, vel=0.8, dur=0.12):
 S16 = BEAT / 4
 PHRASE = {
     "pad": chords(),
-    "freeze": [(0.2, 7.6, n, 0.7) for n in CH_A] + [(8.4, 5.8, n, 0.7) for n in CH_B],      # released at 14.2: a frozen cloud stays
+    "freeze": [(0.2, 7.6, n, 0.7) for n in CH_A] + [(8.4, 7.0, n, 0.7) for n in CH_B],      # released at 15.4: the freeze (K4 past 0.67, about 14.7 s) holds the chord
     "stab": stabs([48, 55, 59], S16, [0, 3, 6, 8, 10, 12, 14]) + stabs([64], S16, [2, 7, 11, 15], vel=0.6),
     "pluck": [(t, 0.15, n, 0.8) for t, n in [(0.2 + i * BEAT / 2, [60, 64, 67, 71, 72, 71, 67, 64][i % 8]) for i in range(60)]],
     "bell": [(0.2 + i * BEAT * 1.5, 0.2, n, 0.8) for i, n in enumerate([72, 67, 64, 71, 74, 69, 65, 72, 76, 71] * 2)],
