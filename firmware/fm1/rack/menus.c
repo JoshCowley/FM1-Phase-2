@@ -1191,6 +1191,14 @@ static void draw_matrix(void)
         }
         if (src) rrect(5, 8, 5, 5, on ? src_colour(src) : mix565(src_colour(src), K_BG, 100), 2);   /* its kind's colour */
         cv_text(13, 4, &FONT_T, src_name(src), on ? src_colour(src) : c);
+        if (on) {                             /* update 15: the link as a fine line from the source to the destination, brighter the more amount (a static line: this page is drawn when it changes) */
+            int32_t x0 = 13 + text_w(&FONT_T, src_name(src)) + 4, aa = a < 0 ? -a : a;
+            uint16_t lc = mix565(src_colour(src), K_BG, (uint32_t)(70 + aa * 185 / 100));
+            if (x0 < 62) {
+                cv_line(x0, 11, 62, 11, lc);
+                cv_rect(62, 9, 3, 5, lc);
+            }
+        }
         dst_name(d, t);
         cv_text(68, 4, &FONT_T, t, c);
         t[0] = 0;
@@ -1204,6 +1212,14 @@ static void draw_matrix(void)
     help("ALGO: TABLE  K1 SRC K2 DEST K3 AMT K4 VIA");
 }
 
+static void rack_links(void)                  /* update 15: the chain as connected windows: a fine line with a dot between neighbours */
+{
+    uint16_t lc = mix565(K_FG, K_BG, 90);
+    cv_line(78, 18, 84, 18, lc);
+    cv_line(156, 18, 162, 18, lc);
+    cv_rect(80, 17, 3, 3, K_FG);
+    cv_rect(158, 17, 3, 3, K_FG);
+}
 static void rack_tile(int32_t x, const char *tag, int slot, uint16_t c, const char *fixed, int ic)
 {
     const ui_mod_t *m = slot >= 0 ? ui_mod(rc_patch.mod[slot]) : 0;
@@ -1236,6 +1252,7 @@ static void draw_rack(void)
     rack_tile(6, "SRC", RS_SRC, K_SRC, 0, 0);
     rack_tile(84, "SHP", RS_SHP, K_SHP, 0, 0);
     rack_tile(162, t, -1, K_AMP, "ADSR", IC_AMP);
+    rack_links();
     cv_blit(0, 48);
     cv_begin(240, 14, K_BG);
     cv_text(8, 0, &FONT_T, "SHARED", K_DIM);
@@ -1244,6 +1261,7 @@ static void draw_rack(void)
     rack_tile(6, "FX 1", RS_FX1, K_FX, 0, 0);
     rack_tile(84, "FX 2", RS_FX2, K_FX, 0, 0);
     rack_tile(162, "OUT", -1, K_OK, "MASTER", IC_OUT);
+    rack_links();
     cv_blit(0, 104);
     cv_begin(240, 14, K_BG);
     cv_text(8, 0, &FONT_T, "MODULATION", K_DIM);
@@ -1255,6 +1273,7 @@ static void draw_rack(void)
     rack_tile(6, "MOD A", RS_MODA, K_MOD, 0, 0);
     rack_tile(84, "MOD B", RS_MODB, K_MOD, 0, 0);
     rack_tile(162, "MATRIX", -1, K_MX, t, IC_MATRIX);
+    rack_links();
     cv_blit(0, 160);
     help("EDIT ENV LFO FX ARP: PAGES   HOME: BACK");
 }

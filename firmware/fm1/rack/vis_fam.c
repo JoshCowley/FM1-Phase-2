@@ -112,7 +112,7 @@ static void fm_terrain(const uint8_t *d, int np, int ns, const fm_geo_t *g, int 
         c = fm_ramp(ramp, (int)br);
         cs[0] = c;
         for (k = 0; k < 5; k++)                    /* the body: a gradient from the crest to dark */
-            fillw[k] = (uint32_t)fm_sw(hr_scale(c, 150u - k * 28u));
+            fillw[k] = (uint32_t)fm_sw(hr_scale(fm_ramp(ramp, (int)(br * 150u >> 8)), 230u - k * 40u));
         for (j = 0; j < n; j++) {
             int32_t xe = (xl + 2 * j) & ~1, ya = ys[j], y, yz = yb < be - 1 ? yb : be - 1;
             uint32_t *p;
@@ -214,7 +214,7 @@ static void fm_braids_step(const float *mon, uint32_t dt)
     for (s = 0; s < 14; s++) {
         int32_t ts = s * 255 / 13;
         for (i = 0; i < FM_NP; i++) {
-            int32_t u = i * 255 / 44, p = (u * cyc >> 8) + (pk.sp[0] >> 8) + s * 5, w1 = pk_wave(sh, p), w2 = pk_wave(sh, 2 * p + p2 + ts / 3), kb = ts * 3 / 4, w = (w1 * (256 - kb) + w2 * kb) >> 8;
+            int32_t u = i * 255 / 44, p = u * cyc + (pk.sp[0] >> 8) + s * 5, w1 = pk_wave(sh, p), w2 = pk_wave(sh, 2 * p + p2 + ts / 3), kb = ts * 3 / 4, w = (w1 * (256 - kb) + w2 * kb) >> 8;
             int32_t win = cp_sin(u >> 1), h = 100 + (((w >> 6) * 90 >> 8) * (int32_t)amp8 >> 8);
             h = h * win >> 14;
             FM_TR[s * FM_NP + i] = (uint8_t)(h < 0 ? 0 : h > 255 ? 255 : h);
@@ -302,7 +302,7 @@ static void fm_filter_draw(void)
     int32_t cx = fm.a, y, yp;
     fm_terrain(cp.colg, 9, 10, &G_FSP, FR_TEAL, 190u, 0, -1);
     fm_curve(cp.colh, FF_BASE, FF_H, FR_TEAL, fm_bright(), 0, 240, 62);
-    fm_dash(cx, 28, FF_BASE, FF_BASE, 0xFFF0D0u, 90u);
+    fm_dash(cx, 28, cx, FF_BASE, 0xFFF0D0u, 90u);
     yp = FF_BASE - (cp.colh[cx < 0 ? 0 : cx > 239 ? 239 : cx] * FF_H >> 8);
     y = (int32_t)fm.b;
     pk_blob(3, 1, cx, yp, fm_acc(FR_TEAL), 50u + (uint32_t)y * 2u / 3u);
@@ -311,14 +311,14 @@ static void fm_filter_draw(void)
 
 /* ---- the modulators (LFO, TIDES, PEAKS, FUNC): the real output as a curve with its history receding; the node at the newest sample, a bright trail along the nearest edge */
 static const fm_geo_t G_MOD = {50, 168, 70, 214, 18, 222, 44, 76};
-#define FM_MS 14
+#define FM_MS 12
 static void fm_mod_step(int sc, const float *mon, uint32_t dt)
 {
     int h = fm_hist_h(sc), s, i;
     float v = (float)vz.hist[h][(vz.hist_w + 113u) % 114u] * 0.01f;
     (void)dt;
     for (s = 0; s < FM_MS; s++) {
-        int k = FM_MS - 1 - s, st = 69 - 4 * k;
+        int k = FM_MS - 1 - s, st = 69 - 5 * k;
         for (i = 0; i < FM_NP; i++) {
             int32_t val = vz.hist[h][(vz.hist_w + (uint32_t)(st + i)) % 114u], hh = 128 + val * 124 / 100;
             FM_TR[s * FM_NP + i] = (uint8_t)(hh < 4 ? 4 : hh > 255 ? 255 : hh);
@@ -517,9 +517,9 @@ static void fm_chorus_draw(const float *mon)
     float depth = P(mon, 1), wid = P(mon, 2), mix = P(mon, 3);
     int j, i;
     int32_t lfo = cp_sin((int32_t)(pk.sp[0] >> 8)), amp = 14 + (int32_t)(cp.lv * 18.0f), spread = 5 + (int32_t)(depth * 38.0f), gap = 4 + (int32_t)(wid * 8.0f);
-    for (j = 0; j < 9; j++) {
-        int32_t d = j - 4, px = 0, py = 0, cy = 98 + d * gap, ph = (d * spread) + (lfo * (int32_t)(depth * 30.0f) >> 14) * d / 2 + (int32_t)(pk.sp[1] >> 8);
-        uint32_t tv = (uint32_t)(d == 0 ? 250 : (60 + 150 * mix) * (5 - pk_abs(d)) / 5.0f);
+    for (j = 0; j < 11; j++) {
+        int32_t d = j - 5, px = 0, py = 0, cy = 98 + d * gap, ph = (d * spread) + (lfo * (int32_t)(depth * 30.0f) >> 14) * d / 2 + (int32_t)(pk.sp[1] >> 8);
+        uint32_t tv = (uint32_t)(d == 0 ? 250 : (60 + 150 * mix) * (6 - pk_abs(d)) / 6.0f);
         uint16_t c = fm_sw(fm_ramp(FR_TEAL, (int)tv));
         for (i = 0; i <= 60; i++) {
             int32_t u = i * 255 / 60, x = 8 + (224 * u >> 8), y = cy + ((amp * cp_sin(u >> 1) >> 14) * cp_sin(u * 2 + ph) >> 14);
@@ -566,6 +566,25 @@ static void fm_clouds_step(const float *mon, uint32_t dt)
                     }
                     m = m * 6u / 5u;
                     sl[i] = (uint8_t)(m > 255u ? 255u : m);
+                }
+                {   /* the grains' texture (illustrative: peaks at random places, more of them away from DENSITY's middle, wider for a bigger SIZE) */
+                    float dn = P(mon, 3) - 0.5f;
+                    uint32_t g = 70u + (uint32_t)((dn < 0.0f ? -dn : dn) * 2.0f * 150.0f), r0 = cp_rnd() & 255u, r1 = r0, r2;
+                    int wsm = 1 + (int)(P(mon, 1) * 2.0f);
+                    uint8_t nz[FC_NP];
+                    for (i = 0; i < FC_NP; i++) {
+                        r2 = cp_rnd() & 255u;
+                        nz[i] = (uint8_t)(r2 * r2 >> 8);
+                    }
+                    for (i = 0; i < FC_NP; i++) {
+                        uint32_t a = 0, n = 0;
+                        for (j = -wsm; j <= wsm; j++)
+                            if (i + j >= 0 && i + j < FC_NP) { a += nz[i + j]; n++; }
+                        a = a / n * 3u / 2u;
+                        a = a > 255u ? 255u : a;
+                        sl[i] = (uint8_t)((uint32_t)sl[i] * (256u - g + g * a / 256u) >> 8);
+                    }
+                    (void)r1;
                 }
             }
             fm_push(cp.colh, FC_NP, FC_NS, sl);
