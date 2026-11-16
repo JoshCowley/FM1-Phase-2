@@ -125,7 +125,7 @@ static void fm_terrain(const uint8_t *d, int np, int ns, const fm_geo_t *g, int 
             for (y = ya; y <= yz; y++, p += cv_w / 2u) {
                 int32_t r = y - ys[j];
                 uint32_t cc = r < 1 ? 0u : r < 13 ? fillw[r - 1] : dark;
-                *p = r < 1 ? (uint32_t)fm_sw(c) * 0x10001u : cc | cc << 16;
+                *p = r < 1 ? ((uint32_t)fm_sw(c) | (uint32_t)fm_sw(c) << 16) : (cc | cc << 16);
             }
         }
         {   /* the crest: a fine line (the accent slice in the accent, with a faint line above it) */
