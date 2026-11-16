@@ -91,7 +91,7 @@ def batch2():
     # 17 -------------------------------------------------------------------------------------------------- TINE EP
     # Electric-piano tine: FM with a bark (Braids' own AD on TIMBRE) that dies away, a looping Tides as the tremolo, panned.
     a(B("TINE EP", "KEYS", {"SRC": "BRAIDS", "SHP": "FILTER", "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
-        {"SRC": {"MODEL": "FM", "TIMBRE": 0.35, "COLOR": 0.3, "DRIFT": 0.1, "LEVEL": 1.0, "AD ATK": 0.0, "AD DEC": 0.45, "AD>TIMB": 0.3},
+        {"SRC": {"MODEL": "WTBL", "TIMBRE": 0.35, "COLOR": 0.3, "DRIFT": 0.1, "LEVEL": 1.0, "AD ATK": 0.0, "AD DEC": 0.45, "AD>TIMB": 0.3},
          "SHP": {"TYPE": "LP", "CUTOFF": 0.65, "RESO": 0.1, "DRIVE": 0.1, "ENV AMT": 0.0, "KEY TRK": 0.6, "VEL AMT": 0.25},
          "MODA": TI(0.45, "MID", 0.5), "FX1": CHO(0.3, "CHORUS", 0.25, 0.4, 0.8), "FX2": REV("PLATE", 0.5, 0.2)},
         AM(ATTACK=0.0, DECAY=0.6, SUSTAIN=0.15, RELEASE=0.4, **{"VEL AMT": 0.8, "SPREAD": 0.5}),
@@ -100,9 +100,9 @@ def batch2():
          [("MOD A.FREQ", 0.3, 0.6)],
          [("FX 2.MIX", 0.1, 0.4), ("FX 1.MIX", 0.1, 0.5)],
          [("SHP.DRIVE", 0.05, 0.6), ("SHP.AUDIO FM", 0.0, 0.3)]],
-        [["A TIDES", "PAN", 0.4, "M2"]],
-        LF(("SINE", 0.15), ("DRIFT", 0.2), ("SINE", 0.6)),
-        [("MOD A.FREQ", 0.1), ("SRC.COLOR", 0.05), ("SHP.CUTOFF", 0.05), None, ("AMP.LEVEL", 0.05)], voices=6))
+        [["A TIDES", "AMP.LEVEL", 0.1, "M2"]],
+        LF(("SINE", 0.15), ("DRIFT", 0.25), ("SINE", 0.6)),
+        [("MOD A.FREQ", 0.15), ("SRC.COLOR", 0.1), ("SHP.CUTOFF", 0.15), ("PAN", 0.3)], voices=6))
 
     # 18 ---------------------------------------------------------------------------------------------- TONEWHEEL
     # Organ: additive Braids, key click from the AD, a rotating speaker made of a Peaks LFO (pan and brightness) and a
@@ -117,9 +117,9 @@ def batch2():
          [("MOD A.K2", 0.0, 0.6)],
          [("FX 2.MIX", 0.1, 0.45), ("FX 2.SIZE", 0.3, 0.8)],
          [("SHP.DRIVE", 0.05, 0.6), ("SHP.RESO", 0.05, 0.3)]],
-        [["A PEAKS", "PAN", 0.5, "M2"], ["A PEAKS", "SHP.CUTOFF", 0.1, "M2"]],
-        LF(("DRIFT", 0.15), ("DRIFT", 0.2)),
-        [("SRC.TIMBRE", 0.05), None, ("MOD A.K1", 0.05)], voices=6))
+        [["A PEAKS", "AMP.LEVEL", 0.15, "M2"], ["A PEAKS", "SHP.CUTOFF", 0.4, "M2"]],
+        LF(("DRIFT", 0.25), ("DRIFT", 0.3)),
+        [("SRC.TIMBRE", 0.1), ("PAN", 0.3), ("MOD A.K1", 0.08)], voices=6))
 
     # 19 -------------------------------------------------------------------------------------------------- TAPE KEYS
     # Chamberlin-style keys: a FUNC pluck on each note opens the timbre, a slow looping channel is the wow on the tape echo.
@@ -134,9 +134,9 @@ def batch2():
          [("MOD A.FALL 4", 0.65, 0.9)],
          [("FX 2.MIX", 0.1, 0.4), ("FX 1.MIX", 0.1, 0.4)],
          [("SHP.DRIVE", 0.1, 0.6), ("SRC.DRIFT", 0.1, 0.4)]],
-        [["A OUT 1", "SRC.TIMBRE", 0.3], ["A OUT 2", "FX 1.WOW", 0.5, "M2"], ["A OUT 2", "SHP.CUTOFF", 0.1, "M2"]],
-        LF(("SINE", 0.15), ("DRIFT", 0.2)),
-        [("SRC.COLOR", 0.05), None, ("SHP.CUTOFF", 0.04)], voices=6))
+        [["A OUT 1", "SRC.TIMBRE", 0.35], ["A OUT 2", "FX 1.WOW", 0.6, "M2"], ["A OUT 2", "SHP.CUTOFF", 0.4, "M2"]],
+        LF(("SINE", 0.25), ("DRIFT", 0.3)),
+        [("SRC.COLOR", 0.1), None, ("SHP.CUTOFF", 0.1)], voices=6))
 
     # 20 ------------------------------------------------------------------------------------------------ MODAL BARS
     # Mallets: Braids' pluck excites Rings' modal resonator; a Peaks envelope on each strike lifts the brightness.
@@ -197,11 +197,11 @@ def batch2():
         AM(ATTACK=0.0, DECAY=0.4, SUSTAIN=0.9, RELEASE=0.2, MODE="LEGATO", GLIDE=0.1, **{"VEL AMT": 0.5, "SPREAD": 0.3}),
         [[("SRC.TIMBRE", 0.2, 0.7), ("SHP.CUTOFF", 0.25, 0.55), ("SHP.RESO", 0.2, 0.55), ("MOD A.FREQ", 0.2, 0.6), ("MOD A.SHAPE", 0.2, 0.8)],
          [("LFO.RATE 1", 0.3, 0.6)],
-         [("FX 2.MIX", 0.05, 0.3), ("FX 1.MIX", 0.1, 0.4)],
-         [("SHP.DRIVE", 0.15, 0.7), ("SRC.COLOR", 0.2, 0.8)]],
-        [["A TIDES", "SHP.CUTOFF", 0.35, "M2"], ["A TIDE+", "SRC.TIMBRE", 0.15, "M2"]],
-        LF(("SINE", 0.3), ("DRIFT", 0.2)),
-        [("MOD A.FREQ", 0.1)], voices=1, osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
+         [("FX 2.MIX", 0.0, 0.6), ("FX 1.MIX", 0.1, 0.7)],
+         [("SHP.DRIVE", 0.1, 0.9), ("SHP.AUDIO FM", 0.0, 0.4)]],
+        [["A TIDES", "SHP.CUTOFF", 0.45, "M2"], ["A TIDE+", "SRC.TIMBRE", 0.25, "M2"]],
+        LF(("SINE", 0.3), ("DRIFT", 0.3)),
+        [("MOD A.FREQ", 0.15), None, ("SHP.CUTOFF", 0.1)], voices=1, osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
 
     # 24 --------------------------------------------------------------------------------------------------- FOLD BASS
     # A mono bass with a wavefolder: a FUNC pluck on every note folds the timbre, a second FUNC channel on the eighths
@@ -215,11 +215,11 @@ def batch2():
         AM(ATTACK=0.0, DECAY=0.4, SUSTAIN=0.9, RELEASE=0.2, MODE="LEGATO", GLIDE=0.1, **{"VEL AMT": 0.5, "SPREAD": 0.3}),
         [[("SRC.TIMBRE", 0.25, 0.65), ("SHP.CUTOFF", 0.25, 0.5), ("MOD A.FALL 1", 0.4, 0.7), ("SRC.COLOR", 0.2, 0.7), ("AMP.RELEASE", 0.1, 0.3)],
          [("MOD A.FALL 4", 0.3, 0.6)],
-         [("FX 2.MIX", 0.05, 0.35), ("FX 2.SIZE", 0.3, 0.7)],
-         [("SHP.DRIVE", 0.15, 0.7), ("SHP.RESO", 0.1, 0.5)]],
-        [["A OUT 1", "SRC.TIMBRE", 0.3], ["A OUT 2", "SHP.CUTOFF", 0.25, "M2"]],
-        LF(("SINE", 0.2), ("DRIFT", 0.2)),
-        [("SRC.COLOR", 0.05), None, ("SHP.CUTOFF", 0.04)], voices=1, osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
+         [("FX 2.MIX", 0.0, 0.6), ("FX 2.SIZE", 0.3, 0.9)],
+         [("SHP.DRIVE", 0.1, 0.9), ("SHP.RESO", 0.1, 0.7)]],
+        [["A OUT 1", "SRC.TIMBRE", 0.35], ["A OUT 2", "SHP.CUTOFF", 0.45, "M2"]],
+        LF(("SINE", 0.3), ("DRIFT", 0.3)),
+        [("SRC.COLOR", 0.1), None, ("SHP.CUTOFF", 0.1)], voices=1, osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
 
     # 25 --------------------------------------------------------------------------------------------------- SYNC LEAD
     # A mono hard-sync lead: FUNC channel 1 sweeps the sync on every note; channel 4 fades the vibrato in, and K2 sets how
@@ -233,11 +233,11 @@ def batch2():
         AM(ATTACK=0.0, DECAY=0.4, SUSTAIN=0.9, RELEASE=0.25, MODE="LEGATO", GLIDE=0.1, **{"VEL AMT": 0.5, "SPREAD": 0.4}),
         [[("SRC.TIMBRE", 0.15, 0.6), ("SRC.COLOR", 0.2, 0.7), ("SHP.CUTOFF", 0.4, 0.8), ("MOD A.FALL 1", 0.4, 0.7)],
          [("MOD A.LVL 4", 0.0, 1.0), ("LFO.RATE 1", 0.55, 0.8)],
-         [("FX 1.MIX", 0.05, 0.3), ("FX 2.MIX", 0.1, 0.4)],
-         [("SHP.DRIVE", 0.1, 0.6), ("SHP.RESO", 0.1, 0.5)]],
-        [["A OUT 1", "SRC.TIMBRE", 0.25], ["LFO 1", "PITCH", 0.014, "A OUT 2"]],
-        LF(("SINE", 0.7), ("DRIFT", 0.2)),
-        [None, None, ("SHP.CUTOFF", 0.04)], voices=1))
+         [("FX 1.MIX", 0.0, 0.5), ("FX 2.MIX", 0.0, 0.6)],
+         [("SHP.DRIVE", 0.1, 0.9), ("SHP.RESO", 0.1, 0.7)]],
+        [["A OUT 1", "SRC.TIMBRE", 0.3], ["LFO 1", "PITCH", 0.014, "A OUT 2"]],
+        LF(("SINE", 0.7), ("DRIFT", 0.3)),
+        [None, None, ("SHP.CUTOFF", 0.12), ("SRC.COLOR", 0.1)], voices=1))
 
     # 26 ----------------------------------------------------------------------------------------------- FORMANT LEAD
     # A mono vocal lead: Braids' vowel model, a slow Tides wandering the vowel, K1 sliding through the vowels.
@@ -248,11 +248,11 @@ def batch2():
         AM(ATTACK=0.03, DECAY=0.4, SUSTAIN=0.9, RELEASE=0.3, MODE="LEGATO", GLIDE=0.1, **{"VEL AMT": 0.5, "SPREAD": 0.4}),
         [[("SRC.COLOR", 0.1, 0.9), ("SRC.TIMBRE", 0.2, 0.7), ("SHP.CUTOFF", 0.4, 0.85), ("MOD A.FREQ", 0.2, 0.5), ("FX 1.MIX", 0.05, 0.3)],
          [("LFO.RATE 1", 0.5, 0.8)],
-         [("FX 2.MIX", 0.1, 0.45), ("FX 1.FEEDBACK", 0.15, 0.55)],
-         [("SHP.DRIVE", 0.1, 0.5), ("SHP.RESO", 0.1, 0.4)]],
-        [["A TIDES", "SRC.COLOR", 0.25, "M2"], ["LFO 1", "PITCH", 0.012, "M2"]],
-        LF(("SINE", 0.7), ("DRIFT", 0.2)),
-        [None, None, ("SRC.TIMBRE", 0.05)], voices=1))
+         [("FX 2.MIX", 0.0, 0.6), ("FX 1.FEEDBACK", 0.15, 0.6)],
+         [("SHP.DRIVE", 0.1, 0.9), ("SHP.RESO", 0.1, 0.7)]],
+        [["A TIDES", "SRC.COLOR", 0.4, "M2"], ["LFO 1", "PITCH", 0.012, "M2"]],
+        LF(("SINE", 0.7), ("DRIFT", 0.3)),
+        [None, None, ("SRC.TIMBRE", 0.1), ("SHP.CUTOFF", 0.1)], voices=1))
 
     # 27 ------------------------------------------------------------------------------------------- SLOW STRINGS
     # Strings that bloom on every chord: a Peaks envelope opens the filter; a slow Tides moves the timbre, and the Peaks
@@ -261,21 +261,21 @@ def batch2():
         {"SRC": {"MODEL": "CSAW", "TIMBRE": 0.4, "COLOR": 0.4, "DRIFT": 0.15, "LEVEL": 1.0},
          "SHP": {"TYPE": "LP", "CUTOFF": 0.4, "RESO": 0.15, "DRIVE": 0.1, "ENV AMT": 0.0, "KEY TRK": 0.5, "VEL AMT": 0.1},
          "MODA": {"FUNC": "ENV", "K1": 0.6, "K2": 0.6, "GATE": "NOTE", "SUSTAIN": 1.0, "INVERT": "OFF"},
-         "MODB": TI(0.25, "LO", 0.5), "FX1": CHO(0.5, "CHORUS", 0.25, 0.5, 0.9), "FX2": REV("HALL", 0.8, 0.3)},
+         "MODB": TI(0.25, "MID", 0.5), "FX1": CHO(0.5, "CHORUS", 0.25, 0.5, 0.9), "FX2": REV("HALL", 0.8, 0.3)},
         AM(ATTACK=0.4, DECAY=0.5, SUSTAIN=0.9, RELEASE=0.6, **{"VEL AMT": 0.3, "SPREAD": 0.7}),
         [[("SRC.COLOR", 0.15, 0.7), ("SHP.CUTOFF", 0.3, 0.6), ("AMP.ATTACK", 0.1, 0.6), ("MOD A.K1", 0.3, 0.8)],
          [("MOD B.FREQ", 0.15, 0.5)],
          [("FX 2.MIX", 0.1, 0.5), ("FX 1.MIX", 0.2, 0.7)],
          [("SHP.RESO", 0.05, 0.4), ("SHP.DRIVE", 0.05, 0.5)]],
-        [["A PEAKS", "SHP.CUTOFF", 0.3, "M2"], ["B TIDES", "SRC.TIMBRE", 0.25, "M2"], ["A PEAKS", "MOD B.FREQ", 0.15]],
-        LF(("SINE", 0.15), ("DRIFT", 0.2)),
-        [("SRC.COLOR", 0.05), None, ("FX 1.RATE", 0.05)], voices=6))
+        [["A PEAKS", "SHP.CUTOFF", 0.4, "M2"], ["B TIDES", "SRC.TIMBRE", 0.4, "M2"], ["A PEAKS", "MOD B.FREQ", 0.15]],
+        LF(("SINE", 0.25), ("DRIFT", 0.3)),
+        [("SRC.COLOR", 0.1), None, ("SHP.CUTOFF", 0.1)], voices=6))
 
     # 28 ------------------------------------------------------------------------------------------------ VOWEL PAD
     # A choir-like pad: two slow looping FUNC channels at unrelated speeds wander colour and timbre; channel 1's output
     # also speeds channel 4 up and down.
     a(B("VOWEL PAD", "PAD", {"SRC": "BRAIDS", "SHP": "FILTER", "MODA": "FUNC", "FX1": "CHORUS", "FX2": "REVERB"},
-        {"SRC": {"MODEL": "VOSM", "TIMBRE": 0.4, "COLOR": 0.4, "DRIFT": 0.15, "LEVEL": 1.0},
+        {"SRC": {"MODEL": "VFOF", "TIMBRE": 0.4, "COLOR": 0.4, "DRIFT": 0.15, "LEVEL": 1.0},
          "SHP": {"TYPE": "LP", "CUTOFF": 0.6, "RESO": 0.1, "DRIVE": 0.1, "ENV AMT": 0.0, "KEY TRK": 0.5, "VEL AMT": 0.1},
          "MODA": FN(RISE_1=0.85, FALL_1=0.85, CYCLE_1="ON", RISE_4=0.8, FALL_4=0.85, CYCLE_4="ON", TRIG_1="OFF", TRIG_4="OFF",
                     LVL_1=0.0, LVL_4=0.0, OUT_1="CH 1", OUT_2="CH 4"),
@@ -285,9 +285,9 @@ def batch2():
          [("MOD A.RISE 4", 0.7, 0.9)],
          [("FX 2.MIX", 0.1, 0.5), ("FX 2.SIZE", 0.4, 0.9)],
          [("SHP.DRIVE", 0.05, 0.5), ("SHP.RESO", 0.05, 0.4)]],
-        [["A OUT 1", "SRC.COLOR", 0.35, "M2"], ["A OUT 2", "SRC.TIMBRE", 0.3, "M2"], ["A OUT 1", "MOD A.FALL 4", 0.1]],
-        LF(("SINE", 0.15), ("DRIFT", 0.2)),
-        [("FX 1.DEPTH", 0.1), None, ("SHP.CUTOFF", 0.05)], voices=6))
+        [["A OUT 1", "SRC.COLOR", 0.5, "M2"], ["A OUT 2", "SHP.CUTOFF", 0.4, "M2"], ["A OUT 1", "MOD A.FALL 4", 0.1]],
+        LF(("SINE", 0.25), ("DRIFT", 0.3)),
+        [("FX 1.DEPTH", 0.1), None, ("SRC.TIMBRE", 0.1)], voices=6))
 
     # 29 --------------------------------------------------------------------------------------------------- TIDE PAD
     # A breathing pad: a Tides AR slope rises while the keys are held and falls on release, opening the filter and the
@@ -307,8 +307,8 @@ def batch2():
          [("FX 2.MIX", 0.1, 0.5), ("FX 1.SPREAD", 0.4, 1.0)],
          [("FX 1.TEXTURE", 0.5, 0.95), ("SHP.DRIVE", 0.05, 0.5)]],
         [["A TIDE+", "SHP.CUTOFF", 0.35, "M2"], ["A TIDE+", "FX 1.BLEND", 0.3, "M2"], ["A TIDES", "SRC.COLOR", 0.2, "M2"]],
-        LF(("SINE", 0.15), ("DRIFT", 0.2)),
-        [("SRC.TIMBRE", 0.05), None, ("MOD A.FREQ", 0.1)], voices=4))
+        LF(("SINE", 0.3), ("DRIFT", 0.35), ("SINE", 0.4)),
+        [("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 1.BLEND", 0.1), None, ("SRC.TIMBRE", 0.1)], voices=4))
 
     # 30 --------------------------------------------------------------------------------------------------- GRID CHOP
     # Held chords chopped by a Grids pattern: each hit opens the filter and the timbre. A Peaks LFO on the second modulator
@@ -343,7 +343,7 @@ def batch2():
          [("MOD B.FILL", 0.2, 0.9)],
          [("FX 1.MIX", 0.1, 0.45), ("FX 2.MIX", 0.1, 0.4)],
          [("SHP.DRIVE", 0.15, 0.7), ("SHP.RESO", 0.2, 0.55)]],
-        [["A OUT 1", "SHP.CUTOFF", 0.45], ["A OUT 2", "SRC.TIMBRE", 0.3, "M2"], ["B ACCENT", "MOD A.FALL 1", 0.2]],
+        [["A OUT 1", "SHP.CUTOFF", 0.45, "M2"], ["A OUT 2", "SRC.TIMBRE", 0.4, "M2"], ["B ACCENT", "MOD A.FALL 1", 0.2]],
         LF(("SINE", 0.15), ("DRIFT", 0.2)),
         [("SRC.COLOR", 0.05), None, ("SHP.CUTOFF", 0.03)], voices=5))
 
