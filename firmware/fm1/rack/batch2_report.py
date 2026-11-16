@@ -45,30 +45,29 @@ def phrase(q):
     cat = q["cat"]
     S = BEAT / 2
     if cat == "BASS":
-        lo = [36, 43, 40, 45, 38, 43, 48, 40, 36, 43, 47, 48, 50, 52, 55, 52]
-        ev = seq(lo, 0.2, S * 1.0, S * 0.9) + [(9.0, 6.5, 36, 0.8)]
+        lo = [28, 35, 40, 43, 47, 52, 55, 52, 47, 43, 40, 35]
+        ev = seq(lo, 0.2, S * 1.0, S * 0.95) + [(3.8, 3.1, 36, 0.8), (7.0, 3.0, 41, 0.8), (10.2, 3.0, 43, 0.8), (13.2, 2.6, 36, 0.8)]
         root = 36
     elif cat == "LEAD":
-        sc = [60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84, 81, 79, 76, 72, 67]
-        ev = seq(sc, 0.2, S * 1.0, S * 0.95) + [(9.0, 6.5, 69, 0.8)]
+        sc = [55, 57, 59, 60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84, 86, 88, 91, 88, 84, 79, 76, 72, 67, 64]
+        ev = seq(sc, 0.2, S * 1.0, S * 0.95) + [(6.8, 3.0, 69, 0.8), (9.9, 3.0, 72, 0.8), (13.0, 2.8, 67, 0.8)]
         root = 69
-    elif name in ("MODAL BARS", "SYMPATH HARP", "GLASS BELLS", "TINE EP", "TAPE KEYS", "TONEWHEEL"):
+    elif name in ("SOFT MALLET", "SYMPATH HARP", "GLASS BELLS", "TINE EP", "TAPE KEYS", "TONEWHEEL"):
         arp = [48, 52, 55, 59, 60, 64, 67, 71, 72, 76, 79, 83, 84, 83, 79, 76, 72, 67, 64, 60]
-        ev = seq(arp, 0.2, S, S * 0.9) + [(8.2, 7.0, n, 0.7) for n in (48, 55, 59, 64)]
+        ev = seq(arp, 0.2, S, S * 0.9) + [(5.8 + 1.5 * k, 1.4, n, 0.7) for k in range(7) for n in ((48, 55, 59, 64) if k % 2 == 0 else (45, 52, 57, 60))]
         root = 48
     elif name in ("GRID CHOP", "FUNC PULSE"):
         ev = [(0.2, 7.4, n, 0.75) for n in (48, 55, 59, 64)] + [(8.2, 7.2, n, 0.75) for n in (45, 52, 57, 60)]
         root = 48
-    elif name == "DIAL BAND":
+    elif name == "DIAL CHOIR":
         sc = [48, 52, 55, 60, 64, 67, 72, 76, 79, 84, 79, 76, 72, 67, 64, 60]
-        ev = seq(sc, 0.2, S * 1.5, S * 1.4) + [(8.2, 7.0, n, 0.7) for n in (48, 55, 59, 64)]
+        ev = seq(sc, 0.2, S * 1.0, S * 0.95) + [(4.8, 5.4, n, 0.7) for n in (48, 55, 59, 64)] + [(10.4, 5.2, n, 0.7) for n in (45, 52, 57, 60)]
         root = 48
-    else:                                      # strings and pads: arpeggio up three octaves, then chords
-        arp = [36, 43, 48, 52, 55, 60, 64, 67, 72, 76, 79, 84]
-        ev = seq(arp, 0.2, S, S * 3.0, 0.7) + [(7.0, 4.0, n, 0.7) for n in (48, 55, 59, 64)] + [(11.4, 4.2, n, 0.7) for n in (45, 52, 57, 60)]
+    else:                                      # strings and pads: the chord builds one note at a time, then a second chord
+        ev = [(0.2 + 0.4 * i, 7.6 - 0.4 * i, n, 0.7) for i, n in enumerate((36, 43, 48, 52, 55, 59, 64))] + [(8.2, 7.4, n, 0.7) for n in (33, 45, 52, 57, 60)]
         root = 48
     chord = [root] if mono else [root, root + 7, root + 11, root + 16]
-    strike = q["amp"]["SUSTAIN"] < 0.35 or name in ("GLASS BELLS",)     # these die away: the test strikes the chord afresh every 2 s
+    strike = q["amp"]["SUSTAIN"] < 0.35 or name in ("GLASS BELLS", "TINE EP")     # these die away: the test strikes the chord afresh every 2 s
     if strike:
         held = [(0.1 + 2.0 * k, 1.9, n, 0.75) for k in range(6) for n in chord]
     else:
