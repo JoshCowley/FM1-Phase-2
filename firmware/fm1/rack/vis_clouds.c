@@ -48,6 +48,9 @@
 #define SC_REVERB 9
 #define SC_CHORUS 10
 #define SC_HOME 11
+#define SC_LFO 12                             /* update 15: the LFO and AMP pages */
+#define SC_AMP 13
+#define FM_MIN_MS 80u                         /* update 15: the family's pictures at most 12.5 a second (no page sends more rows a second than Clouds did) */
 #define CP_MIN_MS 50u                         /* at most 20 pictures a second (update 8; was 30 ms, ~33) */
 #define CP_GAP 3                              /* changed rows this close (or closer) go in one transfer */
 typedef struct {
@@ -67,6 +70,7 @@ static struct {
             uint8_t env[240];                 /* the ribbon: the recent output level, a column written as the head passes */
             uint8_t colh[240], colg[240];     /* this frame's half-height and brightness of each column */
         };
+        uint8_t tr[720];                      /* update 15: the family's history (vis_fam.c): up to 16 slices of 45 points, on the same bytes */
         uint8_t hist[HR_NB * HR_NC];          /* HOME: the band energies of the last 7 seconds, 0-255, a ring of columns per band */
     };
     union {
@@ -306,225 +310,6 @@ static void cp_step(const float *mon, uint32_t dt)
     cp_motes_advance(dt, lv8);
 }
 
-/* ------------------------------------------------------------------------------------------------ the layers */
-static void cp_ribbon(int pf)
-{
-    int32_t x, cy = cp.cy, r0, r1, dy, h, lo = cp.by, hi = cp.by + cp.bh;
-    uint32_t col = cp.freeze ? 0xA8DCFFu : cp_hue(pf - 3), r, g, b;
-    r = ((col >> 16) * 2u + 255u) / 3u;       /* the ribbon: its hue, washed toward white */
-    g = (((col >> 8) & 255u) * 2u + 255u) / 3u;
-    b = ((col & 255u) * 2u + 255u) / 3u;
-    if (cp.freeze) { r = 175; g = 225; b = 255; }
-    for (x = 0; x < 240; x++) {
-        uint32_t gn = cp.colg[x], ih = 10240u / (uint32_t)cp.colh[x];
-        h = cp.colh[x];
-        cy = cp.cy + ((cp_sin(x * 3 + (int32_t)(cp.t_ms >> 5)) + cp_sin(x * 7 - (int32_t)(cp.t_ms >> 4))) * cp.wob >> 15);   /* update 13: the ribbon flows */
-        r0 = cy - h - 2;
-        r1 = cy + h + 3;
-        if (r0 < lo) r0 = lo;
-        if (r1 > hi) r1 = hi;
-        for (dy = r0; dy < r1; dy++) {
-            uint32_t t = (uint32_t)((dy > cy ? dy - cy : cy - dy)) * ih >> 8, a;
-            if (t > 63u)
-                continue;
-            a = PROF[t] * gn >> 8;
-            cp_add(x, dy, r, g, b, a);
-        }
-        if (cp.norefl)
-            continue;
-        r0 = cy + h + 3;                      /* the reflection: a faint streak under the ribbon */
-        r1 = r0 + 30;
-        if (r0 < lo) r0 = lo;
-        if (r1 > hi) r1 = hi;
-        for (dy = r0; dy < r1; dy++) {
-            uint32_t a = FADE[dy - (cy + h + 3)] * gn * (uint32_t)h >> 14;
-            if (a > 0u)
-                cp_add(x, dy, r, g, b, a > 90u ? 90u : a);
-        }
-    }
-}
-/* the motes: glowing sprites, the size and softness each was born with (update 13: a function, for HOME as well) */
-static void cp_motes_draw(void)
-{
-    int i;
-    for (i = 0; i < CP_NM; i++) {
-        cp_mote_t *o = &cp.m[i];
-        static const uint8_t SW[3] = {9, 13, 19};
-        uint32_t f, gg;
-        int32_t w;
-        if (!o->life)
-            continue;
-        f = o->age * 5u < o->life ? o->age * 5u * 255u / o->life : (o->life - o->age) * 255u / (o->life - o->life / 5u);
-        f = f > 255u ? 255u : f;
-        gg = f * o->gain >> 8;
-        gg = gg * (uint32_t)cp.gain >> 8;
-        gg = gg * (300u - (uint32_t)o->sz * 70u) >> 8;   /* (the large ones less, so a crowd of them does not burn out) */
-        gg = gg * (uint32_t)cp.gm >> 8;
-        gg = gg > 255u ? 255u : gg;
-        if (cp.freeze)
-            gg = gg * (176u + (uint32_t)(cp_sin((int32_t)o->age / 3 + i * 37) + 16384) / 256u) >> 8;   /* shimmer */
-        w = SW[o->sz];
-        {
-            int32_t mx = (o->x >> 8) - w / 2, my = (o->y >> 8) - w / 2;
-            if (my + w <= cp.by || my >= cp.by + cp.bh)
-                continue;
-            cp_spr(o->sz == 0 ? (o->flags & 1 ? SPR_S9 : SPR_H9) : o->sz == 1 ? (o->flags & 1 ? SPR_S13 : SPR_H13) : (o->flags & 1 ? SPR_S19 : SPR_H19), w, w, mx, my,
-                   cp_hue(o->hue + cp.hs), gg);
-        }
-    }
-}
-static void cp_granular(const float *mon, int pf)
-{
-    float pos = P(mon, 0), spray = P(mon, 16);
-    int32_t xt = (int32_t)(pos * 239.0f), hw = 3 + (int32_t)(spray * 70.0f), x, y, i, hc = (int32_t)(cp.head >> 8);
-    uint32_t col = cp.freeze ? 0xB8E4FFu : 0xDDE6FFu, g = (uint32_t)cp.gain;
-    /* SPRAY: a soft halo round the thread, rising from the ribbon */
-    if (spray > 0.02f)
-        for (y = cp.cy - 70; y < cp.cy - 3; y++) {
-            uint32_t va;
-            if (y < cp.by || y >= cp.by + cp.bh)
-                continue;
-            va = FADE[(cp.cy - 3 - y) >> 1 < 31 ? (cp.cy - 3 - y) >> 1 : 31] * g >> 11;
-            for (x = xt - hw; x <= xt + hw; x++) {
-                uint32_t d = (uint32_t)(x > xt ? x - xt : xt - x) * 63u / (uint32_t)(hw + 1), a = GAUSS[d > 63u ? 63u : d] * va >> 8;
-                if (a)
-                    cp_add(x, y, col >> 16, (col >> 8) & 255u, col & 255u, a > 44u ? 44u : a);
-            }
-        }
-    cp_ribbon(pf);
-    /* POSITION: a thin thread from a marker to the ribbon */
-    for (y = 12; y < cp.cy - 2; y++)
-        if (y >= cp.by && y < cp.by + cp.bh)
-            cp_add(xt, y, col >> 16, (col >> 8) & 255u, col & 255u, (60u + (uint32_t)(y - 12) * 100u / 130u) * g >> 8);
-    for (i = 0; i < 3; i++)
-        for (x = xt - 2 + i; x <= xt + 2 - i; x++)
-            cp_add(x, 8 + i, 255, 150, 120, 200);
-    cp_motes_draw();
-    /* the write head: a comet at the real buffer rate; frozen, a hollow ring; silent, parked and dim */
-    if (cp.freeze)
-        cp_spr(SPR_RING, 15, 15, hc - 7, cp.cy - 7, 0xCFEFFFu, 255);
-    else
-        cp_spr(SPR_COMET, 40, 9, hc - 39, cp.cy - 4, 0xFFF4E4u, (uint32_t)cp.gain);
-}
-static void cp_sparks(uint32_t g)                      /* LOOPDLY's and SPECTRL's sparks */
-{
-    int i;
-    for (i = 0; i < CP_NM; i++) {
-        cp_mote_t *o = &cp.m[i];
-        uint32_t f;
-        if (!o->life)
-            continue;
-        f = o->age * 4u < o->life ? o->age * 4u * 255u / o->life : (o->life - o->age) * 255u / (o->life - o->life / 4u);
-        f = (f > 255u ? 255u : f) * o->gain >> 8;
-        cp_spr(SPR_H5, 5, 5, (o->x >> 8) - 2, (o->y >> 8) - 2, cp_hue(o->hue), f * g >> 8);
-    }
-}
-static void pk_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t c, uint32_t a);
-static void cp_loop(const float *mon, int pf)
-{
-    int32_t lx = 0, ly = 0, lok = 0;
-    float size = P(mon, 1), pos = P(mon, 0), pitch = P(mon, 2);
-    int32_t nl = (int32_t)((0.10f + 0.90f * size) * 256.0f) + 1, s0 = (int32_t)(pos * 256.0f), phi = (int32_t)(pitch * 28.0f), i, j;
-    uint32_t col = cp.freeze ? 0xB0E0FFu : cp_hue(pf), g = (uint32_t)cp.gain, r = col >> 16, gg = (col >> 8) & 255u, b = col & 255u;
-    int32_t head = (s0 + (int32_t)(cp.ph >> 8)) & 255;
-    int32_t cphi = cp_cos(phi), sphi = cp_sin(phi);
-    for (i = 0; i < 256; i++) {
-        int32_t lit = ((i - s0) & 255) < nl, e = cp.env[i * 15 >> 4], rx = 100 + (e >> 4), ry = 70 + (e >> 5);
-        int32_t ex = rx * cp_cos(i) >> 14, ey = ry * cp_sin(i) >> 14;
-        int32_t x = 120 + ((ex * cphi - ey * sphi) >> 14), y = 88 + ((ex * sphi + ey * cphi) >> 14);
-        if (lok && lit)                                  /* update 13: the lit arc is one continuous line, not dots */
-            pk_line(lx, ly, x, y, col, (30u + (uint32_t)e / 4u) * g >> 8);
-        lx = x; ly = y; lok = lit;
-        if (y < cp.by - 8 || y > cp.by + cp.bh + 8)
-            continue;
-        if (lit) {
-            if (i & 1)
-                cp_spr(SPR_S5, 5, 5, x - 2, y - 2, col, g);
-            cp_add(x, y, 255, 255, 255, 30u + (uint32_t)e / 5u);
-            for (j = 1; j < 1 + (e >> 6); j++)          /* bristles: the level at that point of the loop */
-                cp_add(x + (ex * j / 90), y + (ey * j / 90), r, gg, b, (uint32_t)(140 - j * 14) * g >> 8);
-        } else {
-            cp_add(x, y, r, gg, b, 40u * g >> 8);
-        }
-    }
-    for (j = 0; j < 9; j++) {                           /* the playhead with a short trail */
-        int32_t k = (head - j * 3) & 255, ex = 100 * cp_cos(k) >> 14, ey = 70 * cp_sin(k) >> 14;
-        int32_t x = 120 + ((ex * cphi - ey * sphi) >> 14), y = 88 + ((ex * sphi + ey * cphi) >> 14);
-        if (j == 0 && cp.freeze)
-            cp_spr(SPR_RING, 15, 15, x - 7, y - 7, 0xCFEFFFu, 255);
-        else
-            cp_spr(j == 0 ? SPR_H9 : SPR_S9, 9, 9, x - 4, y - 4, 0xFFF4E4u, (uint32_t)(255 - j * 26) * g >> 8);
-    }
-    cp_sparks(g);
-}
-static void cp_spectral(void)
-{
-    int32_t y, x, base = 168;
-    uint32_t g = (uint32_t)cp.gain;
-    for (x = 0; x < 240; x++) {                         /* each column its interpolated curtain height, silk-striped */
-        int32_t h = cp.colh[x], d = ((x - 10) % 9 + 9) % 9;
-        uint32_t stripe;
-        d = d > 4 ? 9 - d : d;
-        stripe = 150u + (uint32_t)(4 - d) * 26u;
-        if (base - h >= cp.by + cp.bh || base <= cp.by)
-            continue;
-        for (y = base - h; y < base; y++) {
-            uint32_t fr, a;
-            if (y < cp.by || y >= cp.by + cp.bh)
-                continue;
-            fr = (uint32_t)(base - y) * 255u / (uint32_t)h;       /* 0 at the base, 255 at the top */
-            a = (((((255u - fr) * (255u - fr) >> 8) * 153u + (255u - fr) * 102u) >> 8) * stripe) >> 8;   /* bright at the base, a soft top */
-            a = (a * g >> 8) * 230u >> 8;
-            cp_add(x, y, 30u + (fr * 130u >> 8), 235u + (fr >> 4), 120u + (fr * 110u >> 8), a);
-        }
-    }
-    for (y = base; y < base + 8; y++)                   /* the glow where the curtains stand */
-        for (x = 0; x < 240; x++)
-            cp_add(x, y, 40, 230, 140, (FADE[(y - base) * 3] * g >> 8) >> 2);
-    cp_sparks(g);
-}
-
-/* per-frame values every layer reads: each ribbon column's half height and brightness, SPECTRL's curtains */
-static void cp_prepare(const float *mon)
-{
-    int32_t x, hc = (int32_t)(cp.head >> 8);
-    if (cp.mode == 2) {
-        float tex = P(mon, 4), dens = P(mon, 3), size = P(mon, 1);
-        int32_t cen = (int32_t)(tex * 23.0f), wid = 2 + (int32_t)(size * 8.0f), k, hk[24];
-        uint32_t rip = (uint32_t)((dens > 0.5f ? dens - 0.5f : 0.5f - dens) * 2.0f * 255.0f), lv = (uint32_t)(cp.lv * 255.0f);
-        for (k = 0; k < 24; k++) {
-            int32_t d = k > cen ? k - cen : cen - k, a = GAUSS[d * 63 / (wid * 3 + 1) > 63 ? 63 : d * 63 / (wid * 3 + 1)];
-            int32_t sh = (cp_sin((int32_t)(cp.t_ms >> 3) + k * 41) + 16384) >> 7;           /* 0-255 */
-            int32_t h = (int32_t)(14u + (uint32_t)(a * (int32_t)(40u + lv * 3u / 4u)) * 130u / 65025u * 1u) + ((cp_sin((int32_t)(cp.t_ms >> 4) + k * 29) * 7) >> 14);
-            h = h * (256 - (int32_t)(rip * (uint32_t)sh >> 9)) >> 8;
-            if (lv < 8u) h = 4 + h / 10;
-            h = h < 2 ? 2 : h > 150 ? 150 : h;
-            hk[k] = h;
-        }
-        for (x = 0; x < 240; x++) {              /* between the curtains' centres (x = 10 + 9k) the heights run straight */
-            int32_t u = x - 10, kk = u < 0 ? 0 : u / 9, fr = u < 0 ? 0 : u % 9;
-            int32_t h0 = hk[kk > 23 ? 23 : kk], h1 = hk[kk + 1 > 23 ? 23 : kk + 1];
-            cp.colh[x] = (uint8_t)(h0 + (h1 - h0) * fr / 9);
-        }
-    } else {
-        for (x = 0; x < 240; x++) {
-            int32_t age = hc - x;
-            uint32_t rec;
-            age = age < 0 ? age + 240 : age;
-            rec = 255u - (uint32_t)(age < 120 ? age : 240 - age) * 70u / 120u;   /* (update 13: brightest at the head on both sides: no step where the buffer wraps) */
-            {   /* update 13: a three-column smoothing (a soft body, not two jagged edges), the filter's aperture (hsc), the left fade into HOME's strings (lf) */
-                uint32_t e3 = ((uint32_t)cp.env[x > 1 ? x - 2 : 0] + 2u * cp.env[x > 0 ? x - 1 : 0] + 4u * cp.env[x] + 2u * cp.env[x < 239 ? x + 1 : 239] + cp.env[x < 238 ? x + 2 : 239]) * 26u >> 8, gx = 256u;
-                if (cp.lf && x < cp.lf)
-                    gx = x < cp.lf - 60 ? 0u : (uint32_t)(x - (cp.lf - 60)) * 256u / 60u;
-                cp.colh[x] = (uint8_t)(1u + ((e3 * 22u >> 8) * (uint32_t)cp.hsc >> 8));
-                cp.colg[x] = (uint8_t)(rec * (uint32_t)cp.gain >> 8 ) ;
-                cp.colg[x] = (uint8_t)((uint32_t)cp.colg[x] * gx >> 8);
-                cp.colg[x] = (uint8_t)((uint32_t)cp.colg[x] * (uint32_t)cp.gm >> 8);
-            }
-        }
-    }
-}
-
 /* update 8: the canvas (hb rows, drawn for screen row y) to the LCD, only the rows that are not what was last sent there (rh: the hash of
  * each); runs of changed rows no more than CP_GAP rows apart are one transfer. rh_ok = 0 (the screen was cleared or drawn over): all. */
 static void cp_send(uint32_t y, int hb, uint32_t *rh)
@@ -563,6 +348,8 @@ static void pic_draw(int sc, const float *mon);
 static int pic_idle(int sc);
 static const char *pic_sub(int sc, const float *mon);
 static void pk_icon_draw(int ic, int32_t x, int32_t y, uint16_t c);
+static void fam_reset(void);
+static void fm_clouds_step(const float *mon, uint32_t dt);
 static const float *home_frame(uint32_t dt);
 static void home_draw(const float *mon, int pf);
 static void home_text(void);
@@ -665,8 +452,8 @@ static void cp_dbg_text(void)
 }
 static int pic_icon_of(int sc)
 {
-    static const uint8_t IC[12] = {IC_CLOUDS, IC_BRAIDS, IC_RINGS, IC_FILTER, IC_TIDES, IC_PEAKS, IC_GRIDS, IC_FUNC, IC_DELAY, IC_REVERB, IC_CHORUS, IC_HOME};
-    return IC[sc > 11 ? 0 : sc];
+    static const uint8_t IC[14] = {IC_CLOUDS, IC_BRAIDS, IC_RINGS, IC_FILTER, IC_TIDES, IC_PEAKS, IC_GRIDS, IC_FUNC, IC_DELAY, IC_REVERB, IC_CHORUS, IC_HOME, IC_LFO, IC_AMP};
+    return IC[sc > 13 ? 0 : sc];
 }
 static void cp_text_layers(const float *mon, int pg, const ui_mod_t *m)
 {
@@ -701,6 +488,12 @@ static int pic_scene(int pg)
     const ui_mod_t *m;
     if (pg == PG_HOME)
         return SC_HOME;
+    if (pg == PG_AMP || pg == PG_LFO) {
+        m = page_mod(pg);
+        if (mn.pick || is_mod_sub(pg) || (pg == PG_LFO && mn.sub >= m->npages))
+            return -1;
+        return pg == PG_AMP ? SC_AMP : SC_LFO;
+    }
     if (pg < PG_SRC || pg > PG_FX2)
         return -1;
     m = page_mod(pg);
@@ -758,7 +551,8 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
     if (cp.cur != sc) {                       /* a different picture: nothing of the last one's carries over */
         int i;
         for (i = 0; i < CP_NM; i++) cp.m[i].life = 0;
-        for (i = 0; i < 240; i++) cp.env[i] = 0;
+        for (i = 0; i < 720; i++) cp.tr[i] = 0;
+        fam_reset();
         cp.lv = 0.0f; cp.nlive = 0; cp.head = 0; cp.ph = 0; cp.cur = sc;
         if (sc == SC_HOME) home_reset();      /* (update 14: HOME's history and dabs start empty) */
         force = 1;
@@ -769,7 +563,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         cp.force = 0;
         cp.rh_ok = 0;                         /* the screen was cleared or drawn over: every row is sent again */
     }
-    if (!force && now - cp.draw_ms < CP_MIN_MS)
+    if (!force && now - cp.draw_ms < (sc == SC_HOME ? CP_MIN_MS : FM_MIN_MS))
         return 0;
     dt = cp.t_ms ? now - cp.t_ms : 0u;
     dt = dt > 100u ? 100u : dt;
@@ -782,9 +576,10 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         mon = home_frame(dt);                 /* (it stepped the granular field, and the morph) */
     } else {
         mon = rk_monitor(page_slot(pg));
-        if (sc == SC_CLOUDS)
+        if (sc == SC_CLOUDS) {
             cp_step(mon, dt);
-        else
+            fm_clouds_step(mon, dt);
+        } else
             pic_step(sc, mon, dt);
     }
     if (sc == SC_CLOUDS) {
@@ -792,7 +587,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         pitch = pitch < -1.0f ? -1.0f : pitch > 1.0f ? 1.0f : pitch;
         pf = (int)((pitch + 1.0f) * 7.5f + 0.5f);
     }
-    quiet = cp.lv < 0.012f && !cp.nlive && (sc <= SC_CLOUDS || pic_idle(sc) || sc == SC_HOME);
+    quiet = cp.lv < 0.012f && !cp.nlive && (pic_idle(sc) || sc == SC_HOME);
     {   /* nothing moves (silent, no motes) and nothing was changed: the picture stays as it is */
         uint32_t sig = 0;
         int i;
@@ -814,8 +609,6 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         cp.sig = sig;
         cp.still = 0;
     }
-    if (sc == SC_CLOUDS)
-        cp_prepare(mon);
     for (band = 0; band * 40 < cp.H; band++) {
         int32_t y0 = band * 40, hb = cp.H - y0 < 40 ? cp.H - y0 : 40;
         {
@@ -828,14 +621,8 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         cp.bh = hb;
         if (sc == SC_HOME)
             home_draw(mon, pf);
-        else if (sc != SC_CLOUDS)
-            pic_draw(sc, mon);
-        else if (cp.mode == 0)
-            cp_granular(mon, pf);
-        else if (cp.mode == 1)
-            cp_loop(mon, pf);
         else
-            cp_spectral();
+            pic_draw(sc, mon);
         cp_text_layers(mon, pg, m);
         cv_oy = 0;
         cp_send((uint32_t)(CP_Y + y0), hb, cp.rh + y0);

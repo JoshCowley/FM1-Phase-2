@@ -46,12 +46,14 @@ static struct {
 } hm;
 
 /* hue ramps: 5 stops at 0, 64, 140, 204, 255 (RGB), and the accent for "now" */
-static const uint8_t HR_RAMP[3][5][3] = {
+static const uint8_t HR_RAMP[5][5][3] = {
     {{4, 16, 26}, {10, 70, 100}, {40, 168, 190}, {120, 224, 228}, {222, 250, 248}},       /* teal: with Clouds */
     {{24, 10, 4}, {100, 46, 16}, {212, 118, 38}, {250, 184, 96}, {255, 238, 200}},        /* amber: without */
     {{10, 16, 30}, {60, 100, 160}, {160, 200, 236}, {226, 240, 252}, {255, 255, 255}},    /* ice: held */
+    {{6, 8, 26}, {28, 44, 120}, {80, 112, 222}, {160, 184, 255}, {230, 236, 255}},         /* indigo: modulators (update 15) */
+    {{16, 6, 24}, {80, 36, 120}, {170, 90, 210}, {226, 160, 244}, {252, 226, 255}},        /* violet: rhythm and structure */
 };
-static const uint32_t HR_ACC[3] = {0xFFBE5Au, 0x6EEEFFu, 0xFFFFFFu};
+static const uint32_t HR_ACC[5] = {0xFFBE5Au, 0x6EEEFFu, 0xFFFFFFu, 0xFFB850u, 0xFFE070u};
 static const uint8_t HR_BB[HR_NB] = {255, 244, 232, 220, 208, 196, 184, 172, 160};   /* the front ribbons brighter (of 256) */
 static const uint16_t HR_RECIP[48] = {0, 65535, 32768, 21845, 16384, 13107, 10923, 9362, 8192, 7282, 6554, 5958, 5461, 5041, 4681, 4369, 4096, 3855, 3641, 3449, 3277, 3121, 2979, 2849, 2731, 2621, 2521, 2427, 2341, 2260, 2185, 2114, 2048, 1986, 1928, 1872, 1820, 1771, 1725, 1680, 1638, 1598, 1560, 1524, 1489, 1456, 1425, 1394};
 
@@ -698,10 +700,10 @@ static void home_readouts(void)
                 nt++;
             }
         }
-        if (cur_entry >= 1 && cur_entry <= 16) {   /* (update 14) the granular presets share one grammar: K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE */
-            static const char *const GN[4] = {"TONE", "MOTION", "SPACE", "TEXTURE"};
+        if (cur_entry >= 1 && cur_entry <= 32) {   /* (update 14; 15) the granular presets share one grammar, from a const table: presets 1-16 K1 TONE, 17-32 K1 MORPH; K2 MOTION, K3 SPACE, K4 TEXTURE */
+            static const char *const GN[2][4] = {{"TONE", "MOTION", "SPACE", "TEXTURE"}, {"MORPH", "MOTION", "SPACE", "TEXTURE"}};
             l[0] = 0;
-            cat(l, GN[k]);
+            cat(l, GN[cur_entry > 16][k]);
         } else if (nt) {
             dst_name(first, l);
             if (nt > 1) {
@@ -725,3 +727,4 @@ static void home_readouts(void)
     cp.pkey = key;
     cp_send(CP_RY, 40, cp.rh + CP_H);
 }
+#include "vis_fam.c"
