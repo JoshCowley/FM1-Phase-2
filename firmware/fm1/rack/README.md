@@ -226,6 +226,40 @@ range (at once against gliding), each against the same moment with nothing chang
 `build/host/audition OUTDIR` (built by build_host.sh) plays every preset through the firmware's sound path (rc_load,
 rc_render at 44.1 kHz) with a phrase for its category and writes a WAV each, with its peak and loudness.
 
+## Update 14: HOME's spectral ribbon (simulator-tested, NOT yet seen on an FM-1)
+
+HOME's picture is now a time-frequency picture (`vis_home.c`, on the picture kit of `vis_pic.c` and `vis_clouds.c`; only HOME's picture changed): nine
+ribbons, one a band of frequency (170 Hz to 13 kHz, log spaced, low at the bottom), each the filled profile of that band's energy over the last seven seconds,
+dimmer with age, in one hue ramp (teal with Clouds in the patch, amber without), a bright accent "now" edge at the right with a dot at each band's newest
+level. The history moves one 3 px column every 100 ms; between steps only the dabs, the now edge's dots, the dashed cutoff edge and the freeze outline move,
+so the changed-rows-only transfer sends little. Layout: status strip, the preset name, the picture, the chain's process icons (small, under the ribbons),
+the four macro read-outs. The granular presets (the first 16 after INIT) show their macros as TONE, MOTION, SPACE, TEXTURE (a range check on the preset
+number, no preset change); the others keep their target names.
+
+- Real: the band energies, FREEZE, the filter's cutoff as heard, the delay's time (division at the tempo, or FREE MS), FEEDBACK and MIX, the reverb's
+  amount and SIZE, the LFO and modulator values (the ribbons breathe with them, at the 10 Hz of the columns), the note events (a thin bar at the band of each
+  held note, from its start to its end), the output level.
+- Where the spectrum comes from: the output scope (`rc_scope`, the last 1024 samples of the output, mono, 44.1 kHz: 23 ms). 23 ms resolves 43 Hz at best,
+  a Hann window about twice that, so nothing below 170 Hz is shown and the lowest two bands are somewhat blurred together. Bands 0-4 (170 Hz to 1.9 kHz):
+  the 1024 samples summed 8 at a time (a crude low-pass: 13 dB or more off what folds back from 8 kHz and up), Hann window, a Goertzel at two frequencies a band.
+  Bands 5-8 (1.9 to 13 kHz): the newest 256 samples, Hann window, three Goertzel frequencies a band. A band's power is its largest probe's (a single probe
+  under-reads a broad band of noise and a tone off the probes), level = dB re full scale from -84 to 0 with a tilt of -11 dB (lowest band) to +2 dB (highest),
+  a little convex. About 5,000 multiply-adds in the main loop once a picture frame (none in the audio interrupt), a 256 byte scratch on the stack.
+  Snapshots only 23 ms long, about every 50-70 ms, averaged over each 100 ms column.
+- Modelled: the grain dabs. Clouds' own grains are private. Births follow DENSITY, SIZE, TEXTURE, PITCH and the level as on the Clouds page (a third of the
+  rate, 14 a second at most), each dab sits at a band drawn in proportion to the live band energies (a grain plays what the buffer holds) moved by PITCH, some an
+  octave up, POSITION puts it that far back in the buffer's length, SPRAY scatters it; the trail is the SIZE and the reverb's amount and SIZE; the delay's repeats are
+  the dab again one delay time later (about a dab in two), fainter by FEEDBACK. In the frozen box the dabs sit in the held stretch.
+- Held: FREEZE (Clouds' own flag) puts an ice-tinted outlined box round the held stretch (the Clouds buffer's length before the moment it went on, drawn
+  from there to the now edge as it goes on); inside it the ribbons are pale and settle (each new column is three parts the last to one part the sound).
+  The ribbons inside are the real output, not a copy of the spectrum at the moment it went on.
+- Illustrative: the hue (teal or amber: Clouds in the patch or not), the shaded stripes above the cutoff, the glint round the box, the seam of a preset change
+  (the new ramp enters from the now edge in about half a second; the history keeps the sound it was).
+- State: the history (9 x 72 bytes) shares the Clouds page's ribbon arrays and the dabs (48 x 16 bytes) its mote field, so HOME adds only its own few dozen
+  bytes (`hm`); because they are shared, HOME's history starts empty each time you come back to it from another page.
+- Check: `sim_home_c.txt` (DENSE CLOUD playing a chord, FROZEN PAD with K4 up until it freezes, an older preset, a preset change caught mid-morph, silence).
+  The debug read-out (hold OCT- and OCT+) works on HOME as on the Clouds page.
+
 ## Update 12: the 16 granular presets, measured and reworked (host-tested, NOT heard, NOT run on an FM-1)
 
 `presets_granular.py` holds FROZEN PAD to GRAIN CHOIR (Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE); they come first in the bank after INIT, so the bank has 93 presets (it was 77).

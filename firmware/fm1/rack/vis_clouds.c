@@ -33,6 +33,9 @@
 #define CP_RY 200
 #define CP_CY 146                             /* the ribbon's centre line (picture rows), in the lower third */
 #define CP_NM 48
+#define HR_NB 9                               /* update 14: HOME's ribbons: 9 frequency bands x 72 columns of history, one byte each (aliased on the ribbon arrays below) */
+#define HR_NC 72
+#define HR_ND 48                              /* HOME's grain dabs (aliased on the mote field: HOME has no motes) */
 #define SC_CLOUDS 0                           /* update 13: the pictures (cp.scene) */
 #define SC_BRAIDS 1
 #define SC_RINGS 2
@@ -52,10 +55,24 @@ typedef struct {
     uint16_t age, life;                       /* ms */
     uint8_t hue, sz, gain, flags;             /* HUE step 0-15; 0-2 size; brightness; 1 soft, 2 spark */
 } cp_mote_t;
+typedef struct {                              /* update 14: a grain dab on HOME (16 bytes) */
+    uint16_t age, life, step0;                /* ms; ms; the history step it was born at */
+    int16_t due;                              /* ms until it appears (a delay's repeat); 0: alive */
+    int8_t xc;                                /* the column it sits in */
+    uint8_t bf, g, sz, sm, fl, xj, pad;       /* band x 16, brightness, size 0-2, smear px, flags (1 soft, 2 repeat), pixel in the column */
+} hdab_t;
 static struct {
-    uint8_t env[240];                         /* the ribbon: the recent output level, a column written as the head passes */
-    uint8_t colh[240], colg[240];             /* this frame's half-height and brightness of each column */
-    cp_mote_t m[CP_NM];
+    union {                                   /* update 14: the ribbon arrays are the Clouds page's and the other pictures'; HOME's own history shares them */
+        struct {
+            uint8_t env[240];                 /* the ribbon: the recent output level, a column written as the head passes */
+            uint8_t colh[240], colg[240];     /* this frame's half-height and brightness of each column */
+        };
+        uint8_t hist[HR_NB * HR_NC];          /* HOME: the band energies of the last 7 seconds, 0-255, a ring of columns per band */
+    };
+    union {
+        cp_mote_t m[CP_NM];
+        hdab_t hd[HR_ND];                     /* HOME: the grain dabs */
+    };
     uint32_t lv8_prev;
     uint32_t head;                            /* the write head, in columns x 256 */
     uint32_t ph;                              /* the loop's playhead, in points x 256 */
@@ -549,6 +566,7 @@ static void pk_icon_draw(int ic, int32_t x, int32_t y, uint16_t c);
 static const float *home_frame(uint32_t dt);
 static void home_draw(const float *mon, int pf);
 static void home_text(void);
+static void home_reset(void);
 static void home_readouts(void);
 static uint32_t home_sig(void);
 
@@ -742,6 +760,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         for (i = 0; i < CP_NM; i++) cp.m[i].life = 0;
         for (i = 0; i < 240; i++) cp.env[i] = 0;
         cp.lv = 0.0f; cp.nlive = 0; cp.head = 0; cp.ph = 0; cp.cur = sc;
+        if (sc == SC_HOME) home_reset();      /* (update 14: HOME's history and dabs start empty) */
         force = 1;
         cp.rh_ok = 0;
     }
@@ -768,7 +787,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         else
             pic_step(sc, mon, dt);
     }
-    if (sc == SC_CLOUDS || sc == SC_HOME) {
+    if (sc == SC_CLOUDS) {
         float pitch = P(mon, 2);
         pitch = pitch < -1.0f ? -1.0f : pitch > 1.0f ? 1.0f : pitch;
         pf = (int)((pitch + 1.0f) * 7.5f + 0.5f);
@@ -795,7 +814,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         cp.sig = sig;
         cp.still = 0;
     }
-    if (sc == SC_CLOUDS || sc == SC_HOME)
+    if (sc == SC_CLOUDS)
         cp_prepare(mon);
     for (band = 0; band * 40 < cp.H; band++) {
         int32_t y0 = band * 40, hb = cp.H - y0 < 40 ? cp.H - y0 : 40;

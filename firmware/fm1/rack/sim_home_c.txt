@@ -1,0 +1,62 @@
+# FM1 Phase 2 update 14: HOME's spectral ribbons. DENSE CLOUD with a chord, FROZEN PAD frozen with K4, an older non-Clouds preset, a preset
+# change caught mid-morph, silence. Exit 0 = it ran; the shots are the pictures to look at.
+wait 500
+turn PRESET 2
+wait 800
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 2500
+shot hc_dense_1.png
+wait 1500
+shot hc_dense_2.png
+wait 1500
+shot hc_dense_3.png
+key w0 up
+key w4 up
+key w7 up
+wait 2500
+shot hc_dense_tail.png
+turn PRESET -1
+wait 800
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 1500
+shot hc_frozen_0.png
+spin K4 12
+wait 1200
+shot hc_frozen_1.png
+wait 1500
+shot hc_frozen_2.png
+wait 2500
+shot hc_frozen_3.png
+key w0 up
+key w4 up
+key w7 up
+wait 1500
+turn PRESET 85
+wait 800
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3000
+shot hc_other_1.png
+wait 2000
+shot hc_other_2.png
+turn PRESET -83
+wait 120
+shot hc_morph_0.png
+wait 120
+shot hc_morph_1.png
+wait 120
+shot hc_morph_2.png
+wait 120
+shot hc_morph_3.png
+wait 1500
+shot hc_back.png
+key w0 up
+key w4 up
+key w7 up
+wait 9000
+shot hc_silence.png
