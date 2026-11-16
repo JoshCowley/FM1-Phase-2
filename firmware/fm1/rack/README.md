@@ -465,6 +465,26 @@ simulator prints its mean to stderr.
   (A_HUM, SEL page 6 via data_pg; settings RKL7, ARP 21 values): each chord note up to 35 ms late and +-12 % force at
   random (play.c human_ms, human_vel), live and in the sequencer. sim_feel.
 
+## Update 15: the picture family (option C)
+
+Every page that had a picture is redrawn in the language of the HOME ribbons: one hero object on near-black, depth (slices drawn back to front, each with a dark underside that hides the lines behind it), the real signal in fine 1 px lines or filled gradient profiles, one hue ramp per process family, one accent for "now". The kit is `vis_fam.c` (terrain, filled curve, dashed guide, accent node) on top of `vis_pic.c`; history (a slice every 80 to 150 ms) is kept in the one shared state block (`cp.tr`, on the ribbon arrays: no new RAM beyond about 100 bytes). Pictures are shown at most 12.5 times a second, composed with plain writes, only changed rows go to the LCD.
+
+Hue ramps: teal = effects (Filter, Delay, Reverb, Chorus, Clouds, HOME with Clouds); amber = sources and the voice (Braids, Rings, AMP); indigo = modulators (LFO, Tides, Peaks, Func); violet = rhythm (Grids); ice = a frozen Clouds (and links). Accent: each ramp's own.
+
+Real, modelled, illustrative, per page:
+- SOURCE (Braids): real: MODEL, TIMBRE, COLOR, the voices' envelopes and notes (height, pitch, motion); modelled: the waveform shape of each model family and how TIMBRE morphs it (not Braids' own output).
+- RINGS: real: strikes (gates), STRUCTURE, BRIGHTNESS, DAMPING, POSITION; modelled: each mode's energy, decay and phase.
+- FILTER: real: TYPE, CUTOFF, RESO, envelope amount and the voices' envelopes (the response is the filter's own formula), the 9-band spectrum of the output behind it (the HOME spectrum step, 170 Hz to 13 kHz); modelled: none.
+- DELAY: real: FEEDBACK, MIX, the output level history (the profile); modelled: the delay time (division at the tempo or FREE MS) and each repeat as the level history delayed by that many delay times, scaled by FEEDBACK^n.
+- REVERB: real: SIZE, DAMP, DIFFUSE, MIX, the output level, the notes' times; modelled: the tail (held level, let go at SIZE's rate), the arches (a diagram of depth, not the reverb's own signal), the wavefront.
+- CLOUDS: real: POSITION, SPRAY, SIZE, MODE, FREEZE, the output level written into the buffer (the terrain's slices), the loop head in LOOPDLY; modelled: grain sparks (rate from DENSITY); illustrative: the grain texture on the slices (random, more of it away from DENSITY's middle) and SPECTRL's curtains.
+- LFO, TIDES, PEAKS, FUNC: real: the modulator's output, 114 samples 33 ms apart (vz.hist), shown as slices of that history, the node at the newest sample; modelled: the trigger sparks (Peaks, Func). Only the first output of Tides and Func is drawn.
+- GRIDS: real: the 96 step levels, the clock step, the triggers; illustrative: the perspective of the lanes.
+- CHORUS: real: RATE, DEPTH, WIDTH, MIX, the level; modelled: the voices' lines (the chorus's own LFO is not exported).
+- AMP: real: ATTACK, DECAY, SUSTAIN, RELEASE, each voice's envelope value and gate; modelled: which stage a node is in (from its gate and whether it rises).
+- HOME: as update 14; the macro read-out names come from a const table (presets 17 to 32 show MORPH, MOTION, SPACE, TEXTURE).
+- MATRIX (routes): the table is as before; each row has a fine link line from its source to its destination, brighter the more amount (static: the page is drawn when it changes). RACK: connectors between the windows. Not done (old look kept): the sequencer, arp, scale/chord, save, menus, settings, info, OSC, the MOD sub-pages, by-target matrix.
+
 ## Update 40
 
 - GLOBAL page 7 CLICK (G_CLICK, G_CIN, G_CVOL, G_CSND; settings RKL6, glo[23], older records moved up): seq.c
