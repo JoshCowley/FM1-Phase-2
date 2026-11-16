@@ -707,7 +707,7 @@ The FM-1 has two processor cores. FM1 Rack shares the voices between them: the f
 
 ## 14. Factory presets
 
-There are 93: 17 keys (CH), 14 basses (BS), 11 leads (LD), 19 pads (PD), 31 textures (FX: the 15 older ones and 16 granular ones, update 12) and INIT. PRESET steps through INIT, then the 16 granular presets (FROZEN PAD to GRAIN CHOIR: Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE), then the basses, leads, pads, keys and textures, and on to your own; ALGORITHM jumps between categories.
+There are 109: 17 keys (CH), 14 basses (BS), 11 leads (LD), 19 pads (PD), 31 textures (FX: the 15 older ones and 16 granular ones, update 12), the 16 modulation presets of update 15 (bank 2) and INIT. PRESET steps through INIT, then the 16 granular presets (FROZEN PAD to GRAIN CHOIR: Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE), then the 16 modulation presets of update 15 (TINE EP to MODEL DIAL, K1 MORPH; not yet heard), then the basses, leads, pads, keys and textures, and on to your own; ALGORITHM jumps between categories.
 
 **Genre classics** (update 52, marked "new, update 52"):
 

@@ -262,7 +262,7 @@ number, no preset change); the others keep their target names.
 
 ## Update 12: the 16 granular presets, measured and reworked (host-tested, NOT heard, NOT run on an FM-1)
 
-`presets_granular.py` holds FROZEN PAD to GRAIN CHOIR (Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE); they come first in the bank after INIT, so the bank has 93 presets (it was 77).
+`presets_granular.py` holds FROZEN PAD to GRAIN CHOIR (Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE); they come first in the bank after INIT, so the bank has 93 presets (it was 77). Update 15 added 16 more (positions 17 to 32, `presets_batch2.py`, K1 MORPH), so the bank now has 109.
 `granular_report.py` renders each one for 16 s through the firmware's own path (`render_preset`, 44.1 kHz; K1 swept in 0-4 s, K2 4-8 s, K3 8-12 s, K4 12-16 s) and prints the measures
 (peak, RMS per 4 s, centroid and RMS at the ends of each sweep with the control taken out, a clean A/B of each macro, 8 s hands-off movement, loudness against the batch median, the 16 macro corners,
 an estimate of the load on each core from the owner's FM-1 figures). `python3 granular_report.py [NAME] --host-log LOG --mp3 DIR --json FILE` (LOG: rack_host's output, for the arena and voices).
