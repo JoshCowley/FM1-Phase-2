@@ -54,12 +54,12 @@ def phrase(q):
         root = 69
     elif name in ("SOFT MALLET", "SYMPATH HARP", "GLASS BELLS", "TINE EP", "TAPE KEYS", "TONEWHEEL"):
         arp = [48, 52, 55, 59, 60, 64, 67, 71, 72, 76, 79, 83, 84, 83, 79, 76, 72, 67, 64, 60]
-        ev = seq(arp, 0.2, S, S * 0.9) + [(5.8 + 1.5 * k, 1.4, n, 0.7) for k in range(7) for n in ((48, 55, 59, 64) if k % 2 == 0 else (45, 52, 57, 60))]
+        ev = seq(arp, 0.2, S, S * 0.9) + [(5.8 + 1.0 * k, 0.95, n, 0.7) for k in range(10) for n in ((48, 55, 59, 64) if k % 2 == 0 else (45, 52, 57, 60))]
         root = 48
     elif name in ("GRID CHOP", "FUNC PULSE"):
         ev = [(0.2, 7.4, n, 0.75) for n in (48, 55, 59, 64)] + [(8.2, 7.2, n, 0.75) for n in (45, 52, 57, 60)]
         root = 48
-    elif name == "DIAL CHOIR":
+    elif name == "MODEL DIAL":
         sc = [48, 52, 55, 60, 64, 67, 72, 76, 79, 84, 79, 76, 72, 67, 64, 60]
         ev = seq(sc, 0.2, S * 1.0, S * 0.95) + [(4.8, 5.4, n, 0.7) for n in (48, 55, 59, 64)] + [(10.4, 5.2, n, 0.7) for n in (45, 52, 57, 60)]
         root = 48
@@ -115,7 +115,7 @@ def pitch_best(x, t0, t1, f0):
     s = np.abs(np.fft.rfft(m * np.hanning(len(m)), n))
     df = SR / n
     lo, hi = int(f0 * 2 ** (-50 / 1200) / df), int(f0 * 2 ** (50 / 1200) / df)
-    if s[lo:hi].max() >= 0.25 * s.max():
+    if s[lo:hi].max() >= 0.1 * s.max():
         return root_cents(x, t0, t1, f0)
     return pitch_cents(x, t0, t1, f0)
 
@@ -131,12 +131,18 @@ def morph_test(q, held, root, tmp):
     p = tmp / "morph.wav"
     gb.render(name, txt, p, tmp)
     x = gb.load(p)
+    one = [(0.1 + 2.0 * k, 1.9, root, 0.75) for k in range(6)] if STRIKE[0] else [(0.2, 11.8, root, 0.75)]
+    txt1 = "secs 12\n" + "\n".join(f"on {t:.2f} {d:.2f} {n} {v:.2f}" for t, d, n, v in one) + "\n"
+    txt1 += "".join(f"set {k + 1} 0 {md[k]}\n" for k in (1, 2, 3)) + "set 1 0 0\nramp 1 0 12 0 1\n"
+    p1 = tmp / "morph1.wav"
+    gb.render(name, txt1, p1, tmp)
+    x1 = gb.load(p1)
     steps = []
     for i in range(6):
         a, b = (2 * i + 0.3, 2 * i + 1.3) if STRIKE[0] else (2 * i + 0.5, 2 * i + 1.5)
         seg = x[int(a * SR):int(b * SR)]
         steps.append({"rms": gb.rms(x, a, b), "peak": float(np.abs(seg).max()), "cent": gb.centroid(x, a, b),
-                      "cents_err": pitch_best(x, a, b, hz(root)), "k1": (a + b) / 2 / 12})
+                      "cents_err": pitch_best(x1, a, b, hz(root)), "k1": (a + b) / 2 / 12})
     return steps, p
 
 

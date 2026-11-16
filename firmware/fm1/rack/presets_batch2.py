@@ -100,7 +100,7 @@ def batch2():
          [("MOD A.FREQ", 0.3, 0.6)],
          [("FX 2.MIX", 0.1, 0.4), ("FX 1.MIX", 0.1, 0.5)],
          [("SHP.DRIVE", 0.05, 0.9), ("SHP.AUDIO FM", 0.0, 0.6)]],
-        [["A TIDES", "AMP.LEVEL", 0.2, "M2"], ["A TIDES", "SHP.CUTOFF", 0.4, "M2"]],
+        [["A TIDES", "AMP.LEVEL", 0.2, "M2"], ["A TIDES", "SHP.CUTOFF", 0.8, "M2"]],
         LF(("SINE", 0.15), ("DRIFT", 0.25), ("SINE", 0.6)),
         [("MOD A.FREQ", 0.15), ("SRC.COLOR", 0.1), ("SHP.CUTOFF", 0.15), ("PAN", 0.3)], voices=6))
 
@@ -117,9 +117,9 @@ def batch2():
          [("MOD A.K2", 0.0, 0.6)],
          [("FX 2.MIX", 0.1, 0.45), ("FX 2.SIZE", 0.3, 0.8)],
          [("SHP.DRIVE", 0.05, 0.6), ("SHP.RESO", 0.05, 0.3)]],
-        [["A PEAKS", "AMP.LEVEL", 0.3, "M2"], ["A PEAKS", "SHP.CUTOFF", 0.6, "M2"]],
+        [["A PEAKS", "AMP.LEVEL", 0.05, "M2"], ["A PEAKS", "SHP.CUTOFF", 0.6, "M2"]],
         LF(("DRIFT", 0.3), ("DRIFT", 0.35)),
-        [("SHP.CUTOFF", 0.25), ("SRC.TIMBRE", 0.15), ("PAN", 0.3), ("AMP.LEVEL", 0.08), ("MOD A.K1", 0.08)], voices=6))
+        [("SHP.CUTOFF", 0.25), ("SRC.TIMBRE", 0.15), ("PAN", 0.3), None, ("MOD A.K1", 0.08)], voices=6))
 
     # 19 -------------------------------------------------------------------------------------------------- TAPE KEYS
     # Chamberlin-style keys: a FUNC pluck on each note opens the timbre, a slow looping channel is the wow on the tape echo.
@@ -143,15 +143,15 @@ def batch2():
     # envelope on each strike lifts the brightness.
     a(B("SOFT MALLET", "KEYS", {"SRC": "BRAIDS", "SHP": "RINGS", "MODA": "PEAKS", "FX2": "REVERB"},
         {"SRC": {"MODEL": "PLUK", "TIMBRE": 0.4, "COLOR": 0.3, "DRIFT": 0.05, "LEVEL": 1.0},
-         "SHP": {"MODEL": "STRING", "STRUCT": 0.1, "BRIGHT": 0.5, "DAMPING": 0.7, "POSITION": 0.25, "EXCITE": 0.8, "MIX": 0.75, "SPREAD": 0.5},
+         "SHP": {"MODEL": "STRING", "STRUCT": 0.0, "BRIGHT": 0.5, "DAMPING": 0.7, "POSITION": 0.25, "EXCITE": 0.8, "MIX": 0.95, "SPREAD": 0.5},
          "MODA": {"FUNC": "ENV", "K1": 0.0, "K2": 0.5, "GATE": "NOTE", "SUSTAIN": 0.0, "INVERT": "OFF"},
          "FX2": REV("PLATE", 0.6, 0.2)},
         AM(ATTACK=0.0, DECAY=0.55, SUSTAIN=0.0, RELEASE=0.45, **{"VEL AMT": 0.8, "SPREAD": 0.5}),
-        [[("SHP.STRUCT", 0.0, 0.15), ("SHP.BRIGHT", 0.3, 0.85), ("SHP.DAMPING", 0.85, 0.5), ("SHP.POSITION", 0.1, 0.5),
+        [[("SRC.TIMBRE", 0.2, 0.7), ("SHP.BRIGHT", 0.3, 0.9), ("SHP.SPREAD", 0.2, 0.9), ("SHP.POSITION", 0.1, 0.5),
           ("MOD A.K2", 0.3, 0.7), ("AMP.DECAY", 0.4, 0.8)],
          [("LFO.RATE 1", 0.2, 0.6)],
          [("FX 2.MIX", 0.1, 0.45), ("FX 2.SIZE", 0.3, 0.8)],
-         [("SRC.TIMBRE", 0.1, 0.7), ("SHP.EXCITE", 0.5, 1.0)]],
+         [("SHP.DAMPING", 0.9, 0.3), ("SHP.EXCITE", 0.5, 1.0)]],
         [["A PEAKS", "SHP.BRIGHT", 0.5, "M2"]],
         LF(("SINE", 0.2), ("DRIFT", 0.2)),
         [("SHP.POSITION", 0.1), ("SHP.BRIGHT", 0.1)], voices=4))
@@ -164,25 +164,25 @@ def batch2():
          "MODA": {"MODE": "AD", "FREQ": 0.5, "SHAPE": 0.5, "SLOPE": -0.3, "SMOOTH": 0.3, "RANGE": "MID", "GATE": "NOTE", "INVERT": "OFF"},
          "FX1": DLY("1/8D", 0.35, 0.2, "PING"), "FX2": REV("HALL", 0.8, 0.3)},
         AM(ATTACK=0.0, DECAY=0.7, SUSTAIN=0.0, RELEASE=0.6, **{"VEL AMT": 0.7, "SPREAD": 0.6}),
-        [[("SRC.TIMBRE", 0.2, 0.7), ("SRC.COLOR", 0.2, 0.7), ("SHP.CUTOFF", 0.45, 0.85), ("MOD A.FREQ", 0.3, 0.7), ("AMP.DECAY", 0.4, 0.8)],
+        [[("SRC.TIMBRE", 0.2, 0.9), ("SRC.COLOR", 0.1, 0.9), ("SHP.CUTOFF", 0.4, 0.9), ("MOD A.FREQ", 0.3, 0.7), ("AMP.DECAY", 0.65, 0.9)],
          [("LFO.RATE 1", 0.2, 0.6)],
          [("FX 2.MIX", 0.15, 0.5), ("FX 1.FEEDBACK", 0.15, 0.55)],
          [("SHP.AUDIO FM", 0.0, 0.7), ("SHP.RESO", 0.1, 0.7)]],
         [["A TIDES", "SRC.COLOR", 0.6, "M2"], ["A TIDE+", "SRC.TIMBRE", 0.5, "M2"]],
-        LF(("SINE", 0.2), ("DRIFT", 0.2)),
-        [("SRC.TIMBRE", 0.05), None, ("FX 1.MIX", 0.1)], voices=5))
+        LF(("SINE", 0.3), ("DRIFT", 0.3)),
+        [("SHP.CUTOFF", 0.3), ("SRC.COLOR", 0.1), ("SRC.TIMBRE", 0.15), None, ("FX 1.MIX", 0.1)], voices=5))
 
     # 22 ------------------------------------------------------------------------------------------- SYMPATH HARP
     # A harp whose sympathetic strings (Rings) are brightened in time by Grids: each step of the pattern lifts them.
     a(B("SYMPATH HARP", "KEYS", {"SRC": "BRAIDS", "SHP": "RINGS", "MODA": "GRIDS", "FX1": "DELAY", "FX2": "REVERB"},
         {"SRC": {"MODEL": "PLUK", "TIMBRE": 0.3, "COLOR": 0.3, "DRIFT": 0.05, "LEVEL": 1.0},
-         "SHP": {"MODEL": "SYMPATH", "STRUCT": 0.05, "BRIGHT": 0.6, "DAMPING": 0.55, "POSITION": 0.3, "EXCITE": 0.8, "MIX": 0.7, "SPREAD": 0.6},
+         "SHP": {"MODEL": "SYMPATH", "STRUCT": 0.0, "BRIGHT": 0.6, "DAMPING": 0.55, "POSITION": 0.3, "EXCITE": 0.8, "MIX": 0.95, "SPREAD": 0.6},
          "MODA": {"X": 0.4, "Y": 0.6, "FILL": 0.6, "OUT": "KIT", "CHAOS": 0.1, "DECAY": 0.3},
          "FX1": DLY("1/8D", 0.3, 0.15, "PING"), "FX2": REV("HALL", 0.7, 0.25)},
         AM(ATTACK=0.0, DECAY=0.6, SUSTAIN=0.0, RELEASE=0.55, **{"VEL AMT": 0.8, "SPREAD": 0.6}),
-        [[("SHP.STRUCT", 0.0, 0.1), ("SHP.BRIGHT", 0.45, 0.85), ("SHP.DAMPING", 0.7, 0.4), ("SRC.TIMBRE", 0.2, 0.6), ("MOD A.DECAY", -0.3, 0.5)],
+        [[("SRC.COLOR", 0.1, 0.7), ("SHP.BRIGHT", 0.45, 0.85), ("SHP.DAMPING", 0.7, 0.4), ("SRC.TIMBRE", 0.2, 0.6), ("MOD A.DECAY", -0.3, 0.5)],
          [("MOD A.FILL", 0.2, 1.0)],
-         [("FX 1.MIX", 0.05, 0.35), ("FX 2.MIX", 0.1, 0.45)],
+         [("FX 1.MIX", 0.0, 0.5), ("FX 2.MIX", 0.0, 0.7)],
          [("SHP.EXCITE", 0.5, 1.0), ("SHP.SPREAD", 0.1, 1.0)]],
         [["A GRID", "SHP.POSITION", 0.5, "M2"], ["A ACCENT", "SRC.TIMBRE", 0.4, "M2"]],
         LF(("SINE", 0.2), ("DRIFT", 0.2)),
@@ -218,7 +218,7 @@ def batch2():
          [("MOD A.FALL 4", 0.3, 0.8)],
          [("FX 2.MIX", 0.0, 0.6), ("FX 2.SIZE", 0.3, 0.9)],
          [("SHP.DRIVE", 0.1, 0.9), ("SHP.RESO", 0.1, 0.7)]],
-        [["A OUT 1", "SRC.TIMBRE", 0.35], ["A OUT 2", "SHP.CUTOFF", 0.7, "M2"]],
+        [["A OUT 1", "SRC.TIMBRE", 0.35], ["A OUT 2", "SHP.CUTOFF", 0.9, "M2"]],
         LF(("SINE", 0.3), ("DRIFT", 0.3)),
         [("SRC.COLOR", 0.1), ("SHP.CUTOFF", 0.2), ("SHP.CUTOFF", 0.1)], voices=1, osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
 
@@ -236,7 +236,7 @@ def batch2():
          [("MOD A.LVL 4", 0.0, 1.0), ("LFO.RATE 1", 0.55, 0.8)],
          [("FX 1.MIX", 0.0, 0.5), ("FX 2.MIX", 0.0, 0.6)],
          [("SHP.DRIVE", 0.1, 0.9), ("SHP.RESO", 0.1, 0.7)]],
-        [["A OUT 1", "SRC.TIMBRE", 0.3], ["LFO 1", "PITCH", 0.014, "A OUT 2"]],
+        [["A OUT 1", "SRC.TIMBRE", 0.6, "M2"], ["LFO 1", "PITCH", 0.014, "A OUT 2"]],
         LF(("SINE", 0.7), ("DRIFT", 0.3)),
         [None, None, ("SHP.CUTOFF", 0.12), ("SRC.COLOR", 0.1)], voices=1))
 
@@ -247,11 +247,11 @@ def batch2():
          "SHP": {"TYPE": "LP", "CUTOFF": 0.7, "RESO": 0.15, "DRIVE": 0.1, "ENV AMT": 0.0, "KEY TRK": 0.6, "VEL AMT": 0.2},
          "MODA": TI(0.2, "MID", 0.5), "FX1": DLY("1/8D", 0.3, 0.15, "PING"), "FX2": REV("HALL", 0.6, 0.2)},
         AM(ATTACK=0.03, DECAY=0.4, SUSTAIN=0.9, RELEASE=0.3, MODE="LEGATO", GLIDE=0.1, **{"VEL AMT": 0.5, "SPREAD": 0.4}),
-        [[("SRC.COLOR", 0.1, 0.9), ("SRC.TIMBRE", 0.2, 0.7), ("SHP.CUTOFF", 0.4, 0.85), ("MOD A.FREQ", 0.2, 0.5), ("FX 1.MIX", 0.05, 0.3)],
-         [("LFO.RATE 1", 0.5, 0.8)],
+        [[("SRC.COLOR", 0.1, 0.9), ("SRC.TIMBRE", 0.2, 0.7), ("SHP.CUTOFF", 0.4, 0.85), ("AMP.ATTACK", 0.03, 0.25), ("FX 1.MIX", 0.05, 0.3)],
+         [("MOD A.FREQ", 0.2, 0.8)],
          [("FX 2.MIX", 0.0, 0.6), ("FX 1.FEEDBACK", 0.15, 0.6)],
          [("SHP.DRIVE", 0.1, 0.9), ("SHP.RESO", 0.1, 0.7)]],
-        [["A TIDES", "SRC.COLOR", 0.4, "M2"], ["LFO 1", "PITCH", 0.012, "M2"]],
+        [["A TIDES", "SRC.COLOR", 0.8, "M2"], ["LFO 1", "PITCH", 0.012, "M2"]],
         LF(("SINE", 0.7), ("DRIFT", 0.3)),
         [None, None, ("SRC.TIMBRE", 0.1), ("SHP.CUTOFF", 0.1)], voices=1))
 
@@ -305,8 +305,8 @@ def batch2():
         AM(ATTACK=0.35, DECAY=0.5, SUSTAIN=0.9, RELEASE=0.6, **{"VEL AMT": 0.3, "SPREAD": 0.7}),
         [[("SRC.COLOR", 0.15, 0.7), ("SHP.CUTOFF", 0.3, 0.6), ("MOD A.FREQ", 0.1, 0.4), ("FX 1.BLEND", 0.1, 0.45)],
          [("MOD A.SHAPE", 0.2, 0.8)],
-         [("FX 2.MIX", 0.1, 0.5), ("FX 1.SPREAD", 0.4, 1.0)],
-         [("FX 1.TEXTURE", 0.3, 1.0), ("SHP.DRIVE", 0.05, 0.9)]],
+         [("FX 2.MIX", 0.0, 0.7), ("FX 2.SIZE", 0.3, 0.95)],
+         [("SHP.RESO", 0.05, 0.7), ("SHP.DRIVE", 0.05, 0.9)]],
         [["A TIDE+", "SHP.CUTOFF", 0.35, "M2"], ["A TIDE+", "FX 1.BLEND", 0.3, "M2"], ["A TIDES", "SRC.COLOR", 0.2, "M2"]],
         LF(("SINE", 0.3), ("DRIFT", 0.35), ("SINE", 0.4)),
         [("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 1.BLEND", 0.1), None, ("SRC.TIMBRE", 0.1)], voices=4))
@@ -348,23 +348,23 @@ def batch2():
         LF(("SINE", 0.15), ("DRIFT", 0.2)),
         [("SRC.COLOR", 0.05), None, ("SHP.CUTOFF", 0.03)], voices=5))
 
-    # 32 ------------------------------------------------------------------------------------------- DIAL CHOIR
-    # My own idea: one dial that changes the instrument itself. K1 steps Braids through its four vocal and additive models
-    # (formant choir, vowel, formant-wave, harmonic organ), all of which keep the played pitch, while the timbre, filter and
+    # 32 ------------------------------------------------------------------------------------------ MODEL DIAL
+    # My own idea: one dial that changes the instrument itself. K1 steps Braids through eight of its models in turn
+    # (four saw-with-filter models, then choir, vowel, formant-wave and harmonic organ), all of which keep the played pitch, while the timbre, filter and
     # echo move with it; a Tides AR swell and an LFO keep each one breathing.
-    a(B("DIAL CHOIR", "FX", {"SRC": "BRAIDS", "SHP": "FILTER", "MODA": "TIDES", "FX1": "DELAY", "FX2": "REVERB"},
+    a(B("MODEL DIAL", "FX", {"SRC": "BRAIDS", "SHP": "FILTER", "MODA": "TIDES", "FX1": "DELAY", "FX2": "REVERB"},
         {"SRC": {"MODEL": "VOSM", "TIMBRE": 0.5, "COLOR": 0.5, "DRIFT": 0.05, "LEVEL": 1.0},
          "SHP": {"TYPE": "LP", "CUTOFF": 0.7, "RESO": 0.1, "DRIVE": 0.1, "ENV AMT": 0.0, "KEY TRK": 0.6, "VEL AMT": 0.2},
-         "MODA": {"MODE": "AR", "FREQ": 0.3, "SHAPE": 0.5, "SLOPE": 0.0, "SMOOTH": 0.3, "RANGE": "MID", "GATE": "NOTE", "INVERT": "OFF"},
+         "MODA": {"MODE": "LOOP", "FREQ": 0.3, "SHAPE": 0.5, "SLOPE": 0.0, "SMOOTH": 0.3, "RANGE": "MID", "GATE": "NOTE", "INVERT": "OFF"},
          "FX1": DLY("1/8D", 0.3, 0.2, "PING"), "FX2": REV("HALL", 0.7, 0.25)},
         AM(ATTACK=0.1, DECAY=0.5, SUSTAIN=0.8, RELEASE=0.4, **{"VEL AMT": 0.5, "SPREAD": 0.5}),
-        [[("SRC.MODEL", 21, 24), ("SRC.TIMBRE", 0.3, 0.7), ("SHP.CUTOFF", 0.5, 0.85), ("FX 1.MIX", 0.05, 0.3), ("AMP.ATTACK", 0.0, 0.3)],
+        [[("SRC.MODEL", 17, 24), ("SRC.TIMBRE", 0.3, 0.7), ("SHP.CUTOFF", 0.5, 0.85), ("FX 1.MIX", 0.05, 0.3), ("AMP.ATTACK", 0.0, 0.3)],
          [("MOD A.FREQ", 0.2, 0.5)],
-         [("FX 2.MIX", 0.1, 0.45), ("FX 1.FEEDBACK", 0.15, 0.5)],
-         [("SHP.DRIVE", 0.05, 0.6), ("SRC.COLOR", 0.2, 0.8)]],
-        [["A TIDE+", "SRC.TIMBRE", 0.4, "M2"], ["A TIDES", "SHP.CUTOFF", 0.4, "M2"]],
+         [("FX 2.MIX", 0.0, 0.7), ("FX 1.FEEDBACK", 0.15, 0.6)],
+         [("SHP.DRIVE", 0.05, 0.8), ("SRC.COLOR", 0.2, 0.8)]],
+        [["A TIDE+", "SRC.TIMBRE", 0.7, "M2"], ["A TIDES", "SHP.CUTOFF", 0.7, "M2"]],
         LF(("SINE", 0.5), ("DRIFT", 0.3)),
-        [("SRC.COLOR", 0.1), None, ("SHP.CUTOFF", 0.15)], voices=4))
+        [("SRC.COLOR", 0.25), None, ("SHP.CUTOFF", 0.3)], voices=4))
     return L
 
 
