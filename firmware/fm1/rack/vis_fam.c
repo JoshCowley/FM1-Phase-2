@@ -95,7 +95,7 @@ static void fm_terrain(const uint8_t *d, int np, int ns, const fm_geo_t *g, int 
     uint32_t dark = (uint32_t)fm_sw(0x020307u);
     for (s = 0; s < ns; s++) {
         int32_t yb, xl, xr, hm, w, n, j, step, t = ns > 1 ? s * 256 / (ns - 1) : 256;
-        uint32_t br, c, cs[6], fillw[5], k;
+        uint32_t br, c, cs[6], fillw[12], k;
         const uint8_t *q = d + s * np;
         fm_sg(g, ns, s, &yb, &xl, &xr, &hm);
         w = xr - xl;
@@ -111,8 +111,8 @@ static void fm_terrain(const uint8_t *d, int np, int ns, const fm_geo_t *g, int 
         }
         c = fm_ramp(ramp, (int)br);
         cs[0] = c;
-        for (k = 0; k < 5; k++)                    /* the body: a gradient from the crest to dark */
-            fillw[k] = (uint32_t)fm_sw(hr_scale(fm_ramp(ramp, (int)(br * 150u >> 8)), 230u - k * 40u));
+        for (k = 0; k < 12; k++)                   /* the body: a gradient from the crest to dark */
+            fillw[k] = (uint32_t)fm_sw(hr_scale(fm_ramp(ramp, (int)(br * 150u >> 8)), 8u + 220u * (11u - k) * (11u - k) / 121u));
         for (j = 0; j < n; j++) {
             int32_t xe = (xl + 2 * j) & ~1, ya = ys[j], y, yz = yb < be - 1 ? yb : be - 1;
             uint32_t *p;
@@ -124,7 +124,7 @@ static void fm_terrain(const uint8_t *d, int np, int ns, const fm_geo_t *g, int 
             p = (uint32_t *)(void *)(cv_px + (uint32_t)(ya - by) * cv_w + (uint32_t)xe);
             for (y = ya; y <= yz; y++, p += cv_w / 2u) {
                 int32_t r = y - ys[j];
-                uint32_t cc = r < 1 ? 0u : r < 6 ? fillw[r - 1] : dark;
+                uint32_t cc = r < 1 ? 0u : r < 13 ? fillw[r - 1] : dark;
                 *p = r < 1 ? (uint32_t)fm_sw(c) * 0x10001u : cc | cc << 16;
             }
         }
@@ -469,8 +469,8 @@ static void fm_reverb_step(const float *mon, uint32_t dt)
 static void fm_reverb_draw(const float *mon)
 {
     float size = P(mon, 0), damp = P(mon, 1), dif = P(mon, 2);
-    int k, i, N = 14, hot = -1;
-    int32_t y1 = 172, yh = 44, w1 = 106, wh = 22, H1 = 86, dep = (int32_t)(80.0f + size * 176.0f), now = (int32_t)plat_ms(), j;
+    int k, i, N = 18, hot = -1;
+    int32_t y1 = 176, yh = 56, w1 = 112, wh = 58, H1 = 78, dep = (int32_t)(80.0f + size * 176.0f), now = (int32_t)plat_ms(), j;
     uint32_t tail = (uint32_t)(pk.tail * 255.0f), fog = (uint32_t)(150.0f + damp * 380.0f), life = 600u + (uint32_t)(size * 2000u);
     int32_t pk_k = -1;
     for (j = 0; j < 8; j++) {                     /* a note's wavefront: the arch it has reached */

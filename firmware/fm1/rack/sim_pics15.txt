@@ -1,0 +1,340 @@
+# FM1 Phase 2 update 15: a tour of every page with a picture, a chord held, shots after 3.5 s (the history has filled); LFO and AMP too.
+# FM1 Phase 2 update 13: every changed page with a chord held, plus the draw-time read-out (OCT- and OCT+) on HOME and DELAY.
+# Exit 0 = it ran; the shots are the pictures to look at.
+wait 500
+turn PRESET 2
+wait 1200
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_home_clouds_1.png
+wait 400
+shot pg_home_clouds_2.png
+press OCT-
+press OCT+
+wait 700
+shot pg_home_clouds_debug.png
+release OCT-
+release OCT+
+wait 200
+press OCT-
+press OCT+
+release OCT-
+release OCT+
+wait 200
+key w0 up
+key w4 up
+key w7 up
+wait 300
+turn PRESET 85
+wait 1200
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_home_other_1.png
+wait 400
+shot pg_home_other_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+turn PRESET -18
+wait 1200
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_home_delay_1.png
+wait 400
+shot pg_home_delay_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+turn PRESET -67
+wait 1200
+tap EDIT
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_braids_1.png
+wait 400
+shot pg_braids_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 70
+wait 1200
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_rings_1.png
+wait 400
+shot pg_rings_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 1
+wait 1200
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+tap ENV
+wait 100
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_filter_1.png
+wait 400
+shot pg_filter_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 17
+wait 1200
+tap FX
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_delay_1.png
+wait 400
+shot pg_delay_2.png
+press OCT-
+press OCT+
+wait 700
+shot pg_delay_debug.png
+release OCT-
+release OCT+
+wait 200
+press OCT-
+press OCT+
+release OCT-
+release OCT+
+wait 200
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET -32
+wait 1200
+tap FX
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_reverb_1.png
+wait 400
+shot pg_reverb_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 3
+wait 1200
+tap FX
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_chorus_1.png
+wait 400
+shot pg_chorus_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET -59
+wait 1200
+tap FX
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_clouds_1.png
+wait 400
+shot pg_clouds_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 85
+wait 1200
+tap LFO
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_tides_1.png
+wait 400
+shot pg_tides_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 3
+wait 1200
+tap LFO
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_peaks_1.png
+wait 400
+shot pg_peaks_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET 1
+wait 1200
+tap LFO
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_func_1.png
+wait 400
+shot pg_func_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+turn PRESET -91
+wait 1200
+tap LFO
+wait 200
+turn ALGO 3
+wait 300
+tap LFO
+wait 300
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot pg_grids_1.png
+wait 400
+shot pg_grids_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 200
+press HOME
+release HOME
+wait 200
+turn PRESET 3
+wait 1200
+tap ENV
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3000
+shot pg_amp_1.png
+wait 300
+shot pg_amp_2.png
+key w0 up
+key w4 up
+key w7 up
+wait 200
+press HOME
+release HOME
+wait 200
+tap LFO
+wait 300
+tap LFO
+wait 300
+tap LFO
+wait 300
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3000
+shot pg_lfo_1.png
+wait 300
+shot pg_lfo_2.png
+key w0 up
+key w4 up
+key w7 up
