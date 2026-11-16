@@ -149,7 +149,8 @@ def main():
     byname = {p["name"]: p for p in data}
     init = final_state(byname["INIT"]["calls"])
     keep = [p for p in data if not any(c[0] == "set_module" and c[2] in LITE_OUT for c in p["calls"])]
-    keep.sort(key=lambda p: (p["name"] != "INIT", not p.get("fm1", {}).get("bank"), CATS.index(category(p["name"], p)), data.index(p)))   # update 11: INIT, then the new bank, then the rest
+    bk = lambda p: p.get("fm1", {}).get("bank") or 0
+    keep.sort(key=lambda p: (p["name"] != "INIT", not bk(p), bk(p), 0 if bk(p) else CATS.index(category(p["name"], p)), data.index(p)))   # update 11: INIT, then the banks (update 15: bank 1, then bank 2, each in its own order), then the rest by category
     if "--full" in sys.argv:
         return full(keep)
     blob, table = bytearray(), []

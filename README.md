@@ -1,6 +1,6 @@
 # FM1 Phase 2
 
-The foundation for a new family of synths for the M-VAVE FM-1, forked on 14 Nov 2026 from **MODFM1** (FM1 Rack, update 59) with its whole history. Everything FM1 Rack does is here as the starting point: the Mutable Instruments module rack, 93 presets (16 granular ones first), scale chords, STYLE and RHYTHM, the arpeggiator, the sequencer, the A/B-chosen look with DAYLIGHT mode, USB audio and tight MIDI clock.
+The foundation for a new family of synths for the M-VAVE FM-1, forked on 14 Nov 2026 from **MODFM1** (FM1 Rack, update 59) with its whole history. Everything FM1 Rack does is here as the starting point: the Mutable Instruments module rack, 109 presets (16 granular ones, then 16 modulation instruments, first), scale chords, STYLE and RHYTHM, the arpeggiator, the sequencer, the A/B-chosen look with DAYLIGHT mode, USB audio and tight MIDI clock.
 
 What differs from MODFM1 so the two can sit side by side:
 

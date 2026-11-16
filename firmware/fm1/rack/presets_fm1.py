@@ -624,6 +624,8 @@ def fm1_presets(page, braids=None):
         out.append(q)
     from presets_granular import granular      # update 11: the granular batch (device only), first in the bank after INIT
     out += granular()
+    from presets_batch2 import batch2          # update 15: the second batch (bank 2), bank positions 17-32
+    out += batch2()
     names = [p["name"] for p in out]
     unknown = set(C) - set(names)
     if unknown or len(names) != len(set(names)) or any(len(n) > 16 for n in names):
