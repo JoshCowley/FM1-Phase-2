@@ -1555,7 +1555,7 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
     run_benv(v);
     float oct = P(S_SRC, 8, &v), fine = P(S_SRC, 9, &v), et = P(S_SRC, 12, &v), ec = P(S_SRC, 13, &v), ep = P(S_SRC, 14, &v);
     if (oct != 0.0f || fine != 0.0f || ep != 0.0f) n2 += floorf(oct + 0.5f) * 12.0f + fine + v.benv * ep * 24.0f;
-    b.set_pitch((int16_t)clampf((n2 - 12.0f) * 128.0f, 0, 16383));   // Braids runs at 96 kHz natively
+    b.set_pitch((int16_t)clampf((n2 + 12.0f) * 128.0f, 0, 16383));   // Braids is tuned for 96 kHz: run at 48 kHz it sounds an octave low, so it is asked for an octave up
     float tb = P(S_SRC, 1, &v), cl = P(S_SRC, 2, &v);
     if (et != 0.0f) tb = clampf(tb + v.benv * et, 0.0f, 1.0f);
     if (ec != 0.0f) cl = clampf(cl + v.benv * ec, 0.0f, 1.0f);
