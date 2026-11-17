@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* FM1 Rack firmware: the 64 user presets, the SAVE page and the library (after the page: web/src/1-data.js
+/* FM1 Rack firmware: the 15 user presets, the SAVE page and the library (after the page: web/src/1-data.js
  * openSave / commitSave / libDo, 4-pages.js drawSave / drawLibrary), part of app.c.
  *
  * A user preset keeps what the menus edit: the factory preset it started from (which brings what the menus don't
@@ -13,8 +13,9 @@
  *   SAVE page 2, LIBRARY: every factory and user preset in category tabs; PRESET, ALGORITHM or K1 the row, K2 the tab,
  *                       K3 the action (LOAD, COPY, RENAME, DELETE), OCT+ does it (DELETE asks twice); OCT- back.
  * PRESET on every other page steps through the factory presets, then the user presets saved. */
-#define NUSER 64
-#define UP_PER_OBJ 8
+#define NUSER 15                              /* (17 Nov 2026: 64 before; the store keeps its 8 objects of 8 slots, so a 64-slot build's saves still read: */
+#define UP_PER_OBJ 8                          /*  slots 0-14 stay, 15-63 are dropped (never read; an object rewritten carries them along, unseen)) */
+#define NGROUP ((NUSER + UP_PER_OBJ - 1) / UP_PER_OBJ)
 #define NCAT 6
 static const char *const CAT_NAME[NCAT] = {"NONE", "BASS", "PADS", "LEAD", "CHORD", "FX"};
 static const uint16_t *cat_col_tab(void)     /* each category's colour, from the palette in use (update 55) */
@@ -120,12 +121,12 @@ static int group_read(int g)                  /* -> ugroup; an object never save
     return 1;
 }
 static int group_write(int g) { return plat_store_save(OBJ_USER0 + (uint32_t)g, ugroup, sizeof ugroup); }
-static void users_load(void)                  /* the 64 names and categories, at power-on */
+static void users_load(void)                  /* the names and categories, at power-on */
 {
     int g, i;
-    for (g = 0; g < NUSER / UP_PER_OBJ; g++) {
+    for (g = 0; g < NGROUP; g++) {
         group_read(g);
-        for (i = 0; i < UP_PER_OBJ; i++) {
+        for (i = 0; i < UP_PER_OBJ && g * UP_PER_OBJ + i < NUSER; i++) {
             int u = g * UP_PER_OBJ + i, k;
             us.used[u] = ugroup[i].used == 1;
             us.cat[u] = ugroup[i].cat < NCAT ? ugroup[i].cat : 0;
@@ -168,6 +169,7 @@ static void snapshot(upatch_t *u, const char *name, int cat)
     u->cat = (uint8_t)cat;
     u->base = (uint8_t)(rc_patch.index < 0 ? 0 : rc_patch.index);
     u->mode = (uint8_t)rc_patch.mode;
+    u->pad = 1;                               /* (bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0) */
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(rc_patch.mod[s]);
         u->mod[s] = (uint8_t)rc_patch.mod[s];
@@ -198,6 +200,8 @@ static void apply(const upatch_t *u)
 {
     int s, i;
     rc_load(u->base < NPRESETS ? u->base : 0);
+    if (!(u->pad & 1))
+        rk_clear_macro_targets();             /* a slot saved before the knob layer plays as it was saved, whatever its base gains later */
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(u->mod[s]);
         if (rc_patch.mod[s] != (int8_t)u->mod[s]) {
@@ -379,7 +383,7 @@ static void lib_do(void)
     }
     if (sv.act == 1) {                       /* COPY: into the first free slot; a factory one is loaded first */
         int f = first_free();
-        if (f < 0) { app_say("ALL 64 SLOTS", "FULL"); return; }
+        if (f < 0) { app_say("ALL 15 SLOTS", "FULL"); return; }
         if (e >= NPRESETS) {
             group_read((e - NPRESETS) / UP_PER_OBJ);
             p = ugroup[(e - NPRESETS) % UP_PER_OBJ];
@@ -487,8 +491,9 @@ static int save_input(uint32_t press)        /* 1: the SAVE page took the contro
             sv.cat = sv.cat < 0 ? 0 : sv.cat >= NCAT ? NCAT - 1 : sv.cat;
         } else if (k == 3 && sv.rename < 0) {
             int pg = sv.slot / 16 + d;
-            pg = pg < 0 ? 0 : pg > 3 ? 3 : pg;
+            pg = pg < 0 ? 0 : pg > (NUSER - 1) / 16 ? (NUSER - 1) / 16 : pg;
             sv.slot = pg * 16 + sv.slot % 16;
+            sv.slot = sv.slot >= NUSER ? NUSER - 1 : sv.slot;
         }
     }
     return 1;
@@ -542,6 +547,8 @@ static void draw_save_name(void)
         for (i = 0; i < 4; i++) {
             int u = pg * 16 + k * 4 + i, sel = u == sv.slot;
             int32_t x = 4 + i * 58;
+            if (u >= NUSER)
+                continue;                     /* (the 16th cell of the page: no slot) */
             rrect(x, 1, 56, 19, us.used[u] ? GREY(32) : GREY(16), 3);
             if (us.used[u])
                 cv_rect(x, 4, 2, 14, CAT_COL[us.cat[u]]);
@@ -621,7 +628,7 @@ static void draw_library(void)
             cat(t, "   ");
             int_text(used, b);
             cat(t, b);
-            cat(t, "/64 USER");
+            cat(t, "/15 USER");
         }
         cv_text(86, 0, &FONT_T, t, K_DIM);
         cv_text(86, 11, &FONT_T, "K1 ROW K2 TAB K3 ACTION  OCT+ GO", K_DIM);
