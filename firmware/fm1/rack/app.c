@@ -747,13 +747,14 @@ static void home_macros(int force)            /* (update 39: drawn again only wh
         uint16_t d = route_dst(i, &src, &via, &amt);   /* (its own line: src is set by the call) */
         sig = sig * 31u + d + (uint32_t)src * 977u;
     }
+    sig = sig * 131u + rc_gen;                /* (the knob layer's targets change only when a preset loads) */
     if (!force && sig == home_macros_sig && !wv_on() && !home_wv_was)
         return;
     home_wv_was = wv_on();                    /* (moving with the sound: every frame; once more as it stops) */
     home_macros_sig = sig;
     for (i = 0; i < 4; i++) {                 /* (one canvas each: the canvas holds 9600 pixels) */
         float v = rc_patch.macro[i], amt;
-        int r, nt = 0, src = 0, via, sel = mn.learn && !mn.learn_src && mn.learn_m == i;
+        int r, nt = 0, src = 0, via, sel = mn.learn && !mn.learn_src && mn.learn_m == i, nm = 0, mo[5], mrow = 0;
         uint16_t first = 0;
         for (r = 0; r < 18; r++) {
             uint16_t d = route_dst(r, &src, &via, &amt);
@@ -762,6 +763,16 @@ static void home_macros(int force)            /* (update 39: drawn again only wh
                 nt++;
             }
         }
+        for (r = 0; r < 8; r++) {             /* the knob layer's targets (17 Nov 2026): counted with the rows', named first */
+            if (rk_get_macro_target(i, r, mo)) {
+                if (!nm) {
+                    mrow = mo[0] == 9 ? mo[1] + 1 : 0;
+                    first = (uint16_t)(((mo[0] + 1) << 8 | mo[1]) | (mo[0] < 0 ? 0x8000u : 0u));
+                }
+                nm++;
+            }
+        }
+        nt += nm;                             /* (rows and layer targets together) */
         cv_begin(57, HM_H, K_BG);             /* flat (12 Nov 2026): an arc in its knob's colour, no box */
         if (sel && (now / 250u) & 1u)
             rrect(0, 0, 57, HM_H, mix565(K_GOLD, K_BG, 40), 4);
@@ -780,7 +791,13 @@ static void home_macros(int force)            /* (update 39: drawn again only wh
             (void)tx;
         }
         if (nt) {
-            dst_name(first, t);
+            if (mrow) {
+                t[0] = 0;
+                cat(t, "ROW ");
+                int_text(mrow, n);
+                cat(t, n);
+            } else
+                dst_name(first, t);
             if (nt > 1) {
                 cat(t, "+");
                 int_text(nt - 1, n);
