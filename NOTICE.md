@@ -27,9 +27,9 @@ to; this document does not replace them.
   Mutable engine code used is MIT; that is a rule set for this project, the parts above are what the headers say.
 - **"GPL-3.0" identifier.** The repo states "GPL-3.0" (README, `fm1.toml`, `LICENSE`) without saying "only" or "or
   later". The headers use the SPDX id `GPL-3.0` to match it. Whether to say `-only` or `-or-later` is Josh's choice.
-- **MIT notice.** The MIT permission text and the Mutable copyright lines are in each Mutable source file's header. A
-  binary that includes those modules should carry that notice text; the text, with its copyright line, is not
-  reproduced in this repository yet. See the report's "Check these".
+- **MIT notice.** The MIT permission text and the Mutable copyright lines are in each Mutable source file's header.
+  A binary that includes those modules carries that notice through `LICENSE-MUTABLE-MIT.txt` (the copyright lines
+  and the permission text, copied from those headers), which is attached to every published firmware package.
 - **Trademark.** The README says "Mutable Instruments" is a registered trademark and that the module names stay on
   screen for now. A copyright licence and a trademark are different things; the README plans renaming before release.
 - **Authorship.** The git history has more than one author identity. Who holds copyright in which part is not recorded
