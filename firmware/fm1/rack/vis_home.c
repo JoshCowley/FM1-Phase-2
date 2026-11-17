@@ -700,7 +700,7 @@ static void home_readouts(void)
                 nt++;
             }
         }
-        if (cur_entry >= 1 && cur_entry <= 32) {   /* (update 14; 15) the granular presets share one grammar, from a const table: presets 1-16 K1 TONE, 17-32 K1 MORPH; K2 MOTION, K3 SPACE, K4 TEXTURE */
+        if (cur_entry >= 1 && cur_entry <= 48) {   /* (update 14; 15; 17) the granular presets share one grammar, from a const table: presets 1-16 K1 TONE, 17-48 K1 MORPH; K2 MOTION, K3 SPACE, K4 TEXTURE */
             static const char *const GN[2][4] = {{"TONE", "MOTION", "SPACE", "TEXTURE"}, {"MORPH", "MOTION", "SPACE", "TEXTURE"}};
             l[0] = 0;
             cat(l, GN[cur_entry > 16][k]);
