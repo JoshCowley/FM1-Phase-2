@@ -10,6 +10,7 @@
  *   5. the overload shed;
  *   6. CLOUDS: its modes sound, the arena holds, the reverb gives way first (clouds_check.c);
  *   7. CLOUDS on the second core (update 9, RACK_FX_CORE2): the same sound as one core, a block late (fx_core2_check.c).
+ *   8. the knob layer (update 18): the curve maths, and MACRO TEST's eight K1 targets (presets_macrotest.h).
  * Build and run: sh build_host.sh */
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +22,8 @@
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
 #include "presets_full.h"
+#include "presets_macrotest.h"
+float rk_eff_param(int slot, int param);
 
 static void run_full(const full_op_t *o, int n)
 {
@@ -38,6 +41,7 @@ static void run_full(const full_op_t *o, int n)
         case 9: rk_set_vintage(o->x); break;
         case 10: rk_set_ext_slew(o->a, o->x); break;
         case 11: rk_set_tune(o->a, o->x); break;
+        case 12: rk_set_macro_target(o->a, o->b, (int8_t)o->c, o->d, (int)o->x, (int)o->y, (int)o->z, (int)o->w); break;
         }
 }
 
@@ -228,6 +232,78 @@ int main(int argc, char **argv)
 #else
     printf("7 RACK_FX_CORE2 is off in this build: Clouds stays on the first core (nothing to check)\n");
 #endif
+    /* 8: the knob layer (update 18): the curve maths, then MACRO TEST (K1 on 8 targets, loaded from the packed ops as the
+     * firmware loads a preset) gives each parameter the offset depth x curve(K1) x span, and a row target moves a row's depth */
+    {
+        static const struct { float k; int s, e, c; float want; } cv[] = {
+            {0.0f, 0, 100, 0, 0.0f}, {0.5f, 0, 100, 0, 0.5f}, {1.0f, 0, 100, 0, 1.0f}, {0.25f, 0, 100, 1, 0.0625f}, {0.5f, 0, 100, 1, 0.25f},
+            {0.25f, 0, 100, 2, 0.4375f}, {0.5f, 0, 100, 2, 0.75f}, {0.25f, 0, 100, 4, 0.15625f}, {0.5f, 0, 100, 4, 0.5f},
+            {0.2f, 40, 100, 0, 0.0f}, {0.7f, 40, 100, 0, 0.5f}, {1.0f, 40, 100, 1, 1.0f}, {0.84f, 85, 100, 3, 0.0f},
+            {0.85f, 85, 100, 3, 1.0f}, {1.0f, 85, 100, 3, 1.0f}, {0.5f, 0, 60, 0, 0.8333333f}, {0.9f, 0, 60, 2, 1.0f}, {0.5f, 70, 70, 0, 0.0f}};
+        int bad_c = 0, bad_t = 0, nt = 0, i, kk;
+        float worst = 0.0f;
+        for (i = 0; i < (int)(sizeof cv / sizeof cv[0]); i++) {
+            float g = rk_macro_curve(cv[i].k, cv[i].s, cv[i].e, cv[i].c);
+            if (fabsf(g - cv[i].want) > 1e-5f) { bad_c++; printf("8 curve k=%g %d-%d type %d: %g, want %g\n", cv[i].k, cv[i].s, cv[i].e, cv[i].c, g, cv[i].want); }
+        }
+        static const float ks[] = {0.0f, 0.3f, 0.6f, 0.8f, 1.0f};
+        for (kk = 0; kk < 5; kk++) {
+            float e1[8], e0[8], tgt_k = ks[kk];
+            int sl[8], pa[8], dp[8], st[8], en[8], cu[8], n = 0, j, out[5];
+            rk_init();
+            rc_run(PRESET_OPS + PRESETS[0].at, PRESETS[0].len);
+            rc_run(MACRO_TEST_OPS, sizeof MACRO_TEST_OPS);
+            for (j = 0; j < RS_N; j++)
+                rc_meta(j, j >= RS_AMP ? 100 + j : rc_patch.mod[j]);
+            rk_set_macro(0, tgt_k);
+            rk_render(48);
+            for (j = 0; j < 8; j++) {            /* (read without rendering between: the modulators stand still) */
+                int d = rk_get_macro_target(0, j, out);
+                if (kk == 0) nt += d != 0;
+                sl[j] = out[0]; pa[j] = out[1]; dp[j] = d; st[j] = out[2]; en[j] = out[3]; cu[j] = out[4];
+            }
+            for (j = 0; j < 8; j++)
+                if (sl[j] < 9) e1[j] = rk_eff_param(sl[j], pa[j]);
+            rk_clear_macro_targets();
+            for (j = 0; j < 8; j++)
+                if (sl[j] < 9) e0[j] = rk_eff_param(sl[j], pa[j]);
+            for (j = 0; j < 8; j++) {
+                float lo = -1e9f, hi = 1e9f, span = 1.0f, want, key;
+                int m;
+                if (sl[j] >= 9) continue;
+                key = (float)(sl[j] >= 6 ? 100 + sl[j] : rc_patch.mod[sl[j] < 0 ? 0 : sl[j]]);
+                (void)key;
+                for (m = 0; m < NMETA_OF; m++)
+                    if (META_OF[m].key == (sl[j] >= 6 ? 100 + sl[j] : rc_patch.mod[sl[j]]))
+                        for (i = 0; i < META_OF[m].n; i++)
+                            if (META[META_OF[m].at + i].param == pa[j]) { span = META[META_OF[m].at + i].span; lo = META[META_OF[m].at + i].lo; hi = META[META_OF[m].at + i].hi; }
+                want = (float)dp[j] * 0.01f * rk_macro_curve(tgt_k, st[j], en[j], cu[j]) * span;
+                if (e0[j] > lo + 1e-4f && e0[j] + want < hi - 1e-4f && e0[j] + want > lo + 1e-4f) {
+                    float err = fabsf((e1[j] - e0[j]) - want);
+                    if (err > worst) worst = err;
+                    if (err > 1e-4f) { bad_t++; printf("8 K1 %.2f target %d (slot %d param %d): moved %g, want %g (e0 %g lo %g hi %g span %g)\n", tgt_k, j, sl[j], pa[j], e1[j] - e0[j], want, e0[j], lo, hi, span); }
+                }
+            }
+        }
+        {   /* a row's depth: the row (M2 to SRC param 0, 0.2) plus the knob's 0.5 x 0.5 at K1 = 0.5 */
+            float a, b;
+            rk_init();
+            rk_set_meta(0, 0, 0.0f, 10.0f, 1.0f);
+            rk_set_route(0, 2, 0, 0, 0.2f, 0);
+            rk_set_macro(1, 1.0f);
+            rk_set_macro(0, 0.5f);
+            rk_render(48);
+            a = rk_eff_param(0, 0);
+            rk_set_macro_target(0, 0, 9, 0, 50, 0, 100, 0);
+            rk_render(48);
+            b = rk_eff_param(0, 0);
+            if (fabsf(a - 0.2f) > 1e-5f || fabsf(b - 0.45f) > 1e-5f) { bad_t++; printf("8 row depth: %g then %g, want 0.2 then 0.45\n", a, b); }
+        }
+        printf("8 knob layer: %d curve points, MACRO TEST %d targets on K1 at 5 knob positions, worst error %.2g, %d wrong\n",
+               (int)(sizeof cv / sizeof cv[0]), nt, worst, bad_c + bad_t);
+        if (bad_c || bad_t || nt != 8)
+            fails++;
+    }
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

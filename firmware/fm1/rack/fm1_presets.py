@@ -19,6 +19,7 @@ HERE = Path(__file__).resolve().parent
 WEB = HERE.parent.parent.parent / "web"
 TESTS = HERE.parent.parent / "tests"
 OUT = TESTS / "presets-fm1-calls.json"
+MT = TESTS / "presets-macrotest-calls.json"
 
 MID = {"PLAITS": 1, "BRAIDS": 2, "ELEMENTS": 3, "RINGS": 10, "WARPS": 11, "FILTER": 12, "PEAKS": 20, "TIDES": 21,
        "MARBLES": 22, "GRIDS": 23, "FUNC": 24, "CLOUDS": 30, "DELAY": 31, "REVERB": 32, "CHORUS": 33}
@@ -26,6 +27,7 @@ SLOTS = [("SRC", "SRC"), ("SHP", "SHP"), ("MODA", "MOD A"), ("MODB", "MOD B"), (
 BUILT_SRC = ["—", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV"]
 EXTRA_SRC = ["LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1", "SEQ 2", "SEQ 3", "SEQ 4", "WHEEL", "PRESS"]
 A_MODE, A_VINTAGE = 11, 13
+MCURVES = ["LIN", "SLOW", "FAST", "STEP", "S"]
 MAXV = 6
 
 
@@ -146,6 +148,18 @@ def calls_for(pr, D, tail):
                       t[1] if t else 0, 0])
     for i, v in enumerate(pr.get("macros", [0.5] * 4)):
         calls.append(["set_macro", i, v])
+    # the knob layer (17 Nov 2026): "mtgt": [[knob 1-4, destination (as the matrix's, or "ROW n"), depth, start, end, curve], ...]
+    # depth -1.27..1.27 (the matrix's unit), start/end 0..1 of the knob's travel, curve LIN SLOW FAST STEP S; up to 8 a knob
+    used = [0] * 4
+    for k, dst, depth, start, end, cv in pr.get("mtgt", []):
+        if dst.startswith("ROW "):
+            d = [9, int(dst[4:]) - 1]
+        else:
+            d = dst_ix(dst)
+        if d is None or not 1 <= k <= 4 or used[k - 1] >= 8 or cv not in MCURVES:
+            raise SystemExit(f"fm1_presets: {pr['name']}: bad knob target {k} {dst} {cv}")
+        calls.append(["set_macro_target", k - 1, used[k - 1], d[0], d[1], round(depth * 100), round(start * 100), round(end * 100), MCURVES.index(cv)])
+        used[k - 1] += 1
     calls += tail["pre"]
     calls.append(["set_legato", 0 if amp[A_MODE] == 1 else 1])
     calls.append(["set_vintage", amp[A_VINTAGE]])
@@ -190,12 +204,16 @@ def main():
     rec = json.loads((TESTS / "presets-calls.json").read_text())
     D, tail = defs(), tail_of(rec)
     out = []
-    for pr in fm1_presets(json.loads((WEB / "presets.json").read_text())):
+    out_presets = fm1_presets(json.loads((WEB / "presets.json").read_text()))
+    for pr in out_presets:
         c = calls_for(pr, D, tail)
         c["fm1"] = {k: pr[k] for k in ("fm1_voices", "osc", "bank", "cat") if k in pr}
         out.append(c)
     OUT.write_text(json.dumps(out))
     print(f"{OUT.name}: {len(out)} presets")
+    from presets_fm1 import macro_test         # not a factory preset: make_presets.py packs it for rack_host's check 8 only
+    MT.write_text(json.dumps([calls_for(macro_test(out_presets), D, tail)]))
+    print(f"{MT.name}: 1 test preset")
 
 
 if __name__ == "__main__":

@@ -17,6 +17,13 @@ void rk_set_meta(int slot, int param, float lo, float hi, float span) { set_meta
 void rk_set_route(int i, int src, int slot, int param, float amt, int via) { set_route(i, src, slot, param, amt, via); }
 void rk_set_macro(int i, float v) { set_macro(i, v); }
 void rk_set_macro_glide(int i, float v) { set_macro_glide(i, v); }
+void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve) { set_macro_target(k, idx, slot, param, depth, start, end, curve); }
+void rk_clear_macro_targets(void) { clear_macro_targets(); }
+int rk_get_macro_target(int k, int idx, int *out) { return get_macro_target(k, idx, out); }
+float rk_macro_curve(float k, int start, int end, int curve) { return macro_curve(k, start, end, curve); }
+#ifdef TEST
+float rk_eff_param(int slot, int param) { return eff_param(slot, param); }
+#endif
 void rk_set_master(float v) { set_master(v); }
 void rk_set_master_fx(float lo, float mid, float hi, float comp) { set_master_fx(lo, mid, hi, comp); }
 void rk_set_legato(int on) { set_legato(on); }

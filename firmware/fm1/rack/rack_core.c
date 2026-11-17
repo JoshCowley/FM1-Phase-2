@@ -25,6 +25,10 @@ void rk_set_meta(int slot, int param, float lo, float hi, float span);
 void rk_set_route(int i, int src, int slot, int param, float amt, int via);
 void rk_set_macro(int i, float v);
 void rk_set_macro_glide(int i, float v);
+void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve);
+void rk_clear_macro_targets(void);
+int rk_get_macro_target(int k, int idx, int *out);
+float rk_macro_curve(float k, int start, int end, int curve);
 void rk_set_master(float v);
 void rk_set_master_fx(float lo, float mid, float hi, float comp);
 void rk_set_legato(int on);
@@ -105,6 +109,7 @@ static void rc_run(const uint8_t *p, uint32_t n)
         case 9: rk_set_vintage(PF(0)); p += 1; break;
         case 10: rk_set_ext_slew(a, PF(1)); p += 2; break;
         case 11: rk_set_tune(a, PF(1)); p += 2; break;
+        case 12: rk_set_macro_target(a, b, c, d, (int8_t)p[4], p[5], p[6], p[7]); p += 8; break;   /* (the knob layer: k, entry, slot, param, depth %, start %, end %, curve) */
         default: return;    /* (never: make_presets.py writes only these) */
         }
     }

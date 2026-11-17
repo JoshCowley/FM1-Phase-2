@@ -647,3 +647,18 @@ def fm1_presets(page, braids=None):
             if p["name"] in lv:
                 p["amp"]["LEVEL"] = lv[p["name"]]
     return out
+
+
+def macro_test(presets):
+    """MACRO TEST (17 Nov 2026), for rack_host's check 8 only (not a factory preset): WARM PAD with K1 driving 8 targets,
+    each with its own window and curve (parameters, a Tides rate, an LFO rate, an FX parameter, a matrix row's depth,
+    and a step for a glitch at the top of the knob)"""
+    import copy
+    q = copy.deepcopy(next(p for p in presets if p["name"] == "WARM PAD"))
+    q["name"] = "MACRO TEST"
+    row = next(i for i, m in enumerate(q["matrix"]) if m[1] == "PAN")
+    q["mtgt"] = [[1, "SHP.CUTOFF", 0.5, 0.0, 1.0, "LIN"], [1, "SRC.COLOR", 0.3, 0.0, 0.6, "FAST"],
+                 [1, "MOD A.FREQ", 0.5, 0.4, 1.0, "SLOW"], [1, "FX 1.MIX", 0.4, 0.5, 1.0, "SLOW"],
+                 [1, "FX 2.SIZE", 0.3, 0.0, 1.0, "S"], [1, "LFO.RATE 1", 0.3, 0.3, 1.0, "SLOW"],
+                 [1, f"ROW {row + 1}", 0.5, 0.7, 1.0, "SLOW"], [1, "SRC.TIMBRE", -0.2, 0.85, 1.0, "STEP"]]
+    return q

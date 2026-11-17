@@ -132,11 +132,38 @@ static Route routes_[NROUTE];
 // the params some route reaches, per slot (slot -1, the voice's pitch and pan, at 0): mod_sum skips the 18 rows for
 // the rest. Kept by set_route and init. Same result as scanning: an unrouted param sums nothing either way.
 static uint32_t routed_[NSLOT + 1];
+// The knob layer (17 Nov 2026): each of the 4 macros drives up to MK_N targets of its own, apart from the matrix rows.
+// A target: a parameter (slot -1..8, param 0..31) or, with slot MT_ROW, the depth of row `param`; its depth (1/100,
+// signed), the window start..end of the knob's travel (percent) and a curve. Computed when a knob moves (glide_step),
+// never per sample; the offsets are added to the modulation sum.
+static const int MK_N = 8, MT_ROW = 9;
+struct MTgt { int8_t slot; uint8_t param; int8_t depth; uint8_t start, end, curve; };
+static MTgt mt_[4 * MK_N];
+static float mo_[4 * MK_N];          // each target's offset now (parameter span fractions; a row target: amount)
+static float rowoff_[NROUTE];        // the sum of the row targets, per row
+static uint8_t mdirty_;              // knobs whose offsets are out of date
 static void routed_rebuild() {
   memset(routed_, 0, sizeof(routed_));
   for (int i = 0; i < NROUTE; ++i) {
     const Route& r = routes_[i];
     if (r.src != SR_NONE && r.slot >= -1 && r.slot < NSLOT && r.param >= 0 && r.param < 32) routed_[r.slot + 1] |= 1u << r.param;
+  }
+  for (int j = 0; j < 4 * MK_N; ++j) {
+    const MTgt& t = mt_[j];
+    if (t.depth && t.slot >= -1 && t.slot < NSLOT && t.param < 32) routed_[t.slot + 1] |= 1u << t.param;
+  }
+}
+// the response of a target to the knob at k (0..1): 0 linear, 1 slow start, 2 fast start, 3 step (at start), 4 smooth
+static float macro_curve_(float k, int start, int end, int curve) {
+  float a = start * 0.01f, b = end * 0.01f, t;
+  if (curve == 3 || b <= a) return k >= a ? 1.0f : 0.0f;
+  t = (k - a) / (b - a);
+  t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+  switch (curve) {
+    case 1: return t * t;
+    case 2: return t * (2.0f - t);
+    case 4: return t * t * (3.0f - 2.0f * t);
+    default: return t;
   }
 }
 
@@ -506,10 +533,12 @@ static float mod_sum(int slot, int param, const VoiceState* v) {
   for (int i = 0; i < NROUTE; ++i) {
     const Route& r = routes_[i];
     if (r.src == SR_NONE || r.slot != slot || r.param != param) continue;
-    float s = source_value(r.src, v) * r.amt;
+    float s = source_value(r.src, v) * (r.amt + rowoff_[i]);
     if (r.via != SR_NONE) s *= source_value(r.via, v);
     m += s;
   }
+  for (int j = 0; j < 4 * MK_N; ++j)
+    if (mt_[j].slot == slot && mt_[j].param == param && mt_[j].depth) m += mo_[j];
   return m;
 }
 
@@ -559,8 +588,50 @@ EXPORT void set_meta(int slot, int param, float lo, float hi, float span) {
 }
 static float macro_tgt_[4];
 static uint8_t macro_gl_[4];
-EXPORT void set_macro(int i, float v) { if (i >= 0 && i < 4) { macro_gl_[i] = 0; macro_tgt_[i] = v; macros_[i] = v; } }
+static void macro_update();
+EXPORT void set_macro(int i, float v) { if (i >= 0 && i < 4) { macro_gl_[i] = 0; macro_tgt_[i] = v; macros_[i] = v; mdirty_ |= 1u << i; } }
 EXPORT void set_macro_glide(int i, float v) { if (i >= 0 && i < 4) { macro_tgt_[i] = v; macro_gl_[i] = 1; } }
+// the knob layer's targets: knob k (0-3), entry idx (0-7); depth 0 clears the entry
+EXPORT void set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve) {
+  if (k < 0 || k >= 4 || idx < 0 || idx >= MK_N) return;
+  MTgt& t = mt_[k * MK_N + idx];
+  if (depth > 127) depth = 127;
+  if (depth < -127) depth = -127;
+  bool ok = (slot >= -1 && slot < NSLOT && param >= 0 && param < 32) || (slot == MT_ROW && param >= 0 && param < NROUTE);
+  if (!ok) depth = 0;
+  t.slot = (int8_t)slot; t.param = (uint8_t)param; t.depth = (int8_t)depth;
+  t.start = (uint8_t)(start < 0 ? 0 : start > 100 ? 100 : start); t.end = (uint8_t)(end < 0 ? 0 : end > 100 ? 100 : end);
+  t.curve = (uint8_t)(curve < 0 || curve > 4 ? 0 : curve);
+  mdirty_ |= 1u << k;
+  routed_rebuild();
+}
+EXPORT void clear_macro_targets() { memset(mt_, 0, sizeof(mt_)); memset(mo_, 0, sizeof(mo_)); memset(rowoff_, 0, sizeof(rowoff_)); mdirty_ = 0; routed_rebuild(); }
+// a target as set: out[0] slot, [1] param, [2] start, [3] end, [4] curve; returns its depth (0: none)
+EXPORT int get_macro_target(int k, int idx, int* out) {
+  if (k < 0 || k >= 4 || idx < 0 || idx >= MK_N) { out[0] = out[1] = out[2] = out[3] = out[4] = 0; return 0; }
+  const MTgt& t = mt_[k * MK_N + idx];
+  out[0] = t.slot; out[1] = t.param; out[2] = t.start; out[3] = t.end; out[4] = t.curve;
+  return t.depth;
+}
+EXPORT float macro_curve(float k, int start, int end, int curve) { return macro_curve_(k, start, end, curve); }
+#ifdef TEST
+EXPORT float eff_param(int slot, int param) { macro_update(); return P(slot, param, 0); }   // a parameter as the voices hear it (host checks)
+#endif
+// the offsets of the knobs that moved: at most 32 evaluations, once per block, only while a knob is moving
+static void macro_update() {
+  uint8_t d = mdirty_;
+  if (!d) return;
+  mdirty_ = 0;
+  for (int k = 0; k < 4; ++k)
+    if (d >> k & 1u)
+      for (int j = k * MK_N; j < (k + 1) * MK_N; ++j) {
+        const MTgt& t = mt_[j];
+        mo_[j] = t.depth ? t.depth * 0.01f * macro_curve_(macros_[k], t.start, t.end, t.curve) : 0.0f;
+      }
+  for (int i = 0; i < NROUTE; ++i) rowoff_[i] = 0.0f;
+  for (int j = 0; j < 4 * MK_N; ++j)
+    if (mt_[j].slot == MT_ROW && mt_[j].depth && mt_[j].param < NROUTE) rowoff_[mt_[j].param] += mo_[j];
+}
 // each block: the gliding parameters and macros a part of the way to their targets (about 5 ms to settle)
 static void glide_step() {
   const float k = BLOCK >= 48 ? 0.2f : 0.1f;
@@ -579,7 +650,9 @@ static void glide_step() {
       float d = macro_tgt_[i] - macros_[i];
       if (fabsf(d) <= 1e-4f) { macros_[i] = macro_tgt_[i]; macro_gl_[i] = 0; }
       else macros_[i] += d * k;
+      mdirty_ |= 1u << i;
     }
+  macro_update();
 }
 EXPORT void set_master(float v) { master_ = v; }
 EXPORT void set_ext(int i, float v) { if (i >= 0 && i < 6) ext_tgt_[i] = v; }
@@ -974,6 +1047,7 @@ EXPORT void init() {
   for (int i = 0; i < 6; ++i) ext_tgt_[i] = ext_cur_[i] = 0.0f;
   for (int k = 0; k < 2; ++k) { peaks_lfo_[k].Init(); peaks_env_[k].Init(); tides_[k].Init(); tap_period_[k] = 0.5f; }
   for (int i = 0; i < NROUTE; ++i) routes_[i].src = SR_NONE;
+  memset(mt_, 0, sizeof(mt_)); memset(mo_, 0, sizeof(mo_)); memset(rowoff_, 0, sizeof(rowoff_)); mdirty_ = 0;
   routed_rebuild();
 #ifndef RACK_LITE
   marbles_rng_.Init(0x2357bd1);
@@ -2468,7 +2542,7 @@ EXPORT float* monitor(int slot) {
   for (int i = 0; i < 12; ++i) {
     const Route& r = routes_[i];
     float x = 0.0f;
-    if (r.src != SR_NONE) { x = source_value(r.src, v) * r.amt; if (r.via != SR_NONE) x *= source_value(r.via, v); }
+    if (r.src != SR_NONE) { x = source_value(r.src, v) * (r.amt + rowoff_[i]); if (r.via != SR_NONE) x *= source_value(r.via, v); }
     mon_[50 + i] = x;
   }
   mon_[62] = (float)last_voice_; mon_[63] = (float)nvoices_;
