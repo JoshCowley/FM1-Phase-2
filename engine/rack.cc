@@ -900,9 +900,12 @@ EXPORT int fm1_fit_needed() {
   return more ? 1 : 0;
 }
 // what the platform layer shows: 0 arena bytes used, 1 arena size, 2 voices that fit, 3 voices playing,
-// 4 unloaded slots (bit per slot: 0 SRC, 1 SHP, 4 FX1, 5 FX2)
+// 4 unloaded slots (bit per slot: 0 SRC, 1 SHP, 4 FX1, 5 FX2), 8 voices not yet silent (sounding, fading or releasing), 9 voices whose key is
+// still held (their gate on): rack_host's check 9 counts them after the keys are up
 EXPORT int fm1_status(int what) {
   switch (what) { case 0: return (int)arena_used_; case 1: return (int)sizeof(arena_); case 2: return nalloc_; case 3: return nvoices_; case 4: return dropped_;
+    case 8: { int n = 0; for (int i = 0; i < MAXV; ++i) n += vs_[i].active ? 1 : 0; return n; }
+    case 9: { int n = 0; for (int i = 0; i < MAXV; ++i) n += vs_[i].gate ? 1 : 0; return n; }
 #ifdef RACK_CLOUDS_32K
     case 5: return cl32_on_;   // update 8: Clouds runs at 32 kHz (the picture's buffer times are 1.5 x longer)
 #endif

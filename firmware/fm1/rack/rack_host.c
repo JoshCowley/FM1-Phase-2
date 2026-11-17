@@ -304,6 +304,84 @@ int main(int argc, char **argv)
         if (bad_c || bad_t || nt != 8)
             fails++;
     }
+    /* 9: notes end. Every preset, loaded as the firmware loads it, played in ways that stress the voices: more keys than
+     * voices (a stolen voice fades first, stage 7), the new note let go during that fade, a key pressed again before its
+     * release ends, two keys let go together, legato pairs let go in either order. Once the last key is up no voice may
+     * still have its gate on, and (presets with sustain) all voices must be silent within their own release time as a
+     * lone note's (x 1.5 + 50 ms) */
+    {
+        static const char *PN[] = {"steal", "steal, new note off at once", "steal, off after 1 block", "steal, off after 2 blocks",
+                                   "steal, off after 3 blocks", "steal, off after 4 blocks", "same key again in its release",
+                                   "all let go together", "legato pair A B", "legato pair B A"};
+        int bad9 = 0, nsus = 0, np, pat, nn, j, ms;
+        for (k = 0; k < NPRESETS; k++) {
+            int V, base_ms, sus;
+            float s_amp;
+            rk_seed(0x21u);
+            rc_pause();
+            rc_load(k);
+            rc_resume();
+            s_amp = rk_eff_param(RS_AMP, 2);
+            sus = s_amp > 0.01f;
+            nsus += sus;
+            V = rk_fm1_status(3);
+            rk_note_on(60.0f, 0.8f);                   /* a lone note: its own release time */
+            for (j = 0; j < 400; j++) rk_render(48);
+            rk_note_off(60.0f);
+            for (base_ms = 0; base_ms < 12000 && rk_fm1_status(8); base_ms++) rk_render(48);
+            for (pat = 0; pat < 10; pat++) {
+                int lim, gated, n_on = V + 2 > 8 ? 8 : V + 2;
+                rc_pause();
+                rc_load(k);
+                rc_resume();
+                np = V;
+                if (pat <= 5) {
+                    for (nn = 0; nn < np; nn++) { rk_note_on(48.0f + 3.0f * (float)nn, 0.8f); rk_render(48); }
+                    for (j = 0; j < 100; j++) rk_render(48);
+                    if (pat == 0) {
+                        for (nn = np; nn < n_on; nn++) rk_note_on(48.0f + 3.0f * (float)nn, 0.8f);
+                    } else {
+                        rk_note_on(48.0f + 3.0f * (float)np, 0.8f);
+                        for (j = 1; j < pat; j++) rk_render(48);
+                        rk_note_off(48.0f + 3.0f * (float)np);
+                    }
+                    for (j = 0; j < 20; j++) rk_render(48);
+                    for (nn = 0; nn < np; nn++) { rk_note_off(48.0f + 3.0f * (float)nn); rk_render(48); }
+                    for (nn = np; nn < n_on; nn++) rk_note_off(48.0f + 3.0f * (float)nn);
+                } else if (pat == 6) {
+                    rk_note_on(60.0f, 0.8f);
+                    for (j = 0; j < 50; j++) rk_render(48);
+                    rk_note_off(60.0f);
+                    for (j = 0; j < 3; j++) rk_render(48);
+                    rk_note_on(60.0f, 0.8f);
+                    for (j = 0; j < 20; j++) rk_render(48);
+                    rk_note_off(60.0f);
+                } else if (pat == 7) {
+                    for (nn = 0; nn < np; nn++) rk_note_on(48.0f + 3.0f * (float)nn, 0.8f);
+                    for (j = 0; j < 100; j++) rk_render(48);
+                    for (nn = 0; nn < np; nn++) rk_note_off(48.0f + 3.0f * (float)nn);
+                } else {
+                    rk_note_on(60.0f, 0.8f);
+                    for (j = 0; j < 30; j++) rk_render(48);
+                    rk_note_on(64.0f, 0.8f);
+                    for (j = 0; j < 30; j++) rk_render(48);
+                    rk_note_off(pat == 8 ? 60.0f : 64.0f);
+                    for (j = 0; j < 30; j++) rk_render(48);
+                    rk_note_off(pat == 8 ? 64.0f : 60.0f);
+                }
+                gated = rk_fm1_status(9);
+                lim = base_ms * 3 / 2 + 50;
+                for (ms = 0; ms < 12000 && rk_fm1_status(8); ms++) rk_render(48);
+                if (gated || (sus && base_ms < 12000 && ms > lim)) {
+                    bad9++;
+                    printf("9 %-14s %s: %d gate(s) on after every key up, silent after %d ms (a lone note: %d ms)\n", PRESETS[k].name, PN[pat], gated, ms, base_ms);
+                }
+            }
+        }
+        printf("9 notes end: %d presets (%d with sustain) x %d ways of playing, no gate left on, silent within the release time: %d wrong\n", NPRESETS, nsus, 10, bad9);
+        if (bad9)
+            fails++;
+    }
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

@@ -1271,3 +1271,20 @@ void app_init(void)
     load_entry(set.preset);
     vz.t0 = vz.at_ms = plat_ms();
 }
+
+#ifdef PLAT_HOST
+/* the host simulator's "expect voices_on N" / "expect gates_on N" (sim_taps.txt): the engine's voices not yet silent, and
+ * those whose key is still held (fm1_status 8, 9) */
+int app_expect(const char *what, int *got)
+{
+    if (same(what, "voices_on")) {
+        *got = rk_fm1_status(8);
+        return 1;
+    }
+    if (same(what, "gates_on")) {
+        *got = rk_fm1_status(9);
+        return 1;
+    }
+    return 0;
+}
+#endif

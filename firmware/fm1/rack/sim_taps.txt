@@ -1,5 +1,6 @@
-# sim_taps: after double and triple taps on SEL and ARP the keys still sound, and let go leave no note hanging
-# (reported after 2.19). Each step: a toggle by taps, then a key down (the level must be heard) and up (silence).
+# sim_taps: after double and triple taps on SEL and ARP the keys still sound, and let go leave no note hanging; then, on sustained presets,
+# every note ends (expect gates_on 0 right after the last key is up, voices_on 0 a release time later: the engine's own voice count) through more
+# keys than voices, keys let go together or in order, octave moved while held, the same key again in its release, in STYLE and strummed (reported after 2.19, 2.20).
 # Not edited by hand: five toggles (A arp mode, C chords: 2 taps SEL, L arp on FM-1: 2 taps ARP, S chords send: 3 taps SEL,
 # T arp send: 3 taps ARP) walked as a Gray code through all 32 states, twice, plain, in STYLE and with CHD FM-1 off.
 wait 500
@@ -3479,3 +3480,9321 @@ wait 1500
 peakreset
 wait 400
 expect peak_db_max -60
+# ---- sustained presets
+# preset 18 TONEWHEEL
+tap HOME
+wait 300
+turn PRESET 18
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 27 SLOW STRINGS
+tap HOME
+wait 300
+turn PRESET 9
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SLOW STRINGS arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 33 WARM PAD
+tap HOME
+wait 300
+turn PRESET 6
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 35 HORN SECT
+tap HOME
+wait 300
+turn PRESET 2
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# HORN SECT arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 37 SAW LEAD (mono)
+tap HOME
+wait 300
+turn PRESET 2
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 44 E PIANO
+tap HOME
+wait 300
+turn PRESET 7
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# E PIANO arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 45 ROTARY ORGAN
+tap HOME
+wait 300
+turn PRESET 1
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# ROTARY ORGAN arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 50 BS ANALOG (mono)
+tap HOME
+wait 300
+turn PRESET 5
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# BS ANALOG (mono) arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 68 LD BRASS
+tap HOME
+wait 300
+turn PRESET 18
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD BRASS arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 71 LD UNISON (4 per key)
+tap HOME
+wait 300
+turn PRESET 3
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# LD UNISON (4 per key) arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 76 PD CHOIR
+tap HOME
+wait 300
+turn PRESET 5
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# PD CHOIR arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 98 CH DRAWBAR
+tap HOME
+wait 300
+turn PRESET 22
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH DRAWBAR arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# preset 107 CH HOUSE ORGAN
+tap HOME
+wait 300
+turn PRESET 9
+wait 800
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN plain: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN plain: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN plain: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN plain: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords+arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords+arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords+arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN chords+arp: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# CH HOUSE ORGAN arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# ---- the same in STYLE, and with a strummed chord
+# preset 33 WARM PAD
+tap HOME
+wait 300
+turn PRESET 33
+wait 800
+tap SEL
+wait 500
+turn SELECT 2
+wait 300
+turn K1 8
+wait 300
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, chords: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD STYLE, arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap SEL
+wait 500
+turn SELECT 2
+wait 300
+turn K1 -40
+wait 300
+tap HOME
+wait 300
+tap SEL
+wait 500
+turn SELECT 1
+wait 300
+turn K4 12
+wait 300
+tap HOME
+wait 300
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords + arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords + arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords + arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# WARM PAD strummed chords + arp: again in the release, taps
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap SEL
+wait 500
+turn SELECT 1
+wait 300
+turn K4 -40
+wait 300
+tap HOME
+wait 300
+# preset 18 TONEWHEEL
+tap HOME
+wait 300
+turn PRESET -15
+wait 800
+tap SEL
+wait 500
+turn SELECT 2
+wait 300
+turn K1 8
+wait 300
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, chords: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL STYLE, arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap SEL
+wait 500
+turn SELECT 2
+wait 300
+turn K1 -40
+wait 300
+tap HOME
+wait 300
+tap SEL
+wait 500
+turn SELECT 1
+wait 300
+turn K4 12
+wait 300
+tap HOME
+wait 300
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords + arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords + arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords + arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# TONEWHEEL strummed chords + arp: again in the release, taps
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap SEL
+wait 500
+turn SELECT 1
+wait 300
+turn K4 -40
+wait 300
+tap HOME
+wait 300
+# preset 37 SAW LEAD (mono)
+tap HOME
+wait 300
+turn PRESET 19
+wait 800
+tap SEL
+wait 500
+turn SELECT 2
+wait 300
+turn K1 8
+wait 300
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, chords: again in the release, taps
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp, its FM-1 off: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp, its FM-1 off: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp, its FM-1 off: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) STYLE, arp, its FM-1 off: again in the release, taps
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap SEL
+wait 500
+turn SELECT 2
+wait 300
+turn K1 -40
+wait 300
+tap HOME
+wait 300
+tap SEL
+wait 500
+turn SELECT 1
+wait 300
+turn K4 12
+wait 300
+tap HOME
+wait 300
+tap SEL
+wait 100
+tap SEL
+wait 450
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords: again in the release, taps
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 400
+key w1 up
+key w3 up
+key w5 up
+key w6 up
+key w8 up
+key w10 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords + arp: 8 keys, together
+key w1 down 100
+wait 6
+key w3 down 100
+wait 6
+key w5 down 100
+wait 6
+key w6 down 100
+wait 6
+key w8 down 100
+wait 6
+key w10 down 100
+wait 6
+key w12 down 100
+wait 6
+key w2 down 100
+wait 6
+wait 300
+key w1 up
+wait 15
+key w3 up
+wait 15
+key w5 up
+wait 15
+key w6 up
+wait 15
+key w8 up
+wait 15
+key w10 up
+wait 15
+key w1 down 90
+wait 8
+key w1 up
+key w12 up
+key w2 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords + arp: in order, one again
+key w3 down 100
+wait 150
+key w6 down 100
+tap OCT+
+wait 150
+key w8 down 100
+tap OCT-
+tap OCT-
+wait 150
+key w3 up
+key w6 up
+tap OCT+
+wait 100
+key w8 up
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords + arp: octave moved while held
+key w5 down 100
+wait 200
+key w5 up
+wait 40
+key w5 down 100
+wait 60
+key w5 up
+key w1 down 100
+key w1 up
+tapkey w6 80
+tapkey w6 80
+wait 700
+expect gates_on 0
+wait 3000
+expect voices_on 0
+# SAW LEAD (mono) strummed chords + arp: again in the release, taps
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap SEL
+wait 500
+turn SELECT 1
+wait 300
+turn K4 -40
+wait 300
+tap HOME
+wait 300

@@ -19,6 +19,7 @@
 #define APP_TOUCH                        /* velocity from the keys (lib/touch.h) */
 #define APP_BLE_AT_BOOT 0
 #define APP_OVERLOAD                     /* a block over 90 % of its time: one voice fewer (rack_core.c) */
+#define APP_HOST_EXPECT                  /* the host simulator's own checks: voices_on, gates_on (app.c, sim_taps.txt) */
 void app_overload(void);
 /* the screen is drawn in bands of 40 rows: a small canvas leaves the pool (336 KB) to the engine's arena (fm1.toml
  * RACK_ARENA_KB) */
