@@ -227,10 +227,10 @@ def batch3():
          "MODA": TD("LOOP", 0.35, 0.5), "FX1": CHO(0.3, "CHORUS", 0.25, 0.4, 0.8), "FX2": REV("PLATE", 0.5, 0.15)},
         AM(ATTACK=0.0, DECAY=0.6, SUSTAIN=0.2, RELEASE=0.4, **{"VEL AMT": 0.8, "SPREAD": 0.5}),
         [[("SRC.TIMBRE", 0.15, 0.7), ("SHP.CUTOFF", 0.4, 0.95), ("AMP.DECAY", 0.5, 0.75), ("FX 1.MIX", 0.2, 0.5)],
-         [("MOD A.FREQ", 0.25, 0.6)],
+         [("MOD A.FREQ", 0.25, 0.7)],
          [("FX 2.MIX", 0.05, 0.4), ("FX 1.WIDTH", 0.5, 0.95)],
          [("SHP.DRIVE", 0.05, 0.5), ("SRC.DRIFT", 0.05, 0.3)]],
-        [["VELO", "SRC.TIMBRE", 0.2], ["A TIDES", "AMP.LEVEL", 0.3, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.3, "M2"]],
+        [["VELO", "SRC.TIMBRE", 0.2], ["A TIDES", "AMP.LEVEL", 0.5, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.45, "M2"]],
         LF(("SINE", 0.25), ("DRIFT", 0.2), ("TRI", 0.15)),
         [("PAN", 0.1), None, ("SHP.CUTOFF", 0.03)], voices=6, md=(0.5, 0.15, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
