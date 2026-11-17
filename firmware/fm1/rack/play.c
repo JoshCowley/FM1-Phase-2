@@ -656,6 +656,7 @@ static void pl_reset(int all)                 /* the engine was reset (a preset 
         if (pl_snd[i])
             midi_out_note(i, 0);
     lay_all_off();                            /* STYLE's layers: what they had sent ends */
+    pl_sus = 0;                               /* (a pedal that was down: the next CC 64 says where it is) */
     memset(pl_snd, 0, sizeof pl_snd);
     memset(pl_latched, 0, sizeof pl_latched);
     sq_reset_counts();
@@ -664,6 +665,8 @@ static void pl_reset(int all)                 /* the engine was reset (a preset 
         pl_raw[i].on = 0;
         pl_raw[i].n = 0;
         pl_raw[i].dl = 0;
+        if (pl_raw[i].sus)                    /* let go under the pedal: it went with the reset */
+            pl_raw[i].active = pl_raw[i].sus = 0;
         if (all)
             pl_raw[i].active = pl_raw[i].sus = 0;
     }
@@ -1233,12 +1236,35 @@ static void pl_clock_tick(void)
 static void pl_clock_start(void) { pa.ticks = 0; pa.idx = 0; pa.step = 0; st.ticks = 0; st.step = 0; ck.lock = 0; }
 
 /* each block (the interrupt, before the render): the arp's steps on the internal clock, then what falls due */
+/* The engine's voices hold a gate only for a note counted in pl_snd (every note reaches the engine through snd_on). Gates
+ * held for 150 ms with nothing counted sounding: a note-off lost somewhere between the keys and the voice (a full or
+ * dropped queue, a voice that outlived a swap): all notes off, and counted (the voices read-out, OCT- + OCT+ held) */
+static uint32_t pl_wd_blocks, pl_wd_fired;
+static void pl_watchdog(void)
+{
+    int i;
+    for (i = 0; i < 128; i++)
+        if (pl_snd[i]) {
+            pl_wd_blocks = 0;
+            return;
+        }
+    if (!rk_fm1_status(9)) {
+        pl_wd_blocks = 0;
+        return;
+    }
+    if (++pl_wd_blocks < 26u)                 /* 26 blocks of 5.8 ms */
+        return;
+    pl_wd_blocks = 0;
+    pl_wd_fired++;
+    rk_all_off();
+}
 static void pl_block(uint32_t n)
 {
     uint32_t end = pl_now + n;
     int i, j;
     if (rc_audio.pause_req)
         return;
+    pl_watchdog();
     if (AI(A_MODE) != AM_OFF && pa.count && GI(G_CLOCK) != 1) {
         float d = step_frames();
         if (!pa.running || (int32_t)(pa.next_at - pl_now) < -(int32_t)d) {

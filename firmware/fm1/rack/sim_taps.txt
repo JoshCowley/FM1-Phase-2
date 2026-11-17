@@ -1,7 +1,8 @@
 # sim_taps: after double and triple taps on SEL and ARP the keys still sound, and let go leave no note hanging; then, on sustained presets,
 # every note ends (expect gates_on 0 right after the last key is up, voices_on 0 a release time later: the engine's own voice count) through more
-# keys than voices, keys let go together or in order, octave moved while held, the same key again in its release, in STYLE and strummed (reported after 2.19, 2.20).
-# Not edited by hand: five toggles (A arp mode, C chords: 2 taps SEL, L arp on FM-1: 2 taps ARP, S chords send: 3 taps SEL,
+# keys than voices, keys let go together or in order, octave moved while held, the same key again in its release, in STYLE and strummed; then lost
+# note-offs (host-only ghost / dropoffs): a key-up the queue refuses is sent again, a gate nothing counts is ended by the watchdog (reported after 2.19, 2.20).
+# Not edited by hand (generated): five toggles (A arp mode, C chords: 2 taps SEL, L arp on FM-1: 2 taps ARP, S chords send: 3 taps SEL,
 # T arp send: 3 taps ARP) walked as a Gray code through all 32 states, twice, plain, in STYLE and with CHD FM-1 off.
 wait 500
 tap GLO
@@ -12798,3 +12799,63 @@ turn K4 -40
 wait 300
 tap HOME
 wait 300
+# ---- lost note-offs (host-only: ghost, dropoffs). A key-up the queue refuses is sent again; a gate nothing counts is ended
+tap HOME
+wait 300
+turn PRESET -4
+wait 800
+dropoffs 1
+key w5 down 100
+wait 300
+expect gates_on 1
+key w5 up
+wait 400
+expect gates_on 1
+dropoffs 0
+wait 200
+expect gates_on 0
+wait 3500
+expect voices_on 0
+key w5 down 100
+key w8 down 100
+wait 200
+dropoffs 1
+key w5 up
+key w8 up
+wait 100
+key w8 down 100
+wait 100
+dropoffs 0
+key w8 up
+wait 300
+expect gates_on 0
+wait 3500
+expect voices_on 0
+ghost 60
+wait 60
+expect gates_on 1
+wait 400
+expect gates_on 0
+wait 3500
+expect voices_on 0
+ghost 64
+ghost 67
+wait 100
+key w5 down 100
+wait 600
+key w5 up
+wait 300
+expect gates_on 0
+wait 3500
+expect voices_on 0
+# the read-out: OCT- and OCT+ held together, off the CLOUDS pages
+key w5 down 100
+wait 300
+press OCT-
+press OCT+
+wait 300
+shot tap_voices_readout.png
+release OCT-
+release OCT+
+key w5 up
+wait 3500

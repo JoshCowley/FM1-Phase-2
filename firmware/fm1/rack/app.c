@@ -957,6 +957,19 @@ static void leds(uint32_t lit, uint32_t keys)
     plat_lights_mid(mid & ~lit, midk & ~keys);
 }
 
+/* the keys' events into the render's queue; 0: it was full (a key-up is then sent again, input()) */
+static uint32_t key_owed, key_owed_z;
+#ifdef PLAT_HOST
+static int host_drop_off;                     /* sim: "dropoffs 1" refuses the key-ups, as a full queue would */
+#endif
+static int key_push(int type, int k, float x)
+{
+#ifdef PLAT_HOST
+    if (host_drop_off && type != PLE_KEY_ON)
+        return 0;
+#endif
+    return rc_push(type, type == PLE_ZONE ? k : PL_RAW_KEY + k, x, 0.0f);
+}
 static void input(void)
 {
     uint32_t keys, btn = plat_buttons(), press = btn & ~ui.btn, k;
@@ -988,6 +1001,14 @@ static void input(void)
     touch_poll();
     keys = touch_keys();
     seq_layer_keys(keys, ui.keys);            /* holding SEQ: the white keys are steps (seqpages.c) */
+    if (key_owed | key_owed_z)                /* a key-up the queue refused (full): sent again until it takes it */
+        for (k = 0; k < NKEYS; k++) {
+            uint32_t bit = 1u << k;
+            if ((key_owed & bit) && ((keys & bit) || key_push(PLE_KEY_OFF, k, 0.0f)))
+                key_owed &= ~bit;
+            if ((key_owed_z & bit) && ((keys & bit) || key_push(PLE_ZONE, k, 0.0f)))
+                key_owed_z &= ~bit;
+        }
     for (k = 0; k < NKEYS; k++) {             /* key 0 is F3 (MIDI 53); play.c makes the notes */
         uint32_t bit = 1u << k;
         if ((keys & bit) && !(ui.keys & bit) && sp.layer) {
@@ -1006,9 +1027,10 @@ static void input(void)
             ui.pkeys &= ~bit;
             if (ui.zkeys & bit) {
                 ui.zkeys &= ~bit;
-                rc_push(PLE_ZONE, (int)k, 0.0f, 0.0f);
-            } else {
-                rc_push(PLE_KEY_OFF, PL_RAW_KEY + (int)k, 0.0f, 0.0f);
+                if (!key_push(PLE_ZONE, (int)k, 0.0f))
+                    key_owed_z |= bit;
+            } else if (!key_push(PLE_KEY_OFF, (int)k, 0.0f)) {
+                key_owed |= bit;
             }
         }
     }
@@ -1255,6 +1277,7 @@ void app_init(void)
         set.octave = 0;
         set.voices = 0;
     }
+    set.arp[A_HOLD] = 0.0f;                   /* HOLD is not kept across a power-up: a saved HOLD left every note sounding */
     for (i = 0; i < NG; i++)                  /* each setting inside its range (a NaN fails both tests) */
         if (!(set.glo[i] >= (float)UP_GLO[i].lo && set.glo[i] <= (float)UP_GLO[i].hi)) set.glo[i] = UP_GLO[i].def;
     for (i = 0; i < NC; i++)
@@ -1283,6 +1306,24 @@ int app_expect(const char *what, int *got)
     }
     if (same(what, "gates_on")) {
         *got = rk_fm1_status(9);
+        return 1;
+    }
+    return 0;
+}
+/* sim: "ghost NOTE" starts a voice behind the play layer's back (a note-on whose off was lost); "dropoffs 1|0" */
+int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, const char *d)
+{
+    int v = 0;
+    (void)c;
+    (void)d;
+    while (*a >= '0' && *a <= '9')
+        v = v * 10 + *a++ - '0';
+    if (same(cmd, "ghost")) {
+        rk_note_on((float)v, 0.8f);
+        return 1;
+    }
+    if (same(cmd, "dropoffs")) {
+        host_drop_off = v;
         return 1;
     }
     return 0;

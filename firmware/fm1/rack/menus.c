@@ -1663,11 +1663,47 @@ static void fx_toggle(int slot)
     ui.redraw = 1;
 }
 
+/* OCT- and OCT+ held together, off the CLOUDS pages: what is sounding, for a note that hangs. ON: voices the engine has not
+ * silenced; GATE: of them, held by a key; SND: notes counted sounding; KEY: held keys the play layer has; PED, HLD: the
+ * sustain pedal and ARP > HOLD; WD: times the watchdog ended gates held with nothing counted (play.c) */
+static void cat_int(char *d, int v)
+{
+    char n[12];
+    int_text(v, n);
+    cat(d, n);
+}
+static void voices_readout(void)
+{
+    char t[32], u[32];
+    int i, ns = 0, na = 0;
+    for (i = 0; i < 128; i++)
+        ns += pl_snd[i] != 0;
+    for (i = 0; i < PL_NRAW; i++)
+        na += pl_raw[i].active != 0;
+    t[0] = 0;
+    cat(t, "ON ");
+    cat_int(t, rk_fm1_status(8));
+    cat(t, " GATE ");
+    cat_int(t, rk_fm1_status(9));
+    cat(t, " SND ");
+    cat_int(t, ns);
+    u[0] = 0;
+    cat(u, "KEY ");
+    cat_int(u, na);
+    cat(u, pl_sus ? " PED 1" : " PED 0");
+    cat(u, AI(A_HOLD) ? " HLD 1" : " HLD 0");
+    cat(u, " WD ");
+    cat_int(u, (int)pl_wd_fired);
+    app_say(t, u);
+}
+
 /* the buttons and encoders of the menus; 1 when they were the menus' (input() does the rest) */
 static int menu_input(uint32_t press, uint32_t btn)
 {
     {   /* CLOUDS page: OCT- and OCT+ held together turn the picture's draw-time read-out on or off (their octave steps cancel) */
         int oc = (btn >> B_OCTDN & 1u) && (btn >> B_OCTUP & 1u);
+        if (oc && !cp.oct_both && pic_scene(mn.page) < 0)
+            voices_readout();
         if (oc && !cp.oct_both && pic_scene(mn.page) >= 0) {
             cp.dbg ^= 1;
             cp.us_max = 0;
