@@ -42,8 +42,8 @@ def TD(mode="LOOP", f=0.2, shape=0.5, slope=0.0, smooth=0.5, rng="MID", **kw):
 
 
 S5 = {"SRC": "BRAIDS", "SHP": "FILTER"}
-LEVEL = {"WARM PAD": 0.45, "STRING ENS": 0.35, "BRASS SECT": 0.35, "CHOIR AAH": 0.35, "SAW LEAD": 0.45, "HOLLOW LEAD": 0.4,
-         "SUB BASS": 0.45, "ANALOG BASS": 0.4, "ACID BASS": 0.4, "SYNTH PLUCK": 0.6, "FM BELL": 0.45, "E PIANO": 0.5,
+LEVEL = {"WARM PAD": 0.45, "STRING ENS": 0.3, "BRASS SECT": 0.35, "CHOIR AAH": 0.35, "SAW LEAD": 0.45, "HOLLOW LEAD": 0.4,
+         "SUB BASS": 0.5, "ANALOG BASS": 0.4, "ACID BASS": 0.4, "SYNTH PLUCK": 0.6, "FM BELL": 0.45, "E PIANO": 0.5,
          "ROTARY ORGAN": 0.4, "HARD SYNC": 0.45, "ATMOSPHERE": 0.35, "NOISE SWEEP": 0.4}      # AMP LEVEL per preset, set from the measured loudness (0.05 grid): the batch2 way, without level_fm1.py
 
 
@@ -76,7 +76,7 @@ def batch3():
          [("MOD A.K1", 0.2, 0.6)],
          [("FX 2.MIX", 0.1, 0.45), ("FX 1.WIDTH", 0.5, 0.95)],
          [("SHP.RESO", 0.05, 0.3), ("SRC.DRIFT", 0.1, 0.4)]],
-        [["A PEAKS", "SHP.CUTOFF", 0.3, "M2"], ["A PEAKS", "AMP.LEVEL", 0.1, "M2"]],
+        [["A PEAKS", "SHP.CUTOFF", 0.2, "M2"], ["A PEAKS", "AMP.LEVEL", 0.1, "M2"]],
         LF(("SINE", 0.3), ("DRIFT", 0.15), ("TRI", 0.2)),
         [("FX 1.DEPTH", 0.1), ("PAN", 0.1), ("PITCH", 0.006), None, ("SHP.CUTOFF", 0.03)], voices=6, md=(0.5, 0.15, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
@@ -104,7 +104,7 @@ def batch3():
         AM(ATTACK=0.4, DECAY=0.5, SUSTAIN=0.9, RELEASE=0.6, VINTAGE=0.1, **{"VEL AMT": 0.3, "SPREAD": 0.7}),
         [[("SRC.COLOR", 0.2, 0.8), ("SRC.TIMBRE", 0.25, 0.6), ("SHP.CUTOFF", 0.45, 0.8), ("AMP.ATTACK", 0.2, 0.5)],
          [("MOD A.FREQ", 0.1, 0.4)],
-         [("FX 1.MIX", 0.2, 0.6), ("FX 2.SIZE", 0.5, 0.95)],
+         [("FX 1.MIX", 0.2, 0.6), ("FX 2.MIX", 0.1, 0.5)],
          [("SHP.RESO", 0.05, 0.45), ("SHP.DRIVE", 0.1, 0.5)]],
         [["A TIDES", "SRC.COLOR", 0.3, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.3, "M2"], ["A TIDES", "FX 2.MIX", 0.2, "M2"]],
         {**LF(("SINE", 0.7), ("DRIFT", 0.15), ("TRI", 0.1)), "FADE 1": 0.6},
@@ -196,26 +196,26 @@ def batch3():
          "SHP": FL("LP", 0.35, 0.2, 0.1, 0.5, 0.5, 0.3, "OWN", 0.0, 0.5, 0.05, 0.4),
          "MODA": PK(0.3), "FX1": DLY("1/8D", 0.3, 0.2, "PING"), "FX2": REV("PLATE", 0.4, 0.15)},
         AM(ATTACK=0.0, DECAY=0.6, SUSTAIN=0.0, RELEASE=0.5, **{"VEL AMT": 0.7, "SPREAD": 0.5}),
-        [[("SHP.F DEC", 0.4, 0.7), ("SHP.CUTOFF", 0.25, 0.5), ("SHP.ENV AMT", 0.3, 0.7), ("SRC.TIMBRE", 0.2, 0.6)],
+        [[("SHP.F DEC", 0.4, 0.7), ("SHP.CUTOFF", 0.4, 0.65), ("SHP.ENV AMT", 0.3, 0.7), ("SRC.TIMBRE", 0.2, 0.6)],
          [("MOD A.K1", 0.15, 0.5)],
          [("FX 1.MIX", 0.05, 0.4), ("FX 2.MIX", 0.05, 0.4)],
          [("SHP.RESO", 0.1, 0.45), ("AMP.DECAY", 0.5, 0.75)]],
-        [["A PEAKS", "SHP.CUTOFF", 0.3, "M2"], ["RANDOM", "SRC.TIMBRE", 0.3, "M2"], ["A PEAKS", "PAN", 0.4, "M2"]],
+        [["A PEAKS", "SHP.CUTOFF", 0.25, "M2"], ["RANDOM", "SRC.TIMBRE", 0.3, "M2"], ["A PEAKS", "PAN", 0.4, "M2"]],
         LF(("DRIFT", 0.2), ("SINE", 0.2), ("TRI", 0.15)),
         [None, None, ("SHP.CUTOFF", 0.03), None, ("PAN", 0.1)], voices=5, md=(0.5, 0.3, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
 
     # 43 -------------------------------------------------------------------------------------------------- FM BELL
     a(B("FM BELL", "KEYS", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
-        {"SRC": {"MODEL": "FM", "TIMBRE": 0.4, "COLOR": 0.575, "DRIFT": 0.05, "LEVEL": 1.0, "AD ATK": 0.0, "AD DEC": 0.4, "AD>TIMB": 0.4},
+        {"SRC": {"MODEL": "FM", "TIMBRE": 0.4, "COLOR": 0.6, "DRIFT": 0.05, "LEVEL": 1.0, "AD ATK": 0.0, "AD DEC": 0.4, "AD>TIMB": 0.4},
          "SHP": FL("LP", 0.7, 0.1, 0.1, 0.0, 0.7, 0.3),
          "MODA": TD("LOOP", 0.15, 0.5), "FX1": CHO(0.2, "CHORUS", 0.2, 0.3, 0.8), "FX2": REV("HALL", 0.8, 0.3)},
         AM(ATTACK=0.0, DECAY=0.7, SUSTAIN=0.0, RELEASE=0.6, **{"VEL AMT": 0.7, "SPREAD": 0.6}),
-        [[("SRC.TIMBRE", 0.15, 0.7), ("SHP.CUTOFF", 0.4, 0.95), ("AMP.DECAY", 0.7, 0.9), ("FX 2.MIX", 0.15, 0.4)],
+        [[("SRC.TIMBRE", 0.15, 0.7), ("SHP.CUTOFF", 0.4, 0.95), ("AMP.DECAY", 0.7, 0.9), ("SRC.AD>TIMB", 0.1, 0.5)],
          [("MOD A.FREQ", 0.1, 0.4)],
-         [("FX 2.SIZE", 0.5, 0.95), ("FX 1.MIX", 0.1, 0.4)],
+         [("FX 2.MIX", 0.1, 0.6), ("FX 1.MIX", 0.1, 0.5)],
          [("SHP.DRIVE", 0.1, 0.5), ("SHP.RESO", 0.1, 0.4)]],
-        [["A TIDES", "SRC.TIMBRE", 0.3, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.3, "M2"], ["A TIDES", "PAN", 0.3, "M2"]],
+        [["A TIDES", "SRC.TIMBRE", 0.5, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.5, "M2"], ["A TIDES", "AMP.LEVEL", 0.3, "M2"]],
         LF(("SINE", 0.2), ("DRIFT", 0.2), ("TRI", 0.1)),
         [("PAN", 0.1), ("FX 1.DEPTH", 0.1), ("SHP.CUTOFF", 0.03)], voices=5, md=(0.5, 0.3, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
@@ -230,7 +230,7 @@ def batch3():
          [("MOD A.FREQ", 0.25, 0.6)],
          [("FX 2.MIX", 0.05, 0.4), ("FX 1.WIDTH", 0.5, 0.95)],
          [("SHP.DRIVE", 0.05, 0.5), ("SRC.DRIFT", 0.05, 0.3)]],
-        [["VELO", "SRC.TIMBRE", 0.2], ["A TIDES", "AMP.LEVEL", 0.3, "M2"], ["A TIDE+", "PAN", 0.4, "M2"]],
+        [["VELO", "SRC.TIMBRE", 0.2], ["A TIDES", "AMP.LEVEL", 0.3, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.3, "M2"]],
         LF(("SINE", 0.25), ("DRIFT", 0.2), ("TRI", 0.15)),
         [("PAN", 0.1), None, ("SHP.CUTOFF", 0.03)], voices=6, md=(0.5, 0.15, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
@@ -244,8 +244,8 @@ def batch3():
         [[("SRC.TIMBRE", 0.2, 0.7), ("SRC.COLOR", 0.2, 0.7), ("SHP.CUTOFF", 0.55, 0.9)],
          [("LFO.RATE 1", 0.3, 0.7), ("FX 1.RATE", 0.25, 0.6)],
          [("FX 2.MIX", 0.05, 0.4), ("FX 1.MIX", 0.2, 0.6)],
-         [("SHP.DRIVE", 0.1, 0.6), ("SHP.RESO", 0.05, 0.45)]],
-        [["LFO 1", "AMP.LEVEL", 0.2, "M2"], ["LFO 1", "PAN", 0.4, "M2"], ["LFO 1", "SHP.CUTOFF", 0.3, "M2"]],
+         [("SHP.DRIVE", 0.1, 0.5), ("SHP.RESO", 0.05, 0.35)]],
+        [["LFO 1", "AMP.LEVEL", 0.2, "M2"], ["LFO 1", "PAN", 0.4, "M2"], ["LFO 1", "SHP.CUTOFF", 0.4, "M2"]],
         LF(("SINE", 0.4), ("DRIFT", 0.2), ("TRI", 0.2)),
         [None, None, ("SRC.TIMBRE", 0.05), ("SHP.CUTOFF", 0.03), ("PAN", 0.1)], voices=6, md=(0.5, 0.5, 0.5, 0.5),
         osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
@@ -279,22 +279,22 @@ def batch3():
          [("MOD A.FREQ", 0.1, 0.5)],
          [("FX 2.MIX", 0.05, 0.8), ("FX 1.MIX", 0.0, 0.7), ("FX 1.FEEDBACK", 0.2, 0.7)],
          [("SHP.RESO", 0.1, 0.45), ("SRC.DRIFT", 0.1, 0.5)]],
-        [["A TIDES", "SRC.TIMBRE", 0.4, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.3, "M2"], ["B OUT 1", "SRC.COLOR", 0.5, "M2"]],
+        [["A TIDES", "SRC.TIMBRE", 0.6, "M2"], ["A TIDE+", "SHP.CUTOFF", 0.5, "M2"], ["B OUT 1", "SRC.COLOR", 0.7, "M2"]],
         LF(("SINE", 0.3), ("DRIFT", 0.3), ("TRI", 0.2)),
-        [("PAN", 0.2), ("FX 1.WOW", 0.2), ("SRC.TIMBRE", 0.1), ("SHP.CUTOFF", 0.1), ("FX 1.MIX", 0.1)], voices=4, md=(0.5, 0.5, 0.5, 0.5)))
+        [("PAN", 0.2), ("FX 1.WOW", 0.2), ("SRC.TIMBRE", 0.2), ("SHP.CUTOFF", 0.2), ("FX 1.MIX", 0.1)], voices=4, md=(0.5, 0.35, 0.5, 0.5)))
     L[-1]["move"] = "bold"
 
     # 48 ----------------------------------------------------------------------------------------------- NOISE SWEEP
     a(B("NOISE SWEEP", "FX", {**S5, "MODA": "TIDES", "FX1": "DELAY", "FX2": "REVERB"},
         {"SRC": {"MODEL": "NOIS", "TIMBRE": 0.7, "COLOR": 0.5, "DRIFT": 0.0, "LEVEL": 1.0},
-         "SHP": FL("LP", 0.2, 0.35, 0.2, 0.0, 0.0, 0.0),
-         "MODA": TD("AR", 0.25, 0.5, 0.5, 0.5, "LO"), "FX1": DLY("1/8D", 0.4, 0.2, "PING"), "FX2": REV("HALL", 0.8, 0.3)},
+         "SHP": FL("LP", 0.45, 0.35, 0.2, 0.0, 0.0, 0.0),
+         "MODA": TD("AR", 0.6, 0.5, 0.5, 0.5, "LO"), "FX1": DLY("1/8D", 0.4, 0.2, "PING"), "FX2": REV("HALL", 0.8, 0.3)},
         AM(ATTACK=0.3, DECAY=0.5, SUSTAIN=0.9, RELEASE=0.6, **{"VEL AMT": 0.3, "SPREAD": 0.8}),
-        [[("MOD A.FREQ", 0.25, 0.5), ("SHP.CUTOFF", 0.2, 0.4), ("SHP.RESO", 0.15, 0.5), ("SRC.COLOR", 0.2, 0.8)],
+        [[("MOD A.FREQ", 0.6, 0.4), ("SHP.CUTOFF", 0.45, 0.6), ("SHP.RESO", 0.15, 0.5), ("SRC.COLOR", 0.2, 0.8)],
          [("LFO.RATE 1", 0.2, 0.6)],
          [("FX 2.MIX", 0.1, 0.5), ("FX 1.MIX", 0.05, 0.4)],
          [("SHP.DRIVE", 0.05, 0.5), ("SRC.TIMBRE", 0.5, 0.9)]],
-        [["A TIDES", "SHP.CUTOFF", 0.4], ["A TIDES", "AMP.LEVEL", 0.2], ["A TIDES", "FX 2.MIX", 0.3]],
+        [["A TIDES", "SHP.CUTOFF", 0.35], ["A TIDES", "AMP.LEVEL", 0.25], ["A TIDES", "FX 2.MIX", 0.3]],
         LF(("SINE", 0.3), ("DRIFT", 0.3), ("TRI", 0.2)),
         [("SHP.CUTOFF", 0.1), None, ("PAN", 0.2), None, ("SRC.TIMBRE", 0.1)], voices=4, md=(0.5, 0.5, 0.5, 0.5)))
     L[-1]["move"] = "bold"

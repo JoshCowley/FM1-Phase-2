@@ -30,8 +30,8 @@ from presets_batch3 import batch3
 SR, BEAT = gb.SR, gb.BEAT
 BATCH2_MEDIAN_RMS = 0.0975      # batch 2's median RMS at the defaults (presets-batch2.md)
 NOPITCH = ("NOISE SWEEP",)
-PEAKS = ("FM BELL",)            # the tuning test follows the fundamental's own peak, not a comb of partials
-DRY = {"ATMOSPHERE": "par 4 3 0\npar 5 3 0\n"}      # tuning and pitch are measured with the effects' mix at zero (the shimmer and the tape wow detune the tails)
+PEAKS = ()            # the tuning test follows the fundamental's own peak, not a comb of partials
+DRY = {"ATMOSPHERE": ""}      # tuning and pitch are measured with the effects' mix at zero (the shimmer and the tape wow detune the tails)
 
 
 def phrase3(q):
@@ -46,10 +46,15 @@ def phrase3(q):
         sc = [55, 57, 59, 60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84, 86, 88, 91, 88, 84, 79, 76, 72, 67, 64]
         ev = seq(sc, 0.2, S, S * 0.95) + [(6.8, 3.0, 69, 0.8), (9.9, 3.0, 72, 0.8), (13.0, 2.8, 67, 0.8)]
         root = 69
-    elif name in ("SYNTH PLUCK", "FM BELL", "E PIANO", "ROTARY ORGAN"):
+    elif name in ("SYNTH PLUCK", "FM BELL", "E PIANO"):
         arp = [48, 52, 55, 59, 60, 64, 67, 71, 72, 76, 79, 83, 84, 83, 79, 76, 72, 67, 64, 60]
         step = S / 2 if name == "SYNTH PLUCK" else S
-        ev = seq(arp, 0.2, step, step * 0.9) + [(5.8 + 1.0 * k, 0.95 if name != "ROTARY ORGAN" else 0.9, n, 0.7) for k in range(10) for n in ((48, 55, 59, 64) if k % 2 == 0 else (45, 52, 57, 60))]
+        tc = 0.2 + len(arp) * step + 0.3
+        ev = seq(arp, 0.2, step, step * 0.9) + [(tc + 1.0 * k, 0.95, n, 0.7) for k in range(int((15.8 - tc) / 1.0)) for n in ((48, 55, 59, 64) if k % 2 == 0 else (45, 52, 57, 60))]
+        root = 48
+    elif name == "ROTARY ORGAN":
+        ch = [(48, 55, 60, 64), (45, 52, 57, 60), (53, 57, 60, 65), (43, 50, 55, 59)]
+        ev = [(0.2 + 2.0 * i, 1.9, n, 0.7) for i in range(8) for n in ch[i % 4]]
         root = 48
     elif name == "BRASS SECT":
         ch = [(48, 55, 60, 64), (50, 57, 62, 65), (52, 59, 64, 67), (48, 55, 60, 64), (43, 50, 55, 59), (45, 52, 57, 60), (50, 57, 62, 65), (48, 55, 60, 64)]
@@ -70,6 +75,14 @@ def phrase3(q):
 WIN = {"SYNTH PLUCK": (0.03, 0.33), "FM BELL": (0.1, 1.1)}      # the part of each strike the tests look at (default 0.3 to 1.3 s after it)
 
 
+def dry(q):
+    """the macros for the tuning and pitch tests: K3 (SPACE) at 0 for the presets in DRY"""
+    md = list(q["macros"])
+    if q["name"] in DRY:
+        md[2] = 0.0
+    return md
+
+
 def w0(name):
     return WIN.get(name, (0.3, 1.3))
 
@@ -84,7 +97,7 @@ def morph_test(q, held, root, tmp):
     x = gb.load(p)
     one = [(0.1 + 2.0 * k, 1.9, root, 0.75) for k in range(6)] if b2.STRIKE[0] else [(0.2, 11.8, root, 0.75)]
     txt1 = "secs 12\n" + DRY.get(name, "") + "\n".join(f"on {t:.2f} {d:.2f} {n} {v:.2f}" for t, d, n, v in one) + "\n"
-    txt1 += "".join(f"set {k + 1} 0 {md[k]}\n" for k in (1, 2, 3)) + "set 1 0 0\nramp 1 0 12 0 1\n"
+    txt1 += "".join(f"set {k + 1} 0 {dry(q)[k]}\n" for k in (1, 2, 3)) + "set 1 0 0\nramp 1 0 12 0 1\n"
     p1 = tmp / "morph1.wav"
     gb.render(name, txt1, p1, tmp)
     x1 = gb.load(p1)
@@ -102,7 +115,7 @@ def tuning_test(q, tmp):
     A, Bw = w0(name)
     out = {}
     for note in (36, 48, 60, 72):
-        txt = f"secs 3\n{DRY.get(name, '')}on 0.1 2.4 {note} 0.75\n" + "".join(f"set {k + 1} 0 {v}\n" for k, v in enumerate(q["macros"]))
+        txt = f"secs 3\n{DRY.get(name, '')}on 0.1 2.4 {note} 0.75\n" + "".join(f"set {k + 1} 0 {v}\n" for k, v in enumerate(dry(q)))
         p = tmp / "tune.wav"
         gb.render(name, txt, p, tmp)
         x = gb.load(p)
