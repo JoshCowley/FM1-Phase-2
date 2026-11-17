@@ -1,0 +1,3481 @@
+# sim_taps: after double and triple taps on SEL and ARP the keys still sound, and let go leave no note hanging
+# (reported after 2.19). Each step: a toggle by taps, then a key down (the level must be heard) and up (silence).
+# Not edited by hand: five toggles (A arp mode, C chords: 2 taps SEL, L arp on FM-1: 2 taps ARP, S chords send: 3 taps SEL,
+# T arp send: 3 taps ARP) walked as a Gray code through all 32 states, twice, plain, in STYLE and with CHD FM-1 off.
+wait 500
+tap GLO
+wait 400
+turn SELECT 3
+wait 200
+turn K2 1
+wait 200
+tap HOME
+wait 400
+# check: start
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.1 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.2 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.3 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 1.4 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.5 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.6 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.7 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: plain walk 1.8 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.9 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.10 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.11 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 1.12 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.13 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.14 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.15 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: plain walk 1.16 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.17 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.18 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.19 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 1.20 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.21 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.22 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.23 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: plain walk 1.24 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.25 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.26 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.27 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 1.28 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.29 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 1.30 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 1.31 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: plain walk 1.32 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.1 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.2 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.3 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 2.4 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.5 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.6 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.7 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: plain walk 2.8 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.9 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.10 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.11 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 2.12 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.13 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.14 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.15 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: plain walk 2.16 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.17 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.18 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.19 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 2.20 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.21 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.22 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.23 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: plain walk 2.24 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.25 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.26 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.27 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: plain walk 2.28 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.29 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: plain walk 2.30 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: plain walk 2.31 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: plain walk 2.32 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=0, A toggled with a key down
+key w9 down 100
+wait 250
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held A
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: held A put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=0, C toggled with a key down
+key w9 down 100
+wait 250
+tap SEL
+wait 100
+tap SEL
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held C
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: held C put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=0, L toggled with a key down
+key w9 down 100
+wait 250
+tap ARP
+wait 100
+tap ARP
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held L
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: held L put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=0, S toggled with a key down
+key w9 down 100
+wait 250
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held S
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: held S put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=0, T toggled with a key down
+key w9 down 100
+wait 250
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held T
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: held T put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=1, A toggled with a key down
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w9 down 100
+wait 250
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held A
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: held A put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=1, C toggled with a key down
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w9 down 100
+wait 250
+tap SEL
+wait 100
+tap SEL
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held C
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: held C put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=1, L toggled with a key down
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w9 down 100
+wait 250
+tap ARP
+wait 100
+tap ARP
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held L
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: held L put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=1, S toggled with a key down
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w9 down 100
+wait 250
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held S
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: held S put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# held: arp=1, T toggled with a key down
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+key w9 down 100
+wait 250
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+wait 200
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# check: after held T
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: held T put back
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# STYLE
+tap SEL
+wait 500
+turn SELECT 2
+wait 400
+turn K1 8
+wait 400
+shot tap_style_on.png
+tap HOME
+wait 400
+# check: style on
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.1 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.2 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.3 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 1.4 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.5 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.6 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.7 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: style walk 1.8 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.9 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.10 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.11 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 1.12 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.13 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.14 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.15 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: style walk 1.16 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.17 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.18 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.19 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 1.20 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.21 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.22 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.23 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: style walk 1.24 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.25 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.26 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.27 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 1.28 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.29 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 1.30 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 1.31 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: style walk 1.32 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.1 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.2 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.3 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 2.4 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.5 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.6 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.7 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: style walk 2.8 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.9 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.10 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.11 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 2.12 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.13 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.14 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.15 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: style walk 2.16 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.17 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.18 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.19 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 2.20 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.21 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.22 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.23 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: style walk 2.24 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.25 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.26 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.27 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: style walk 2.28 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.29 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: style walk 2.30 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: style walk 2.31 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: style walk 2.32 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+# CHD FM-1 off, no STYLE
+tap SEL
+wait 500
+turn SELECT 2
+wait 400
+turn K1 -40
+wait 400
+turn SELECT 2
+wait 400
+turn K1 -1
+wait 400
+shot tap_chd_fm1_off.png
+tap HOME
+wait 400
+# check: chd fm1 off
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.1 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.2 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.3 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 1.4 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.5 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.6 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.7 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: chdoff walk 1.8 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.9 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.10 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.11 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 1.12 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.13 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.14 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.15 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: chdoff walk 1.16 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.17 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.18 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.19 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 1.20 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.21 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.22 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.23 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: chdoff walk 1.24 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.25 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.26 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.27 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 1.28 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.29 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 1.30 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 1.31 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: chdoff walk 1.32 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.1 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.2 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.3 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 2.4 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.5 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.6 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.7 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: chdoff walk 2.8 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.9 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.10 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.11 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 2.12 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.13 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.14 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.15 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: chdoff walk 2.16 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.17 toggled A -> arp=1 chords=0 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.18 toggled C -> arp=1 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.19 toggled A -> arp=0 chords=1 arpfm1=0 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 2.20 toggled L -> arp=0 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.21 toggled A -> arp=1 chords=1 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.22 toggled C -> arp=1 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.23 toggled A -> arp=0 chords=0 arpfm1=1 chdsend=1 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 100
+tap SEL
+wait 100
+wait 450
+# check: chdoff walk 2.24 toggled S -> arp=0 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.25 toggled A -> arp=1 chords=0 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.26 toggled C -> arp=1 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.27 toggled A -> arp=0 chords=1 arpfm1=1 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 450
+# check: chdoff walk 2.28 toggled L -> arp=0 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.29 toggled A -> arp=1 chords=1 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap SEL
+wait 100
+tap SEL
+wait 450
+# check: chdoff walk 2.30 toggled C -> arp=1 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap HOME
+wait 300
+# check: chdoff walk 2.31 toggled A -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=1
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60
+tap ARP
+wait 100
+tap ARP
+wait 100
+tap ARP
+wait 100
+wait 450
+# check: chdoff walk 2.32 toggled T -> arp=0 chords=0 arpfm1=0 chdsend=0 arpsend=0
+peakreset
+key w9 down 100
+wait 350
+expect peak_db_min -45
+key w9 up
+wait 1500
+peakreset
+wait 400
+expect peak_db_max -60

@@ -269,10 +269,12 @@ typedef struct {
     uint8_t note[PL_MAXN];
     uint8_t sn, root, vel;                    /* STYLE: its chord's notes (in note[]), root, velocity (0-127) */
     uint8_t lay;                              /* its notes went to STYLE's chord layer (lay_on), not snd_on */
+    uint8_t dl;                               /* ...and also straight to the FM-1 (snd_on), the chord layer not being on it */
     uint32_t ord;                             /* STYLE: when it was pressed (the latest held key's chord plays) */
 } pl_raw_t;
 static pl_raw_t pl_raw[PL_NRAW];
 static uint8_t pl_snd[128];                   /* how many keys sound each note */
+static uint8_t pl_sndf[128];                  /* how the first of them sounded it: bit 0 on the FM-1, bit 1 out over MIDI */
 typedef struct { uint32_t at; uint8_t note, raw, on, k; float vel; } pl_ev_t;
 #define PL_NPEND 128                          /* (STYLE: a chord hit, its bass and the arp at once) */
 static pl_ev_t pl_pend[PL_NPEND];
@@ -333,6 +335,7 @@ static void snd_on(int note, float vel, int local, int out)
         return;
     if (pl_snd[note]++)
         return;
+    pl_sndf[note] = (uint8_t)((local ? 1u : 0u) | (out ? 2u : 0u));   /* the note ends as it began, whatever has been switched since */
     if (local)
         rc_do(RCE_ON, 0, (float)note, vel);
     if (out)
@@ -347,13 +350,20 @@ static void snd_off(int note, int local, int out)
         return;
     if (--pl_snd[note])
         return;
+    local = pl_sndf[note] & 1;
+    out = pl_sndf[note] >> 1 & 1;
     if (local)
         rc_do(RCE_OFF, 0, (float)note, 0.0f);
     if (out)
         midi_out_note(note, 0);
 }
 static int raw_local(int raw) { return raw < PL_RAW_KEY || GI(G_LOCAL) == 0; }   /* LOCAL OFF: the keys only send MIDI */
-static int raw_out(int raw) { return raw >= PL_RAW_KEY; }                         /* MIDI in is not sent back out */
+static int lay_local(int L);
+static int lay_send(int L);
+/* the arp running on the keys but not on the FM-1's sound, its notes sent: the keys play the FM-1 themselves and the arp
+ * alone goes out over MIDI (the keys' own notes would double it) */
+static int arp_send_only(void);
+static int raw_out(int raw) { return raw >= PL_RAW_KEY && !arp_send_only(); }     /* MIDI in is not sent back out */
 
 static void pend(uint32_t at, int note, int raw, int on, float vel)
 {
@@ -423,19 +433,24 @@ static void raw_release(int raw)
         }
     for (i = 0; i < r->n; i++)
         if (r->on >> i & 1u) {
-            if (r->lay)
+            if (r->lay) {
                 lay_off(L_CHORD, r->note[i]);
-            else
+                if (r->dl)
+                    snd_off(r->note[i], 1, 0);
+            } else {
                 snd_off(r->note[i], raw_local(raw), raw_out(raw));
+            }
         }
     r->on = 0;
     r->n = 0;
     r->lay = 0;
+    r->dl = 0;
 }
 
 /* ARP > HOLD with the arpeggiator off: a latch. Keys let go keep sounding; the next key pressed when none is held
  * starts a new chord (the latched one ends); PLAY / STOP and turning HOLD off end it too (PLE_ARP_CLEAR) */
 static uint8_t pl_latched[PL_NRAW];
+static int arp_send_only(void) { return AI(A_MODE) != AM_OFF && AI(A_STYLE) == 0 && !lay_local(L_ARP) && lay_send(L_ARP); }
 static int pl_latch_on(void) { return AI(A_HOLD) && AI(A_MODE) == AM_OFF; }
 static void latch_release_all(void)
 {
@@ -529,6 +544,7 @@ static void pl_key_on(int raw, int note, float vel)
         pv.chord_seq++;
     }
     sq_note_in(raw, notes, n);               /* the sequencer: REC, step entry, the last notes (seq.c) */
+    r->dl = 0;
     r->lay = style_on() || raw >= PL_RAW_KEY;   /* the keys: the chord layer (CHORD + ARP); MIDI in: as before */
     if (style_on()) {                         /* STYLE: the chord as played on its layer; the bass follows it */
         static uint32_t ord;
@@ -543,8 +559,14 @@ static void pl_key_on(int raw, int note, float vel)
         style_refresh(0);
     } else if (AI(A_MODE) != AM_OFF) {
         arp_add(raw, notes, n);
-        r->n = 0;                             /* the arp plays them */
-        return;
+        if (lay_local(L_ARP)) {
+            r->n = 0;                         /* the arp plays them */
+            return;
+        }
+        r->lay = 0;                           /* the arp is off the FM-1's sound (two taps on ARP): the keys play it, as with
+                                               * the arp off; the arp runs on for its MIDI send alone */
+    } else if (r->lay && !lay_local(L_CHORD)) {
+        r->dl = GI(G_LOCAL) == 0;             /* CHD FM-1 off, no STYLE: the keys still play the FM-1 (the chord layer sends) */
     }
     strum = set.sel[C_STRUM] * 0.08f * PL_HZ;
     for (i = 0; i < n; i++) {
@@ -558,10 +580,13 @@ static void pl_key_on(int raw, int note, float vel)
         if (at > 1.0f) {
             pend(pl_now + (uint32_t)at, i, raw, 1, v);
         } else {
-            if (r->lay)
+            if (r->lay) {
                 lay_on(L_CHORD, notes[i], v);
-            else
+                if (r->dl)
+                    snd_on(notes[i], v, 1, 0);
+            } else {
                 snd_on(notes[i], v, raw_local(raw), raw_out(raw));
+            }
             r->on |= (uint16_t)(1u << i);
         }
     }
@@ -638,6 +663,7 @@ static void pl_reset(int all)                 /* the engine was reset (a preset 
     for (i = 0; i < PL_NRAW; i++) {
         pl_raw[i].on = 0;
         pl_raw[i].n = 0;
+        pl_raw[i].dl = 0;
         if (all)
             pl_raw[i].active = pl_raw[i].sus = 0;
     }
@@ -1262,9 +1288,11 @@ static void pl_block(uint32_t n)
             } else if (e.raw < PL_NRAW) {     /* a strummed note: e.note is its place in the key's chord */
                 pl_raw_t *r = &pl_raw[e.raw];
                 if (e.note < r->n) {
-                    if (r->lay)
+                    if (r->lay) {
                         lay_on(L_CHORD, r->note[e.note], e.vel);
-                    else
+                        if (r->dl)
+                            snd_on(r->note[e.note], e.vel, 1, 0);
+                    } else
                         snd_on(r->note[e.note], e.vel, raw_local(e.raw), raw_out(e.raw));
                     r->on |= (uint16_t)(1u << e.note);
                 }
