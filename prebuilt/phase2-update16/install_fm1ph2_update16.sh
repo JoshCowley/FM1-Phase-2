@@ -1,0 +1,44 @@
+#!/bin/sh
+# Installs FM1 Phase 2 update 16 (every page's picture in the option C family, plus 16 new modulation-led instruments with K1 MORPH at positions 17-32; 17 Nov 2026) on an FM-1 connected to this Mac by USB.
+#   sh /Users/josh/Documents/iClaude/Projects/FM1-Rack/install_fm1ph2_update16.sh
+# Put this script and fm1ph2-update16.fwsc together in Projects/FM1-Rack first.
+# Plug the FM-1 straight into the Mac (no hub), and quit anything else using MIDI (DAWs, browser MIDI tabs).
+set -eu
+HERE=$(cd "$(dirname "$0")" && pwd)
+PKG="$HERE/fm1ph2-update16.fwsc"
+SUM=3996f4990d850ac8f87b0075cc84db89fb7043ac4831ac07b70d3f298e42635a
+FM1BASE="$HOME/fm1-work/fm1-base"
+REV=c8e05997ce970875038156d2bbd69e712eac1543   # the fm1-base this package was built with
+
+echo "== 1/4 checking the package"
+[ -f "$PKG" ] || { echo "Can't find $PKG"; exit 1; }
+[ "$(shasum -a 256 "$PKG" | cut -d' ' -f1)" = "$SUM" ] || { echo "fm1ph2-update16.fwsc isn't the file that was built: stop, tell Claude"; exit 1; }
+echo "   ok"
+
+echo "== 2/4 the installer's MIDI library"
+python3 -c "import mido, rtmidi" 2>/dev/null || python3 -m pip install --user mido python-rtmidi
+echo "   ok"
+
+echo "== 3/4 fm1-base's installer"
+if [ ! -d "$FM1BASE/.git" ]; then
+  mkdir -p "$(dirname "$FM1BASE")"
+  git clone -q https://github.com/charlesvestal/fm1-base "$FM1BASE"
+fi
+git -C "$FM1BASE" checkout -q $REV 2>/dev/null || { git -C "$FM1BASE" fetch -q origin && git -C "$FM1BASE" checkout -q $REV; }
+echo "   ok"
+
+echo "== 4/4 looking for the FM-1"
+cd "$FM1BASE"
+python3 tools/fm1_install.py --info || {
+  echo "The FM-1 wasn't found. Check: it's on, plugged straight into the Mac, nothing else has its MIDI port open. Then run this again."
+  exit 1; }
+echo
+echo "Installing FM1 Phase 2 update 16. Don't unplug the FM-1 until this says it's done."
+python3 tools/fm1_install.py "$PKG"
+echo
+echo "Done. Your saved user presets are kept."
+echo "To try (nothing here has been run on an FM-1, seen or heard by a person yet):"
+echo "  1. Presets 17-32 are the new instruments (TINE EP to MODEL DIAL). Play each; turn K1 (MORPH) slowly end to end, then K2-K4. Note which ones work, which do not, and any out-of-tune notes (GLASS BELLS and MODEL DIAL are known to be off)."
+echo "  2. Visit each page while playing a chord: source, filter, delay, reverb, Clouds, LFO, Tides, Peaks, Func, AMP, Grids, chorus, Rings, the matrix."
+echo "  3. On HOME and on two other pages hold OCT- and OCT+ together and note DRAW, LCD and FPS."
+echo "  4. Note the CPU % (top strip), any crackle, and whether the buttons feel sluggish."
