@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0
+# FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 # Installs FM1 Phase 2 update 16 (every page's picture in the option C family, plus 16 new modulation-led instruments with K1 MORPH at positions 17-32; 17 Nov 2026) on an FM-1 connected to this Mac by USB.
 #   sh /Users/josh/Documents/iClaude/Projects/FM1-Rack/install_fm1ph2_update16.sh
 # Put this script and fm1ph2-update16.fwsc together in Projects/FM1-Rack first.
