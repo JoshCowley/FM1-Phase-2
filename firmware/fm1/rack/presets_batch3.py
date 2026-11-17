@@ -42,8 +42,8 @@ def TD(mode="LOOP", f=0.2, shape=0.5, slope=0.0, smooth=0.5, rng="MID", **kw):
 
 
 S5 = {"SRC": "BRAIDS", "SHP": "FILTER"}
-LEVEL = {"WARM PAD": 0.45, "STRING ENS": 0.3, "BRASS SECT": 0.35, "CHOIR AAH": 0.35, "SAW LEAD": 0.45, "HOLLOW LEAD": 0.4,
-         "SUB BASS": 0.5, "ANALOG BASS": 0.4, "ACID BASS": 0.4, "SYNTH PLUCK": 0.6, "FM BELL": 0.45, "E PIANO": 0.5,
+LEVEL = {"WARM PAD": 0.45, "SILK STRINGS": 0.3, "HORN SECT": 0.35, "VOX PAD": 0.35, "SAW LEAD": 0.45, "HOLLOW LEAD": 0.4,
+         "SUB BASS": 0.5, "SNAP BASS": 0.4, "ACID LINE": 0.4, "ARP PLUCK": 0.6, "FM BELL": 0.45, "E PIANO": 0.5,
          "ROTARY ORGAN": 0.4, "HARD SYNC": 0.45, "ATMOSPHERE": 0.35, "NOISE SWEEP": 0.4}      # AMP LEVEL per preset, set from the measured loudness (0.05 grid): the batch2 way, without level_fm1.py
 
 
@@ -66,8 +66,8 @@ def batch3():
         [("PITCH", 0.006), ("PAN", 0.1), ("FX 1.DEPTH", 0.1), None, ("SHP.CUTOFF", 0.03)], voices=6, md=(0.5, 0.15, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
 
-    # 34 ----------------------------------------------------------------------------------------------- STRING ENS
-    a(B("STRING ENS", "PAD", {**S5, "MODA": "PEAKS", "FX1": "CHORUS", "FX2": "REVERB"},
+    # 34 ----------------------------------------------------------------------------------------------- SILK STRINGS
+    a(B("SILK STRINGS", "PAD", {**S5, "MODA": "PEAKS", "FX1": "CHORUS", "FX2": "REVERB"},
         {"SRC": {"MODEL": "//-_", "TIMBRE": 0.25, "COLOR": 0.4, "DRIFT": 0.15, "LEVEL": 1.0},
          "SHP": FL("LP", 0.5, 0.1, 0.1, 0.0, 0.6, 0.2),
          "MODA": PK(0.35), "FX1": CHO(0.55, "CHORUS", 0.25, 0.5, 0.9), "FX2": REV("HALL", 0.65, 0.2)},
@@ -81,8 +81,8 @@ def batch3():
         [("FX 1.DEPTH", 0.1), ("PAN", 0.1), ("PITCH", 0.006), None, ("SHP.CUTOFF", 0.03)], voices=6, md=(0.5, 0.15, 0.5, 0.5)))
     L[-1]["move"] = "subtle"
 
-    # 35 ----------------------------------------------------------------------------------------------- BRASS SECT
-    a(B("BRASS SECT", "OTHER", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
+    # 35 ----------------------------------------------------------------------------------------------- HORN SECT
+    a(B("HORN SECT", "OTHER", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
         {"SRC": {"MODEL": "CSAW", "TIMBRE": 0.4, "COLOR": 0.4, "DRIFT": 0.1, "LEVEL": 1.0},
          "SHP": FL("LP", 0.25, 0.15, 0.2, 0.3, 0.5, 0.3, "OWN", 0.1, 0.4, 0.5, 0.3),
          "MODA": TD("AR", 0.4, 0.5, 0.0, 0.5, "MID"), "FX1": CHO(0.2, "CHORUS", 0.3, 0.3, 0.7), "FX2": REV("PLATE", 0.4, 0.15)},
@@ -96,8 +96,8 @@ def batch3():
         [None, None, ("SHP.CUTOFF", 0.03), ("PAN", 0.1), ("SRC.COLOR", 0.05)], voices=6, md=(0.5, 0.5, 0.5, 0.5)))
     L[-1]["move"] = "medium"
 
-    # 36 ------------------------------------------------------------------------------------------------ CHOIR AAH
-    a(B("CHOIR AAH", "PAD", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
+    # 36 ------------------------------------------------------------------------------------------------ VOX PAD
+    a(B("VOX PAD", "PAD", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
         {"SRC": {"MODEL": "VOWL", "TIMBRE": 0.4, "COLOR": 0.5, "DRIFT": 0.15, "LEVEL": 1.0},
          "SHP": FL("LP", 0.6, 0.1, 0.1, 0.0, 0.5, 0.1),
          "MODA": TD("LOOP", 0.15, 0.5), "FX1": CHO(0.4, "CHORUS", 0.2, 0.5, 0.9), "FX2": REV("HALL", 0.8, 0.3)},
@@ -158,8 +158,8 @@ def batch3():
         osc={"WAVE": 0, "OCTAVE": -1, "OSC LVL": 0.5, "MAIN LVL": 0.5}))
     L[-1]["move"] = "subtle"
 
-    # 40 ----------------------------------------------------------------------------------------------- ANALOG BASS
-    a(B("ANALOG BASS", "BASS", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
+    # 40 ----------------------------------------------------------------------------------------------- SNAP BASS
+    a(B("SNAP BASS", "BASS", {**S5, "MODA": "TIDES", "FX1": "CHORUS", "FX2": "REVERB"},
         {"SRC": {"MODEL": "CSAW", "TIMBRE": 0.3, "COLOR": 0.3, "DRIFT": 0.05, "LEVEL": 1.0},
          "SHP": FL("LP24", 0.3, 0.3, 0.3, 0.5, 0.5, 0.3, "OWN", 0.0, 0.3, 0.1, 0.2),
          "MODA": TD("LOOP", 0.1, 0.5), "FX1": CHO(0.1, "CHORUS", 0.2, 0.3, 0.6), "FX2": REV("PLATE", 0.3, 0.1)},
@@ -174,8 +174,8 @@ def batch3():
         osc={"WAVE": 3, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
     L[-1]["move"] = "subtle"
 
-    # 41 ------------------------------------------------------------------------------------------------- ACID BASS
-    a(B("ACID BASS", "BASS", {**S5, "MODA": "TIDES", "FX1": "DELAY", "FX2": "REVERB"},
+    # 41 ------------------------------------------------------------------------------------------------- ACID LINE
+    a(B("ACID LINE", "BASS", {**S5, "MODA": "TIDES", "FX1": "DELAY", "FX2": "REVERB"},
         {"SRC": {"MODEL": "CSAW", "TIMBRE": 0.2, "COLOR": 0.2, "DRIFT": 0.05, "LEVEL": 1.0},
          "SHP": FL("LP24", 0.25, 0.55, 0.3, 0.6, 0.4, 0.3, "OWN", 0.0, 0.25, 0.05, 0.15),
          "MODA": TD("LOOP", 0.2, 0.5), "FX1": DLY("1/8D", 0.3, 0.15, "PING"), "FX2": REV("PLATE", 0.3, 0.1)},
@@ -190,8 +190,8 @@ def batch3():
         osc={"WAVE": 3, "OCTAVE": -1, "OSC LVL": 0.3, "MAIN LVL": 0.9}))
     L[-1]["move"] = "medium"
 
-    # 42 ----------------------------------------------------------------------------------------------- SYNTH PLUCK
-    a(B("SYNTH PLUCK", "KEYS", {**S5, "MODA": "PEAKS", "FX1": "DELAY", "FX2": "REVERB"},
+    # 42 ----------------------------------------------------------------------------------------------- ARP PLUCK
+    a(B("ARP PLUCK", "KEYS", {**S5, "MODA": "PEAKS", "FX1": "DELAY", "FX2": "REVERB"},
         {"SRC": {"MODEL": "CSAW", "TIMBRE": 0.35, "COLOR": 0.35, "DRIFT": 0.05, "LEVEL": 1.0},
          "SHP": FL("LP", 0.35, 0.2, 0.1, 0.5, 0.5, 0.3, "OWN", 0.0, 0.5, 0.05, 0.4),
          "MODA": PK(0.3), "FX1": DLY("1/8D", 0.3, 0.2, "PING"), "FX2": REV("PLATE", 0.4, 0.15)},

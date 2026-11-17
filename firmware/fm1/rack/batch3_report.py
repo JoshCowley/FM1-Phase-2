@@ -46,9 +46,9 @@ def phrase3(q):
         sc = [55, 57, 59, 60, 62, 64, 67, 69, 72, 74, 76, 79, 81, 84, 86, 88, 91, 88, 84, 79, 76, 72, 67, 64]
         ev = seq(sc, 0.2, S, S * 0.95) + [(6.8, 3.0, 69, 0.8), (9.9, 3.0, 72, 0.8), (13.0, 2.8, 67, 0.8)]
         root = 69
-    elif name in ("SYNTH PLUCK", "FM BELL", "E PIANO"):
+    elif name in ("ARP PLUCK", "FM BELL", "E PIANO"):
         arp = [48, 52, 55, 59, 60, 64, 67, 71, 72, 76, 79, 83, 84, 83, 79, 76, 72, 67, 64, 60]
-        step = S / 2 if name == "SYNTH PLUCK" else S
+        step = S / 2 if name == "ARP PLUCK" else S
         tc = 0.2 + len(arp) * step + 0.3
         ev = seq(arp, 0.2, step, step * 0.9) + [(tc + 1.0 * k, 0.95, n, 0.7) for k in range(int((15.8 - tc) / 1.0)) for n in ((48, 55, 59, 64) if k % 2 == 0 else (45, 52, 57, 60))]
         root = 48
@@ -56,7 +56,7 @@ def phrase3(q):
         ch = [(48, 55, 60, 64), (45, 52, 57, 60), (53, 57, 60, 65), (43, 50, 55, 59)]
         ev = [(0.2 + 2.0 * i, 1.9, n, 0.7) for i in range(8) for n in ch[i % 4]]
         root = 48
-    elif name == "BRASS SECT":
+    elif name == "HORN SECT":
         ch = [(48, 55, 60, 64), (50, 57, 62, 65), (52, 59, 64, 67), (48, 55, 60, 64), (43, 50, 55, 59), (45, 52, 57, 60), (50, 57, 62, 65), (48, 55, 60, 64)]
         ev = [(0.2 + 1.9 * i, 1.5, n, 0.8) for i, c in enumerate(ch) for n in c]
         root = 48
@@ -67,12 +67,12 @@ def phrase3(q):
         ev = [(0.2 + 0.4 * i, 7.6 - 0.4 * i, n, 0.7) for i, n in enumerate((36, 43, 48, 52, 55, 59, 64))] + [(8.2, 7.4, n, 0.7) for n in (33, 45, 52, 57, 60)]
         root = 48
     chord = [root] if mono else [root, root + 7, root + 11, root + 16]
-    strike = q["amp"]["SUSTAIN"] < 0.35 or name in ("FM BELL", "E PIANO", "SYNTH PLUCK")
+    strike = q["amp"]["SUSTAIN"] < 0.35 or name in ("FM BELL", "E PIANO", "ARP PLUCK")
     held = [(0.1 + 2.0 * k, 1.9, n, 0.75) for k in range(6) for n in chord] if strike else [(0.2, 11.8, n, 0.7 if not mono else 0.75) for n in chord]
     return ev, held, root
 
 
-WIN = {"SYNTH PLUCK": (0.03, 0.33), "FM BELL": (0.1, 1.1)}      # the part of each strike the tests look at (default 0.3 to 1.3 s after it)
+WIN = {"ARP PLUCK": (0.03, 0.33), "FM BELL": (0.1, 1.1)}      # the part of each strike the tests look at (default 0.3 to 1.3 s after it)
 
 
 def dry(q):
