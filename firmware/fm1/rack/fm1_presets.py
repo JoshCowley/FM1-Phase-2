@@ -205,9 +205,12 @@ def main():
     D, tail = defs(), tail_of(rec)
     out = []
     out_presets = fm1_presets(json.loads((WEB / "presets.json").read_text()))
-    for pr in out_presets:
+    from presets_bank45 import bank45           # update 24: the factory bank is INIT and 45 (presets_bank45.py), taken from the older lists
+    for pr in bank45(out_presets):
         c = calls_for(pr, D, tail)
         c["fm1"] = {k: pr[k] for k in ("fm1_voices", "osc", "bank", "cat") if k in pr}
+        if "bank45" in pr:
+            c["fm1"]["mnames"] = pr["bank45"]["labels"]
         out.append(c)
     OUT.write_text(json.dumps(out))
     print(f"{OUT.name}: {len(out)} presets")
