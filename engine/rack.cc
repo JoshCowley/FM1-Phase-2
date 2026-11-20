@@ -1066,6 +1066,7 @@ EXPORT void init() {
 #ifdef RACK_FM1
   fit_reset();
 #endif
+  mono_n_ = 0;   // a preset load forgets the keys held (a stale list kept a mono note on after its key went up)
   fx_off_[0] = fx_off_[1] = 0; fx_clear_[0] = fx_clear_[1] = 0;
   memset(base_, 0, sizeof(base_));
   memset(tgt_, 0, sizeof(tgt_)); memset(glide_, 0, sizeof(glide_)); memset(macro_gl_, 0, sizeof(macro_gl_));
