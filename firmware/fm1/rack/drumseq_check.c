@@ -467,6 +467,93 @@ static void dseq_checks(int *fails)
           bad += !okp; }
         dr_stop();
     }
+    /* 13k (step 5): OUT per lane (SOUND, MIDI, ALSO, OFF), the lane's own channel and note, a change while it rings */
+    {
+        float d = 60.0f / 120.0f / 4.0f * 44100.0f;
+        static const int WANT_N[4] = {1, 0, 1, 0}, WANT_M[4] = {0, 2, 2, 0};   /* sounds, MIDI messages (on + off) */
+        int ok = 1, o, on_ch = -1, on_note = -1;
+        for (o = 0; o < 4; o++) {
+            dq_reset();
+            memset(dr_pat, 0, sizeof dr_pat);
+            dr_pat[0][0] = DRS_NEW;
+            dr_mid[0].out = (uint8_t)o;
+            dq_play(2, d, 48, 0);
+            if (dq_n != WANT_N[o] || dq_nm != WANT_M[o] || dr.hits != 1) { ok = 0; printf("13k OUT %d: %d sounds, %d MIDI messages, %u hits\n", o, dq_n, dq_nm, (unsigned)dr.hits); }
+        }
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[4][0] = DRS_NEW;
+        dr_mid[4].ch = 2; dr_mid[4].note = 70;
+        dq_play(2, d, 48, 0);
+        for (i = 0; i < dq_nm; i++) if (dq_mid[i].vel) { on_ch = dq_mid[i].ch; on_note = dq_mid[i].note; }
+        ok = ok && on_ch == 2 && on_note == 70 && dq_nm == 2 && dq_mid[1].ch == 2 && dq_mid[1].note == 70 && dq_mid[1].vel == 0;
+        /* a change of note or channel while the note rings: it ends first, on the old note and channel; the next hit uses the new */
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[0][0] = DRS_NEW;
+        dr_start(0);
+        dq_now = 0; dr_block(0, 48, d);
+        dq_now = 48; dr_block(48, 48, d);
+        dr_mid_set(0, 2, 50);
+        ok = ok && dq_nm == 2 && dq_mid[1].note == 36 && dq_mid[1].vel == 0 && dq_mid[1].ch == 9 && dr_mid[0].note == 50 && !(dr.ring & 1u);
+        dr_mid_set(0, 1, 99); dr_mid_set(0, 0, 9); dr_mid_set(0, 2, -4);   /* clamped: channel 15, OUT 3, note 0 */
+        ok = ok && dr_mid[0].ch == 15 && dr_mid[0].out == 3 && dr_mid[0].note == 0;
+        dr_stop();
+        printf("13k OUT per lane: SOUND (a sound, no note), MIDI (a note, no sound), ALSO (both), OFF (neither, the hit still counted); a lane's own channel and note go out; a change while it rings ends the old note first; values clamp: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+    }
+    /* 13l (step 5): MIDI in plays the lanes (their channel and note, IN on), not the synth; never a note back out */
+    {
+        int ok = 1, r;
+        dq_reset();
+        dr_mid[2].note = 60; dr_mid[2].ch = 3;
+        r = dr_midi_in(9, 36, 100, 1);                       /* the kick: channel 10 (9), note 36 */
+        ok = ok && r == 1 && dq_n == 1 && dq_hit[0].voice == 0 && fabsf(dq_hit[0].level - 1.0f) < 1e-5f;
+        r = dr_midi_in(9, 38, 50, 1);                        /* the snare at velocity 50: half as loud (x its level 0.9) */
+        ok = ok && r == 1 && dq_n == 2 && dq_hit[1].voice == 1 && fabsf(dq_hit[1].level - 0.5f * 0.9f) < 1e-5f;
+        r = dr_midi_in(9, 36, 0, 0);                         /* its note off: taken (the synth must not play it), no sound */
+        ok = ok && r == 1 && dq_n == 2;
+        r = dr_midi_in(0, 36, 100, 1);                       /* another channel */
+        ok = ok && r == 0 && dq_n == 2;
+        r = dr_midi_in(9, 37, 100, 1);                       /* a note no lane has */
+        ok = ok && r == 0 && dq_n == 2;
+        r = dr_midi_in(3, 60, 127, 1);                       /* the C HAT moved to note 60, channel 4 (3) */
+        ok = ok && r == 1 && dq_n == 3 && dq_hit[2].voice == 2 && fabsf(dq_hit[2].level - 1.27f * 0.55f) < 1e-5f;
+        r = dr_midi_in(9, 42, 100, 1);                       /* ... and its old note is free for the synth */
+        ok = ok && r == 0 && dq_n == 3;
+        dr_in &= (uint8_t)~1u;                               /* the kick's IN off: the synth gets it */
+        r = dr_midi_in(9, 36, 100, 1);
+        ok = ok && r == 0 && dq_n == 3;
+        dr_in |= 1u;
+        dr_mid[0].out = DO_MIDI;                             /* OUT = MIDI only: the note is taken, nothing sounds */
+        r = dr_midi_in(9, 36, 100, 1);
+        ok = ok && r == 1 && dq_n == 3;
+        dr_mid[0].out = DO_SOUND;
+        dr_mid[1].note = 36; dr_mid[1].ch = 9;               /* two lanes on one note: both play */
+        r = dr_midi_in(9, 36, 100, 1);
+        ok = ok && r == 1 && dq_n == 5;
+        ok = ok && dq_nm == 0 && !dr.run && dr.hits == 0;    /* never a MIDI note out, and the sequencer need not run, nor counts a hit */
+        printf("13l MIDI in: a lane's channel and note play it (velocity sets the level), notes off are taken, other channels and notes and a lane with IN off are the synth's, OUT = MIDI sounds nothing, no note goes back out, the sequencer need not run: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+        dr_reset_state();
+    }
+    /* 13m (step 5): the load read-out and the kits' costs */
+    {
+        int ok = 1, k, l;
+        dr_load_kit(0);
+        ok = ok && dr_load_x10() == 61 + 78 + 32 + 61;      /* 909 ISH: kick 6.1, snare 7.8, the hats' clocked noise 3.2, the clap/perc voice at its costliest (the kick model 6.1) */
+        for (k = 0; k < DR_NKIT; k++) {
+            int x;
+            dr_load_kit(k);
+            x = dr_load_x10();
+            if (x < 90 || x > 290) ok = 0;
+        }
+        for (l = 0; l < DR_LANES; l++) dr_kit[l].model = 2;   /* a cymbal on every lane: 4 x 8.0 */
+        ok = ok && dr_load_x10() == 320;
+        dr_load_kit(0);
+        printf("13m load read-out (points of a core x 10, each voice at its costliest model): 909 ISH %d, every lane a cymbal %d; each factory kit between 9 and 29 points: %s\n", (dr_load_kit(0), dr_load_x10()), 320, ok ? "ok" : "FAIL");
+        bad += !ok;
+    }
     /* 13j (step 4): DRUM GEN */
     {
         uint8_t m[DR_STEPS];

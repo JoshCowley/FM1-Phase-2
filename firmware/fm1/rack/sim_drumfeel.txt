@@ -136,6 +136,8 @@ tap SEQ
 tap SEQ
 tap SEQ
 tap SEQ
+tap SEQ
+tap SEQ
 wait 300
 expect sub 6
 expect drum_lane 2
@@ -210,6 +212,8 @@ tap SEQ
 tap SEQ
 tap SEQ
 tap SEQ
+tap SEQ
+tap SEQ
 wait 300
 expect sub 6
 # SAVE (a tap) from a drum page, then a power cycle
@@ -224,6 +228,8 @@ expect sub 8
 turn K2 -50
 wait 100
 expect drum_level 50
+tap SEQ
+tap SEQ
 tap SEQ
 tap SEQ
 tap SEQ
@@ -254,6 +260,8 @@ expect drum_len 12
 turn SELECT 2
 wait 100
 expect drum_choke 4
+tap SEQ
+tap SEQ
 tap SEQ
 tap SEQ
 tap SEQ

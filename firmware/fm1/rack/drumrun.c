@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
 // FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* The drum sequencer in the firmware (drum track, steps 2-4): drumseq.c's hooks set to the engine's drum voices and the MIDI
- * out, and the two calls from the audio interrupt. The drums follow the sequencer's PLAY (sq.run) and nothing else:
- * stopped, no hit is queued, the engine's drum guard is off and no block renders (rk_drum_run 0). Included by app.c after seq.c. */
+ * out, and the two calls from the audio interrupt. The drums follow the sequencer's PLAY (sq.run) and a STYLE pattern playing (STYLE starts and stops
+ * them, unless it is switched off on the KIT page) and nothing else: stopped, no hit is queued, the engine's drum guard is off and no block renders (rk_drum_run 0). Included by app.c after seq.c. */
 #include "drumseq.c"
 
 void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
 void rk_drum_run(int on);
 void rk_drum_cut(int voice);
+void rk_drum_busy(int mode);
 int rk_drum_status(int what);
 
 static void dr_midi_out(int ch0, int note, int vel)   /* GLOBAL > MIDI OUT gates it, as the notes' */
@@ -47,10 +48,13 @@ static void dr_audio(uint32_t n)
         if (!dr.run && l < DR_LANES)
             dr_sound(l, DF_NORM);
     }
-    if (sq.run && !dr.run)
-        dr_start(pl_now);
-    else if (!sq.run && dr.run)
-        dr_stop();
+    {
+        int want = sq.run || (dr_style && st.on && st_style());   /* PLAY, or (STYLE starts the drums, on by default) a STYLE pattern playing */
+        if (want && !dr.run)
+            dr_start(pl_now);
+        else if (!want && dr.run)
+            dr_stop();
+    }
     if (!dr.run)
         return;                               /* stopped: nothing queued, nothing struck, nothing rendered */
     if (GI(G_CLOCK) != 1)

@@ -73,6 +73,14 @@ static uint16_t dr_pat[DR_LANES][DR_STEPS];   /* the live pattern */
  * (the pattern turned, -15..15 steps) and CHOKE (the lane whose sound it cuts: 0 none, 1-6 the lanes) */
 typedef struct { uint8_t len, div, choke; int8_t shift; } dr_feel_t;
 static dr_feel_t dr_feel[DR_LANES];
+/* a lane's MIDI (the kit page group's DRUM MIDI): the note it sends (and MIDI in plays it on), its channel (0-15), OUT (SOUND the FM-1's voices, MIDI, ALSO both, OFF),
+ * and IN (the bits of dr_in: notes on the lane's channel and note play the lane) */
+enum { DO_SOUND, DO_MIDI, DO_ALSO, DO_OFF };
+typedef struct { uint8_t note, ch, out; } dr_mid_t;
+static dr_mid_t dr_mid[DR_LANES];
+static uint8_t dr_in;                         /* the lanes MIDI in plays (bit per lane) */
+static uint8_t dr_busy = 1;                   /* IF BUSY (the engine's numbering): 0 NONE, 1 CLOUD, 2 VOICES */
+static uint8_t dr_style = 1;                  /* STYLE starts and stops the drums */
 #define DR_NDIV 5
 static const uint8_t DR_DIVT[DR_NDIV] = {12, 6, 3, 8, 4};   /* ticks (a sixth of a 16th: the MIDI clock's) a step */
 static const char *const DR_DIVN[DR_NDIV] = {"1/8", "1/16", "1/32", "8T", "16T"};
@@ -117,6 +125,8 @@ static void dr_reset_state(void)              /* power-up (and the checks'): pat
     memset(dr_pat, 0, sizeof dr_pat);
     dr_feel_default();
     dr_load_kit(0);
+    for (l = 0; l < DR_LANES; l++) { dr_mid[l].note = DR_GM[l]; dr_mid[l].ch = DR_CH; dr_mid[l].out = DO_ALSO; }
+    dr_in = 0x3Fu; dr_busy = 1; dr_style = 1;
     dr.pat = 0; dr.next = 255; dr.swing = 50; dr.mute = 0; dr.ring = 0; dr.nq = 0; dr.hits = 0;
     for (l = 0; l < DR_LANES; l++) { dr.lstep[l] = 255; dr.lcnt[l] = 0; }
     dr_staged = 0; dr_dirty = 0;
@@ -143,15 +153,16 @@ static int dr_any(void)                       /* 1 when any step is on */
     return 0;
 }
 
-/* the sound of a hit (the lane's voice with the live kit's values) */
-static void dr_sound(int lane, int force)
+/* the sound of a hit (the lane's voice with the live kit's values), at velocity vel (0-127: a force's, or MIDI in's) */
+static void dr_sound_v(int lane, int vel)
 {
     const dr_snd_t *k = &dr_kit[lane];
-    float lv = (float)DR_VEL[force > 4 ? 4 : force] / 100.0f * (float)k->level * 0.01f;
+    float lv = (float)vel / 100.0f * (float)k->level * 0.01f;
     if (dr_hook_hit)
         dr_hook_hit(DR_VOICE[lane], k->model, (float)k->pitch, (float)k->p1 * 0.01f, (float)k->p2 * 0.01f, (float)k->decay_cs * 0.01f,
                     lv, (float)k->pan * 0.01f, (float)k->send * 0.01f);
 }
+static void dr_sound(int lane, int force) { dr_sound_v(lane, DR_VEL[force > 4 ? 4 : force]); }
 /* a hit: the voice, and the lane's MIDI note on its channel (an earlier note of the lane ends first) */
 static void dr_fire(int lane, int force, uint32_t at)
 {
@@ -162,15 +173,16 @@ static void dr_fire(int lane, int force, uint32_t at)
         if (t != lane && DR_VOICE[t] != DR_VOICE[lane] && dr_hook_cut)
             dr_hook_cut(DR_VOICE[t]);
         if (t != lane && (dr.ring >> t & 1u) && dr_hook_midi) {
-            dr_hook_midi(DR_CH, DR_GM[t], 0);
+            dr_hook_midi(dr_mid[t].ch, dr_mid[t].note, 0);
             dr.ring &= (uint8_t)~(1u << t);
         }
     }
-    dr_sound(lane, force);
-    if (dr_hook_midi) {
+    if (dr_mid[lane].out == DO_SOUND || dr_mid[lane].out == DO_ALSO)
+        dr_sound(lane, force);
+    if (dr_hook_midi && (dr_mid[lane].out == DO_MIDI || dr_mid[lane].out == DO_ALSO)) {
         if (dr.ring >> lane & 1u)
-            dr_hook_midi(DR_CH, DR_GM[lane], 0);
-        dr_hook_midi(DR_CH, DR_GM[lane], DR_VEL[force > 4 ? 4 : force]);
+            dr_hook_midi(dr_mid[lane].ch, dr_mid[lane].note, 0);
+        dr_hook_midi(dr_mid[lane].ch, dr_mid[lane].note, DR_VEL[force > 4 ? 4 : force]);
         dr.ring |= (uint8_t)(1u << lane);
         dr_off_at[lane] = at + (uint32_t)(dr_hz * (float)DR_GATE_MS * 0.001f);
     }
@@ -194,7 +206,7 @@ static void dr_due(uint32_t end)
         if ((dr.ring >> l & 1u) && (int32_t)(dr_off_at[l] - end) < 0) {
             dr.ring &= (uint8_t)~(1u << l);
             if (dr_hook_midi)
-                dr_hook_midi(DR_CH, DR_GM[l], 0);
+                dr_hook_midi(dr_mid[l].ch, dr_mid[l].note, 0);
         }
 }
 /* a lane's step (column col of the pattern), struck at frame tg; it lasts lf frames (the ratchets and the nudge are fractions of it) */
@@ -251,7 +263,7 @@ static void dr_stop(void)
     for (l = 0; l < DR_LANES; l++) {
         dr.lstep[l] = 255;
         if (dr.ring >> l & 1u && dr_hook_midi)
-            dr_hook_midi(DR_CH, DR_GM[l], 0);
+            dr_hook_midi(dr_mid[l].ch, dr_mid[l].note, 0);
     }
     dr.ring = 0;
     if (dr_hook_run)
@@ -405,4 +417,47 @@ static void dr_gen_write(int lane, int algo, int hits, int turn, int vary)
         dr_pat[lane][i] = DRS_MK(1u, f, 1, 5, 0);
     }
     dr_touch();
+}
+
+/* ---- DRUM MIDI (step 5) */
+static void dr_mid_off_now(int l)             /* a lane's note ends now (its note or channel is about to change, or the lane stops sending) */
+{
+    if ((dr.ring >> l & 1u) && dr_hook_midi)
+        dr_hook_midi(dr_mid[l].ch, dr_mid[l].note, 0);
+    dr.ring &= (uint8_t)~(1u << l);
+}
+static void dr_mid_set(int l, int what, int v)   /* what: 0 OUT, 1 CHANNEL (0-15), 2 NOTE (0-127); the note ringing ends first */
+{
+    dr_mid_off_now(l);
+    if (what == 0) dr_mid[l].out = (uint8_t)dr_clamp(v, 0, 3);
+    else if (what == 1) dr_mid[l].ch = (uint8_t)dr_clamp(v, 0, 15);
+    else dr_mid[l].note = (uint8_t)dr_clamp(v, 0, 127);
+}
+/* MIDI in: a note on channel ch0 (0-15), velocity vel (0 = off): every lane with IN on, that channel and that note plays (its sound, at the velocity,
+ * when its OUT has the FM-1's sound; never a MIDI note back out: no loop). 1 when a lane took it (the synth does not play it), 0 when not */
+static int dr_midi_in(int ch0, int note, int vel, int is_on)
+{
+    int l, took = 0;
+    for (l = 0; l < DR_LANES; l++) {
+        if (!(dr_in >> l & 1u) || dr_mid[l].ch != ch0 || dr_mid[l].note != note)
+            continue;
+        took = 1;
+        if (is_on && vel > 0 && (dr_mid[l].out == DO_SOUND || dr_mid[l].out == DO_ALSO)) {
+            dr_sound_v(l, vel);
+        }
+    }
+    return took;
+}
+/* what the kit costs, in points of a core x 10: each voice at its costliest lane's model, the four voices added (the worst case: all sounding at once) */
+static int dr_load_x10(void)
+{
+    int v, l, sum = 0;
+    for (v = 0; v < 4; v++) {
+        int m = 0;
+        for (l = 0; l < DR_LANES; l++)
+            if (DR_VOICE[l] == v && DR_MCPU[dr_kit[l].model] > m)
+                m = DR_MCPU[dr_kit[l].model];
+        sum += m;
+    }
+    return sum;
 }

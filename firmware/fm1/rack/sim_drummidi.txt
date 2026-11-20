@@ -1,0 +1,184 @@
+# The drum track, step 5: DRUM MIDI (OUT, CHANNEL, NOTE, IN per lane; MIDI in plays the lanes, not the synth), DRUM KIT (pattern chips and the
+# queue, kit, swing, IF BUSY with its load read-out, STYLE starts and stops the drums), all of it kept by SAVE across a power cycle.
+wait 500
+tap SEQ
+wait 200
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+expect sub 6
+# DRUM MIDI: the kick's GM defaults (note 36, channel 10, ALSO, IN on)
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+expect sub 11
+expect drum_out 2
+expect drum_ch 10
+expect drum_note 36
+expect drum_in 1
+shot drum_midi.png
+turn K1 -1
+wait 100
+expect drum_out 1
+expect drum_pop 6
+shot drum_midi_out.png
+turn K1 2
+wait 100
+expect drum_out 3
+turn K1 5
+wait 100
+expect drum_out 3
+turn K1 -3
+wait 100
+expect drum_out 0
+turn K2 -6
+turn K3 24
+wait 100
+expect drum_ch 4
+expect drum_note 60
+turn K3 90
+wait 100
+expect drum_note 127
+turn K3 -67
+wait 100
+expect drum_note 60
+turn K4 -1
+wait 100
+expect drum_in 0
+turn K4 1
+wait 100
+expect drum_in 1
+# a note on channel 4, note 60 plays the kick (a sound, no synth voice); another channel's or note's is the synth's
+midi USB 93 3C 64
+wait 100
+expect drum_snd 1
+expect voices_on 0
+midi USB 83 3C 00
+midi USB 90 40 64
+wait 200
+expect voices_on 1
+midi USB 80 40 00
+wait 600
+turn K4 -1
+wait 100
+expect drum_in 0
+midi USB 93 3C 64
+wait 200
+expect voices_on 1
+midi USB 83 3C 00
+wait 600
+turn K4 1
+# the next lane (the snare: 38, channel 10) and back
+turn SELECT 1
+wait 100
+expect drum_note 38
+expect drum_ch 10
+expect drum_out 2
+turn SELECT -1
+wait 100
+# DRUM KIT: the chips, the queue (stopped: at once), the kit, swing, IF BUSY
+tap SEQ
+wait 300
+expect sub 12
+expect drum_pc 0
+expect drum_pat 0
+expect drum_kit 0
+expect drum_swing 50
+expect drum_busy 1
+expect drum_style 1
+expect drum_load 232
+shot drum_kit.png
+turn K1 2
+wait 100
+expect drum_pc 2
+expect drum_pat 0
+turn ALGO 1
+wait 300
+expect drum_pat 2
+turn K2 1
+wait 300
+expect drum_kit 1
+expect drum_pop 2
+shot drum_kit_list.png
+turn K2 20
+wait 100
+expect drum_kit 3
+turn K2 -2
+wait 100
+expect drum_kit 1
+turn K3 10
+wait 100
+expect drum_swing 60
+turn K3 50
+wait 100
+expect drum_swing 75
+turn K3 -10
+wait 100
+expect drum_swing 65
+turn K4 1
+wait 100
+expect drum_busy 2
+expect drum_pop 7
+shot drum_kit_busy.png
+turn K4 1
+wait 100
+expect drum_busy 0
+turn K4 1
+wait 100
+expect drum_busy 0
+turn K4 -2
+wait 100
+expect drum_busy 1
+turn SELECT 1
+wait 100
+expect drum_style 0
+turn SELECT 1
+wait 100
+expect drum_style 1
+turn SELECT 1
+wait 100
+expect drum_style 0
+# the settings are unsaved until SAVE; a power cycle after SAVE brings them back, and (changed after it) not the changes
+expect drum_dirty 2
+tap SAVE
+wait 800
+expect drum_dirty 0
+turn K3 -10
+turn K2 -1
+wait 100
+expect drum_swing 55
+expect drum_kit 0
+power
+wait 1500
+expect sub 12
+expect drum_swing 65
+expect drum_kit 1
+expect drum_busy 1
+expect drum_style 0
+expect drum_dirty 0
+expect drum_pat 2
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 200
+expect sub 11
+expect drum_out 0
+expect drum_ch 4
+expect drum_note 60
+expect drum_in 1

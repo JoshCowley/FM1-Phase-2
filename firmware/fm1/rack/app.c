@@ -101,6 +101,8 @@ static void midi_in(void)                     /* audio interrupt: the packets th
             sq.req = 2;
         if (st >= 0xF0u)
             continue;
+        if (((st & 0xF0u) == 0x90u || (st & 0xF0u) == 0x80u) && dr_midi_in((int)(st & 15u), (int)d1, (int)d2, (st & 0xF0u) == 0x90u && d2))
+            continue;                         /* a drum lane's note (the drum track: its channel and note, IN on): it plays the lane, not the synth */
         if (want && (int)(st & 15u) + 1 != want)   /* GLOBAL > MIDI CH */
             continue;
         midi_count++;
