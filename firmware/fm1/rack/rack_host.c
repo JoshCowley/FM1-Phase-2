@@ -202,6 +202,8 @@ int main(int argc, char **argv)
         dkit_checks(&fails);
         return fails != 0;
     }
+    if (argc == 3 && !strcmp(argv[1], "--drumdemo"))
+        return drum_demo(argv[2]);
     if (argc == 2 && !strcmp(argv[1], "--dseq")) {    /* section 13 alone */
         dseq_checks(&fails);
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);

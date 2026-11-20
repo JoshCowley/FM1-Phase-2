@@ -23,7 +23,7 @@ img[src*="fm1-"]{width:320px;image-rendering:pixelated}
 <main>
 <h1 id="fm1-rack-on-the-fm-1-firmware-manual">FM1 Rack on the FM-1: Firmware Manual</h1>
 <p>Nov 11, 2026 · Josh Cowley</p>
-<p>FM1 Rack turns the M-VAVE FM-1 into a small modular synthesizer built from Mutable Instruments' open module code. Each sound is a short chain of modules: a source (Plaits or Braids), a shaper (Rings or a filter), two modulators, two effects and an amplifier. You play it from the keys, shape it with the knobs, and link anything to anything through a modulation matrix. This manual covers the firmware on the FM-1; the browser version has its own manual, the <a href="index.html">FM1 Rack Manual</a>.</p>
+<p>FM1 Rack turns the M-VAVE FM-1 into a small modular synthesizer built from Mutable Instruments' open module code. Each sound is a short chain of modules: a source (Plaits or Braids), a shaper (Rings or empty), a filter that is always there, two modulators, two effects and an amplifier. You play it from the keys, shape it with the knobs, and link anything to anything through a modulation matrix. This manual covers the firmware on the FM-1; the browser version has its own manual, the <a href="index.html">FM1 Rack Manual</a>.</p>
 <blockquote>
 <p><strong>This is a test version (update 43).</strong> The sound engine and the first menus have been played on an FM-1. The newer screens, the FUNC module, the 67 factory presets, the button shortcuts, STYLE, the smoother preset and knob changes, LEARN on SEL + EDIT, the chords' and arpeggio's FM-1 / SEND switches, the finer pictures, the BASS zone and the sequencer's editing (lasso, copy and paste, dynamics, articulations) and the click track have so far run only in a computer simulator of the FM-1. Keep the recovery steps in section 2 to hand.</p>
 </blockquote>
@@ -52,7 +52,7 @@ img[src*="fm1-"]{width:320px;image-rendering:pixelated}
 <li><strong>Choose a sound</strong>: turn <strong>PRESET</strong>. The new preset loads when you stop turning. <strong>ALGORITHM</strong> jumps a whole category (keys, bass, lead, pads, textures).</li>
 <li><strong>Play</strong> the keys. They respond to how hard you play.</li>
 <li><strong>Shape it</strong>: on HOME, <strong>K1–K4</strong> are the preset's four macros. Each starts in the middle, where the preset sounds as designed, and moves something useful (brightness, character, space, motion). The name under each says what it moves.</li>
-<li><strong>Look inside</strong>: press <strong>EDIT</strong> for the sound source, <strong>ENV</strong> for the envelopes and the shaper, <strong>LFO</strong> for the modulation, <strong>FX</strong> for the effects. On each page, <strong>K1–K4</strong> set the four parameters shown and <strong>SELECT</strong> turns the page.</li>
+<li><strong>Look inside</strong>: press <strong>EDIT</strong> for the sound source, <strong>ENV</strong> for the envelopes, the filter and the shaper (hold ENV and turn K1: the filter sweep), <strong>LFO</strong> for the modulation, <strong>FX</strong> for the effects. On each page, <strong>K1–K4</strong> set the four parameters shown and <strong>SELECT</strong> turns the page.</li>
 <li><strong>Undo</strong>: hold <strong>EDIT</strong> to put back the last change.</li>
 <li><strong>Keep it</strong>: press <strong>SAVE</strong>, then SAVE again. Section 12 covers names and slots.</li>
 <li><strong>Back home</strong>: press <strong>HOME</strong>.</li>
@@ -120,8 +120,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="odd">
 <td><strong>ENV</strong></td>
 <td>AMP (envelopes, voice mode)</td>
-<td>the shaper (Rings or the filter)</td>
-<td></td>
+<td>the FILTER, then the shaper (Rings or empty)</td>
+<td><strong>Hold ENV and turn K1, on any page: the filter's SWEEP</strong> (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned)</td>
 </tr>
 <tr class="even">
 <td><strong>LFO</strong></td>
@@ -132,8 +132,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="odd">
 <td><strong>FX</strong></td>
 <td>FX 1</td>
-<td>FX 2</td>
-<td><strong>Hold, let go, then one tap: FX 1 off or on; two taps: FX 2</strong> (section 10)</td>
+<td>FX 2, then JAM</td>
+<td><strong>Two quick taps: JAM on or off, from any page</strong> (update 28, section 10). <strong>Hold, let go, then one tap: FX 1 off or on; two taps: FX 2</strong> (section 10)</td>
 </tr>
 <tr class="even">
 <td><strong>ARP</strong></td>
@@ -363,27 +363,32 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tr>
 <tr class="even">
 <td><strong>SHP</strong> (shaper)</td>
-<td>Rings, the filter, or empty</td>
-<td>ENV twice</td>
+<td>Rings, or empty</td>
+<td>ENV, turned to its last page</td>
 </tr>
 <tr class="odd">
+<td><strong>FILTER</strong> (always there)</td>
+<td>the state-variable filter, one per voice, after the shaper and before AMP</td>
+<td>ENV, turned to its second page</td>
+</tr>
+<tr class="even">
 <td><strong>MOD A</strong>, <strong>MOD B</strong> (modulators)</td>
 <td>Peaks, Tides, Grids, FUNC, or empty</td>
 <td>LFO</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><strong>FX 1</strong>, <strong>FX 2</strong></td>
-<td>delay, reverb, chorus, or empty (not the same one twice)</td>
+<td>Clouds, delay, reverb, chorus, or empty (not the same one twice; Clouds only in one of them)</td>
 <td>FX</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><strong>AMP</strong></td>
 <td>the envelopes and voice mode (always there)</td>
 <td>ENV</td>
 </tr>
 </tbody>
 </table>
-<p>Every voice has its own source, shaper and amplifier. The modulators and effects are shared by all the voices, and so is Rings (see below).</p>
+<p>Every voice has its own source, shaper, filter and amplifier. The modulators and effects are shared by all the voices, and so is Rings (see below).</p>
 <h3 id="the-modules">The modules</h3>
 <table>
 <thead>
@@ -411,8 +416,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tr>
 <tr class="even">
 <td><strong>Filter</strong></td>
-<td>A state-variable filter per voice: LP, BP, HP, LP24, NOTCH, PEAK</td>
-<td>CUTOFF, RESO, DRIVE; ENV AMT from AMP's envelope, its own (F ATK–F REL) or MOD ENV; KEY TRK; SAT; GAIN</td>
+<td>A state-variable filter per voice, <strong>always in the chain</strong> (update 26; it is no longer a choice for the shaper slot): LP, BP, HP, LP24, NOTCH, PEAK</td>
+<td>TYPE, CUTOFF, RESO, DRIVE; ENV AMT from AMP's envelope, its own (F ATK–F REL) or MOD ENV; KEY TRK, VEL AMT; SAT, AUDIO FM, GAIN; <strong>SWEEP</strong></td>
 </tr>
 <tr class="odd">
 <td><strong>Peaks</strong></td>
@@ -435,22 +440,37 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <td>RISE, FALL, CURVE, CYCLE, TRIG, levels, outputs</td>
 </tr>
 <tr class="odd">
+<td><strong>Clouds</strong></td>
+<td>Mutable's granular texture processor: records the sound reaching it (the FM-1's own playing) and replays it as grains; see <em>Clouds: the grain controls</em> below</td>
+<td>GRAIN 1: POSITION, WINDOW, SPEED, JITTER; GRAIN 2: SIZE, DENSITY, RND PAN, FREEZE; then PITCH, TEXTURE, BLEND, FEEDBACK, REVERB, MODE, QUALITY, IN GAIN, NOTE TRG, PITCH TRK, GRN SYNC, TONE, SPRAY, PITCH RND, PITCH QNT, SIZE RND, SCAN</td>
+</tr>
+<tr class="even">
 <td><strong>Delay</strong></td>
 <td>Stereo echo: ping-pong, mono or tape</td>
 <td>TIME (in beats or free), FEEDBACK, TONE, MIX, WOW, LO CUT, DUCK</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><strong>Reverb</strong></td>
 <td>Plate, hall or shimmer</td>
 <td>SIZE, DAMP, DIFFUSE, MIX, PRE, SHIMMER, LO CUT, DUCK</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><strong>Chorus</strong></td>
 <td>Chorus, flanger or vibrato</td>
 <td>RATE, DEPTH, WIDTH, MIX, FEEDBACK</td>
 </tr>
 </tbody>
 </table>
+<h3 id="the-filter-and-its-sweep-update-26">The filter and its SWEEP (update 26)</h3>
+<p><strong>The filter is in every voice's chain, always</strong> (after the shaper, before AMP), not a module you load. ENV, then ENV again, opens its page (AMP's pages and its MOD page come first); the shaper (Rings or empty) is the page after it, and its picker no longer offers the filter. Its page has four pages of four: TYPE, CUTOFF, RESO, DRIVE; ENV AMT, KEY TRK, VEL AMT, ENV SRC; F ATK, F DEC, F SUS, F REL; SAT, AUDIO FM, GAIN and <strong>SWEEP</strong>. Every one of them can be a destination of the matrix and of the knob layer, listed as <strong>FLT.</strong> in the destinations (FLT.CUTOFF, FLT.SWEEP, ...).</p>
+<p><strong>A preset with no filter has it open.</strong> A low-pass with no resonance, drive, saturation, audio FM or gain whose cutoff is above the audio band (the CUTOFF at the top of its travel) is transparent: the filter fades out over the last 14 semitones below 21.6 kHz and is then skipped, so a sound that had no filter sounds exactly as it did (every one of the 46 factory presets plays sample for sample as before, with the SWEEP in the centre). The filter every other preset has is the same as it always was.</p>
+<p><strong>SWEEP is for your hand.</strong> It adds to the cutoff, the envelope, the matrix and the knob layer, never replacing them: the centre (0) is the preset's own cutoff; turn it down for darker, up for brighter, in the pitch-like (exponential) scale of the cutoff: the whole travel, <strong>-1 to +1, is 5 octaves each way</strong> (the display shows the octaves). The engine smooths it a block at a time, so a quick sweep does not zipper or click. Three ways to move it:</p>
+<ul>
+<li><strong>Hold ENV and turn K1, on any page</strong> (not the sequencer's, which have their own K1): the toast shows FILTER SWEEP and its value in octaves, CENTRE at 0. This takes no macro from the presets: K1-K4 stay the macros, and the sweep is only under K1 while ENV is down.</li>
+<li><strong>MIDI CC 74</strong> (brightness, the standard one): 64 is the centre, 0 the bottom, 127 the top. It glides to each value. (K1 afterwards goes on from where the CC left it.)</li>
+<li>The <strong>FILTER page's</strong> last parameter, SWEEP, and as a destination of the matrix or the knob layer.</li>
+</ul>
+<p>SWEEP is saved by SAVE in a user slot with the rest of the filter and comes back with it; <strong>loading a factory preset puts it back in the centre</strong>. A user slot saved before update 26 plays as it was saved: its filter (the shaper's module 12) moves into the filter's own page, with the SWEEP in the centre. With Rings in the shaper slot, Rings is shared by the voices and the filter only takes the dry sound.</p>
 <h3 id="module-pages">Module pages</h3>
 <p>Open a slot with its button. <strong>SELECT</strong> turns the pages within the module; <strong>K1–K4</strong> set the four parameters shown.</p>
 <p><strong>Changing a module</strong>: on its page, turn <strong>ALGORITHM</strong>. The picker opens on the module now loaded. Turn to choose, then press the slot's button again to load it, or HOME to leave it as it was. Loading stops the sound for a moment while memory is laid out again. It then says how many voices fit ("BRAIDS 6 V"), or "NO ROOM".</p>
@@ -460,6 +480,56 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p><img src="img/fm1-modpage.png" alt="A module&#39;s MOD page" /></p>
 <p><strong>UNDO</strong>: hold EDIT to put the last change back: a parameter, a matrix route, or a SEL, ARP or GLOBAL setting ("UNDO SRC.COLOR"). Hold it again to go further back, up to 16 changes. One turn of a knob counts as one change. Changing preset or loading a module starts afresh.</p>
 <p>Edits are lost when you change preset unless you SAVE.</p>
+<h3 id="clouds-the-grain-controls-update-27">Clouds: the grain controls (update 27)</h3>
+<p>Clouds sits in FX 1 or FX 2 and listens to everything before it, so it granulates the FM-1's own sound, live. Its buffer is short, set by QUALITY (page 4): <strong>0.77 s</strong> at 16 ST, <strong>1.5 s</strong> at 16 MONO, <strong>3.1 s</strong> at 8 ST, <strong>6.1 s</strong> at 8 MONO (the 8-bit qualities are lo-fi). The grain controls shape GRANULR mode; LOOPDLY and SPECTRL ignore WINDOW, SPEED and JITTER.</p>
+<p><strong>The first two pages are the grain set.</strong> Every control is a matrix destination and a knob-layer target, and the three new ones are saved in user presets.</p>
+<table>
+<thead>
+<tr class="header">
+<th>Page</th>
+<th>Knob</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GRAIN 1</td>
+<td><strong>POSITION</strong></td>
+<td>Where in the buffer grains start: 0 is the newest sound (right on the picture), 1 the oldest</td>
+</tr>
+<tr class="even">
+<td></td>
+<td><strong>WINDOW</strong></td>
+<td>The width of the region around POSITION that grains start in: 0 is one point (Clouds as it was), 1 the whole buffer</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td><strong>SPEED</strong></td>
+<td>A playhead that travels through the window by itself: centre stops it, right is forward (toward the newest sound), left reverse, up to 2x real time either way, finer near the centre. It wraps at the window's ends. With FREEZE on this scrubs the frozen buffer; with it off, the buffer is itself moving, and the playhead travels through the recent sound</td>
+</tr>
+<tr class="even">
+<td></td>
+<td><strong>JITTER</strong></td>
+<td>Each grain starts at a random place over this share of the window (0 on the playhead, 1 anywhere in the window); chosen for every grain</td>
+</tr>
+<tr class="odd">
+<td>GRAIN 2</td>
+<td><strong>SIZE</strong>, <strong>DENSITY</strong></td>
+<td>Grain length; how many grains (none at the middle, as with Clouds)</td>
+</tr>
+<tr class="even">
+<td></td>
+<td><strong>RND PAN</strong></td>
+<td>Each grain's random place in the stereo field (0 all centred); drawn for every grain. This is the old SPREAD under a clearer name</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td><strong>FREEZE</strong></td>
+<td>ON holds the buffer</td>
+</tr>
+</tbody>
+</table>
+<p>WINDOW has to be above 0 for SPEED and JITTER to do anything: the playhead needs a window to travel in. The older SPRAY (a random offset in the whole buffer, per control block) and SCAN (a playhead round the whole buffer) are still there, on the last pages, and add to these. The picture shows the window as two dashed lines with the playhead moving between them. A preset saved before update 27 loads with WINDOW, SPEED and JITTER at 0.</p>
 <h3 id="rings-on-the-fm-1">Rings on the FM-1</h3>
 <p>There is <strong>one Rings shared by all the voices</strong>, as on the hardware module. Every voice's sound excites it, and it rings up to two notes at once: each new note takes the next resonator, so a third note cuts off the oldest ring. The dry part of each voice (set by Rings' MIX) plays as well. Rings' parameters follow the last note played.</p>
 <ul>
@@ -512,7 +582,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p><img src="img/fm1-lfotgt.png" alt="An LFO&#39;s targets" /></p>
 <h3 id="the-matrix">The matrix</h3>
 <p>The MATRIX holds 12 routes. <strong>SELECT</strong> chooses the row. <strong>K1</strong> sets the source, <strong>K2</strong> the destination, <strong>K3</strong> the amount (−100 to +100). <strong>K4</strong> sets a <strong>via</strong>: a second source that scales the route. With VELO as the via, for example, harder notes modulate more.</p>
-<p>Destinations are any parameter that can be modulated on SRC, SHP, MOD A, MOD B, FX 1, FX 2, AMP and OSC, plus pitch and pan.</p>
+<p>Destinations are any parameter that can be modulated on SRC, SHP, MOD A, MOD B, FX 1, FX 2, AMP, OSC and FLT (the filter), plus pitch and pan.</p>
 <p><img src="img/fm1-matrix.png" alt="The matrix" /></p>
 <p><strong>By target</strong>: turn <strong>ALGORITHM</strong> to switch between <strong>ROUTES</strong> (the 12 rows) and <strong>TARGETS</strong>, the same routes sorted by what they move, so "what moves the cutoff?" reads off one place. SELECT moves along the list, and K1–K4 edit a route as on ROUTES.</p>
 <p><img src="img/fm1-hub.png" alt="The matrix by target" /></p>
@@ -776,6 +846,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <ul>
 <li><strong>Two quick taps on SEL</strong>: chords off (single notes) or back on; <strong>three taps</strong>: the chords' send off or on.</li>
 <li><strong>Two quick taps on ARP</strong>: the arpeggio on the FM-1 off or on; <strong>three taps</strong>: its send off or on. (See <em>Chords and arpeggio: on the FM-1, and sent</em>, above.)</li>
+<li><strong>Two quick taps on FX</strong>: JAM on or off, from any page (see <em>JAM: moves on the keys</em>, below). The first tap opens FX 1 as always, the second, within 0.3 s, takes you back to the page you were on.</li>
 <li><strong>Hold FX, let go, then tap FX</strong>: after the hold the message says <strong>TAP FX 1, TWO TAPS FX 2</strong>. Within 2 seconds:
 <ul>
 <li>one tap turns FX 1 off or on;</li>
@@ -785,6 +856,86 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </ul>
 <p>A switched-off effect shows <strong>OFF</strong> on its HOME tile and costs no processor time. Its settings stay, and when you turn it back on it starts clean, with no old echoes. Loading a preset turns both effects on again; this on/off isn't saved with a preset. UNDO puts back the chord and arpeggio switches, as it does a knob turn.</p>
 <p><img src="img/fm1-fxoff.png" alt="HOME with FX 2 switched off" /></p>
+<h3 id="jam-moves-on-the-keys-update-28">JAM: moves on the keys (update 28)</h3>
+<p>JAM turns the upper keys into <strong>moves</strong>: each key throws the sound into a grain echo, a stutter, a glitch, a wash, a filter dive and so on, for as long as you hold it (or until you press it again). The keys below the split keep playing notes, so you play a chord or a line with your left hand and throw the sound about with your right.</p>
+<p><strong>In and out.</strong> Tap <strong>FX twice, quickly</strong> (within 0.3 s), from any page: the message says <strong>JAM ON</strong> and a gold <strong>JAM</strong> tag sits in the top strip, where the voice mode was (it is brighter while a move is sounding). Two quick taps again: <strong>JAM OFF, SOUND RESTORED</strong>. You stay on the page you were on (the first tap of the two opens FX 1 for a moment, as a single tap always does, and the second takes you back). JAM is also the third page of the FX button, after FX 1 and FX 2: tap FX until it comes up, or SELECT through its seven pages. The other FX gestures are as they were: one tap FX 1, tap again for FX 2, hold-let go-tap for the effects' on and off.</p>
+<p><strong>The split.</strong> The keyboard has 27 keys. By default the <strong>lower 15 play notes</strong> and the <strong>upper 12 (G#4 to G5) are the twelve moves</strong>, in the order of the table below, left to right. Change the split on the JAM page (<strong>SPLIT KEY</strong>, 1 to 26: the first key that is a move; keys count from 0 at the lowest F). A split higher than 15 leaves the last moves without a key; a lower one, with more than twelve keys above it, goes round again. The octave buttons still move the notes, not the moves. Notes that come in over MIDI are not touched. With SEL's chord ZONE on, its seven lowest keys stay the zone keys. A move key is never a note, and does not start the arpeggiator, a chord or STYLE.</p>
+<p><strong>The moves.</strong> Each key shows the move's name when it is pressed (and HOLD, LATCH ON or LATCH OFF). A move changes only the sound's existing parameters, as an offset on top of the preset's own values (like the knob layer), and ignores a module the preset does not have:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Key</th>
+<th>Move</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td><strong>GRAIN DELAY</strong></td>
+<td>The sound thrown back in smeared, pitched echoes: with Clouds, BLEND, FEEDBACK, DENSITY and an octave of PITCH up; with a delay, its FEEDBACK, MIX and WOW up; the chorus and the reverb swell, the LFOs speed up</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td><strong>STUTTER 1/8</strong></td>
+<td>The voices and the chorus, delay and reverb wet chopped on the beat: open half of each eighth, silent the other half (the gate's edges are about 10 ms, so no clicks). With Clouds, a frozen slice of short grains plays through the gaps</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td><strong>STUTTER 1/16</strong></td>
+<td>The same at sixteenths</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td><strong>STUTTER 1/32</strong></td>
+<td>The same at thirty-seconds</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td><strong>REVERSE SCRUB</strong></td>
+<td>With Clouds: FREEZE on, SPEED reverse (about 1.1x real time), a wide WINDOW, BLEND up: the buffer read backwards. Without Clouds there is no reverse; the reverb swells and the filter opens under it over two beats</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td><strong>TAPE STOP</strong></td>
+<td>The pitch falls toward two octaves down, over a second or so, the filter closes a little, the LFOs and Clouds' speed slow, the delay's WOW swings; let go and it springs back in 0.15 s</td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td><strong>WASH</strong></td>
+<td>The reverb's MIX, SIZE, SHIMMER and DAMP swell (about 0.6 s), the filter softens, the delay and chorus join; with Clouds, REVERB and FEEDBACK up</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td><strong>FREEZE PAD</strong></td>
+<td>With Clouds: FREEZE on, WINDOW and JITTER wide, BLEND up: the sound held and smeared. Without it: the reverb and delay feedback pushed up for a long smear (the held sound itself cannot be frozen without Clouds)</td>
+</tr>
+<tr class="odd">
+<td>9</td>
+<td><strong>GLITCH</strong></td>
+<td>Every sixteenth a new random draw: a pitch jump (an octave, a fifth or a fourth, up or down), a drop-out, a crushed bit, a filter jump; with Clouds, a new POSITION and SIZE too</td>
+</tr>
+<tr class="even">
+<td>10</td>
+<td><strong>FILTER DIVE</strong></td>
+<td>The cutoff falls about four and a half octaves over about a second, the RESONANCE and DRIVE rise</td>
+</tr>
+<tr class="odd">
+<td>11</td>
+<td><strong>FILTER RISE</strong></td>
+<td>From nearly closed, the cutoff opens over twelve sixteenths to a little brighter than the sound's own, with a resonant peak on the way; let go and it returns in 0.15 s</td>
+</tr>
+<tr class="even">
+<td>12</td>
+<td><strong>CRUSH</strong></td>
+<td>Braids' BITS and RATE drop (down to 4 bits and 16 kHz at full amount and a hard press) and the filter's DRIVE rises</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>stutters, GLITCH and FILTER RISE are clocked</strong>: they count sixteenths from the moment you press, at the tempo (GLOBAL), or at the MIDI clock's when GLOBAL's CLOCK is set to MIDI. What a move can do depends on the preset: <strong>the modules a move names are the ones the preset has.</strong> Of the 46 factory presets, 45 have a reverb, 27 a chorus, 16 a delay and one (TIDE PAD) Clouds, so on most presets GRAIN DELAY and FREEZE PAD are chorus and reverb swells, and REVERSE SCRUB and the grain parts of the stutters need Clouds (load it into an FX slot with ALGORITHM on the FX page to hear them). The voices' level, the filter (and its SWEEP), the pitch, Braids' BITS and RATE are in every preset.</p>
+<p><strong>HOLD or LATCH.</strong> Each move has its own switch (the <strong>KEY</strong> knob on its page): <strong>HOLD</strong> (the default) is on while the key is down; <strong>LATCH</strong> turns it on with one press and off with the next, so you can leave a wash running and play on. Each move also has an <strong>AMOUNT</strong> (0 to 100 %, default 80, WASH and FREEZE PAD 70), and your <strong>velocity</strong> scales it (a gentle press is about 40 % of a hard one). <strong>Moves stack</strong>: hold several at once and their offsets add.</p>
+<p><strong>Letting go.</strong> A move glides in and out at a speed of its own (the stutters in 8 ms, the filter dive over about half a second, TAPE STOP's fall over a second or so, a wash out over 0.6 s). When it has gone, <strong>every parameter is exactly the sound's own again</strong>, not nearly. Turning JAM off, <strong>loading another preset</strong>, changing the SPLIT KEY or a move's HOLD or LATCH switch ends every move at once (a latched move included); loading a preset leaves JAM on. Nothing JAM does is written into the preset: a knob you turn meanwhile, SAVE, the matrix and the knob layer see the preset's own values.</p>
+<p><strong>The JAM page.</strong> Page 1: <strong>JAM</strong> (ON or OFF) and <strong>SPLIT KEY</strong>. Pages 2 to 7: two moves to a page, each its <strong>AMOUNT</strong> and its <strong>KEY</strong> (HOLD or LATCH), named in the header (GRAIN + STUT 8, STUT 16 + 32, SCRUB + TAPE, WASH + FREEZE, GLITCH + DIVE, RISE + CRUSH). The picture shows the twelve moves, each as a bar that rises while it is on, a tick at its amount, and a gold dot under a latched one. UNDO takes back a JAM setting like any other. <strong>JAM's settings are not kept across a power-up</strong> (JAM starts off, SPLIT KEY 15, the default amounts). It was tested on a computer and not yet heard on an FM-1.</p>
 <h3 id="global">GLOBAL</h3>
 <p>GLO opens seven pages:</p>
 <ol type="1">
@@ -819,7 +970,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li>pitch bend and sustain (CC 64);</li>
 <li>program change, when PROG CHG is on (factory presets, then yours);</li>
 <li>CC 120 and 123 (all notes off);</li>
-<li>CC 20–23 for the macros;</li>
+<li>CC 20–23 for the macros, and <strong>CC 74 for the filter's SWEEP</strong> (64 the centre);</li>
 <li>clock, start and stop, when CLOCK is MIDI: the arpeggiator, the sequencer and the tempo follow it. (Update 59) The FM-1 follows the clock with a steady internal clock that the incoming ticks keep in step, so a little jitter in the clock, or in when the FM-1 reads it, doesn't make the groove wobble: notes land within about half a millisecond of the beat, a constant 3 ms behind it. It locks within a beat of the clock starting or changing tempo.</li>
 </ul>
 <p><strong>Out</strong>, over USB, when GLOBAL › MIDI OUT is on (off by default):</p>
@@ -829,7 +980,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li>with +CC, the macros as CC 21–24.</li>
 </ul>
 <h2 id="11-the-sequencer">11. The sequencer</h2>
-<p>Tap <strong>SEQ</strong> to open it; it remembers the page you were on. Tap SEQ again, or turn <strong>SELECT</strong>, to step through its six pages: <strong>NOTES, PATTERN, SPICE, GEN, BANKS, SONG</strong>. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.</p>
+<p>Tap <strong>SEQ</strong> to open it; it remembers the page you were on. Tap SEQ again, or turn <strong>SELECT</strong>, to step through its six pages: <strong>NOTES, PATTERN, SPICE, GEN, BANKS, SONG</strong> (and the seven drum pages after them, see DRUMS below). On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.</p>
 <ul>
 <li><strong>PLAY</strong> starts and stops it from any page. Stopping also ends held notes (latched chords and the arpeggiator's HOLD).</li>
 <li>It plays at GLOBAL › TEMPO or on MIDI clock, and sends its notes to MIDI out when that's on.</li>
@@ -899,6 +1050,19 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </ul>
 <p>Let go of SEQ to play again.</p>
 <p><img src="img/fm1-layer.png" alt="The step layer" /></p>
+<h3 id="drums">DRUMS</h3>
+<p>Six drum lanes (<strong>KICK, SNARE, C HAT, O HAT, CLAP, PERC</strong>) of 16 steps play beside the note sequencer, on four voices of the FM-1's own processor (the two hats share one voice, and the clap and perc share one). They start and stop with <strong>PLAY</strong>, at the same tempo or MIDI clock, and each lane's SEND sets how much of it goes through the FX chain. Seven more pages follow SONG when you tap SEQ: <strong>DRUM, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT</strong> (they have their own row of dots).</p>
+<ul>
+<li><strong>DRUM</strong> is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint <strong>SEL+ALGO: LOAD BEAT</strong>: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.</li>
+<li><strong>LANE SOUND</strong> gives the lane a model from a list that shows what each costs in CPU points, and relabels TONE and COLOUR for that model; K4 is the PITCH. <strong>SEL + ALGO</strong> loads a whole kit: <strong>909 ISH, 808 ISH, LO-FI, SPARSE</strong>. Turning anything plays the lane once, so you hear it.</li>
+<li><strong>LANE MIX</strong>: DECAY, LEVEL, PAN and SEND (how much goes to the FX).</li>
+<li><strong>LANE FEEL</strong>: each lane's LENGTH (1 to 16 steps), DIVIDE (1/8, 1/16, 1/32, 8T, 16T), SHIFT and CHOKE (the lane it cuts when it hits: a closed hat cutting the open one). A lane of 12 against one of 16 drifts and comes back every bar, which is the point.</li>
+<li><strong>DRUM GEN</strong> fills a lane with <strong>EUCLID, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, RANDOM, BREAK</strong> or <strong>CLEAR</strong>: K2 HITS, K3 TURN (rotate), K4 VARY (how many hits get another force). Turn ALGO right to write it; the lane is then edited by hand as any other. There is no undo (it would cost RAM), so write it into a lane you can spare.</li>
+<li><strong>DRUM MIDI</strong>: per lane OUT (<strong>SOUND</strong>, <strong>MIDI</strong>, <strong>ALSO</strong> or <strong>OFF</strong>), channel and GM note (the defaults are channel 10, kick 36, snare 38, closed hat 42, open hat 46, clap 39, perc 45) and IN. With IN on, a note on that lane's channel and note plays the lane (velocity sets its level) and is not played by the synth; every other note is the synth's.</li>
+<li><strong>DRUM KIT</strong>: the pattern chips <strong>A to H</strong> (turn ALGO right to queue one; while the drums play it takes over at the next bar line and every lane restarts, and an edit before then calls it off; ALGO left calls the queue off), the <strong>KIT</strong>, <strong>SWING</strong> (50 to 75 %, on the 16ths; triplets are not swung) and <strong>IF BUSY</strong>, what the drums do when the processor is short of room: <strong>CLOUD</strong> (the default: Clouds' DENSITY is held at 0.9 while the drums play), <strong>VOICES</strong> (a synth voice is shed) or <strong>NONE</strong>. The page shows the load of the current kit in points. SELECT turns on whether <strong>STYLE</strong> starts and stops the drums with it (on by default).</li>
+</ul>
+<p>Changing the pattern while playing is refused when the live pattern has unsaved edits, because it would be lost: press SAVE first.</p>
+<p>The patterns A to H, the kit, the lane sounds, feel, MIDI settings, swing and IF BUSY are kept by <strong>SAVE</strong> on any drum page (they stay in memory until then). An older save with no drums loads as before, with an empty grid.</p>
 <h3 id="keeping-the-sequencer">Keeping the sequencer</h3>
 <p>The banks, song and MSEQ lanes stay in memory while the FM-1 is on. To keep them after switching off, <strong>press SAVE on a sequencer page</strong>. The sound stops for a moment while the flash is written, which is why FM1 Rack never saves the sequencer by itself while it plays.</p>
 <h2 id="12-saving-and-the-library">12. Saving and the library</h2>
@@ -953,539 +1117,412 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li><strong>What costs most</strong>: Plaits voices cost more than Braids voices, and the reverb and Rings are the heaviest modules. The reverb and the delay also use the most memory, so presets with both may get fewer voices. Switching an effect off (section 10) frees its time.</li>
 </ul>
 <h2 id="14-factory-presets">14. Factory presets</h2>
-<p>There are 125: 17 keys (CH), 14 basses (BS), 11 leads (LD), 19 pads (PD), 31 textures (FX: the 15 older ones and 16 granular ones, update 12), the 16 modulation presets of update 15 (bank 2), the 16 everyday presets of update 17 (bank 3) and INIT. PRESET steps through INIT, then the 16 granular presets (FROZEN PAD to GRAIN CHOIR: Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE), then the 16 modulation presets of update 15 (TINE EP to MODEL DIAL, K1 MORPH; not yet heard), then the 16 everyday presets of update 17 (WARM PAD to NOISE SWEEP: pads, strings, brass, choir, leads, basses, a pluck, a bell, keys, an organ, a texture and a riser; K1 MORPH; not yet heard), then the basses, leads, pads, keys and textures, and on to your own; ALGORITHM jumps between categories.</p>
-<p><strong>Genre classics</strong> (update 52, marked "new, update 52"):</p>
-<ul>
-<li><strong>House</strong>: CH HOUSE ORGAN (the percussive organ of 90s house, a 2:1 FM organ with a key click through chorus), CH DEEP STAB (the deep house minor-chord stab: a saw through a resonant low-pass that snaps shut, with a dotted-eighth echo; play a minor 7th or 9th), BS DEEP HOUSE (a round, plucky bass with a short filter envelope).</li>
-<li><strong>Drum and bass</strong>: BS REESE (two saws slightly apart, beating, through a driven low-pass that slowly breathes; M2 widens the detune), LD HOOVER (the rave hoover: four detuned saws, a pitch that scoops up into each note, chorus), BS DNB SUB (a gliding sine sub, driven just enough to be heard on small speakers), PD LIQUID (a soft, chorused pad for liquid rollers).</li>
-<li><strong>Ambient</strong>: PD AMBIENT WASH (Plaits' swarm into a shimmer hall, drifting), PD FROZEN (a string-machine pad that barely moves, a long hall), CH GLASS BELL (FM at a ratio of pi, so it rings like glass rather than a chime, with echoes).</li>
-</ul>
-<p>Reworked in update 52 because they were harsh and thin: CH SOFT PIANO (now a soft hammer into Rings' string), CH MARIMBA (a softer mallet and a filter that follows the keys and velocity), CH HARP (Braids' pluck into Rings' string), FX SINGING BOWL (Rings' FM voice struck softly, with a slow chorus beating against it).</p>
+<p>There are 45 (plus INIT, number 0): 9 pads and drones, 9 keys, bells and plucks, 6 thumb pianos, 6 leads, 7 basses and 8 textures. PRESET steps through INIT, the 45 in the order below, and on to your own 15 slots; ALGORITHM jumps between categories.</p>
 <p>Every preset:</p>
 <ul>
-<li>has four macros that start in the middle (the M1–M4 column below says what each moves);</li>
-<li>responds to velocity in level and tone;</li>
-<li>is matched in loudness to the others, so you can switch without touching MASTER. The struck ones (CH MARIMBA, CH MUSIC BOX, FX CHIMES, FX GLASS RAIN) are a little quieter: their peaks reach the limiter first.</li>
+<li>has four knobs, K1 to K4, that are macros: each moves 4 to 8 parameters at once, gently at the bottom and towards glitch or a wash at the top, in its own direction (the names under the picture on HOME are the preset's own: the table below gives them as K1 · K2 · K3 · K4);</li>
+<li>also moves on its own (LFOs, Tides, Func, Peaks, Grids or Rings, set per preset); the "movement" column says how much at rest: subtle (steady, a slow drift), medium (movement you notice) or bold (it plainly changes);</li>
+<li>is in tune (A4 = 440) within a few cents from C2 to C5, and level-matched to the others, so you can switch without touching MASTER;</li>
+<li>responds to velocity in level and tone.</li>
 </ul>
-<p>The Voices column gives how many notes each plays at once on the FM-1 (mono, legato and unison presets play one key at a time). Twenty presets, marked new, are the FM-1's own; the other 57 are shared with the browser version, though the FM-1 plays some with fewer voices or lighter modules so that every one fits the processor.</p>
-<h3 id="keys-ch-17">Keys (CH, 17)</h3>
+<p>Nothing in this bank has been heard on an FM-1: every figure behind it is a desktop render of the engine.</p>
+<p><strong>Older saves.</strong> A user preset saved on the older 125-preset bank keeps working: its base is mapped to the nearest preset still in the bank, or to INIT where there is none, and it plays as it was saved. The preset you last played is carried over the same way. The 16 granular presets and 73 older ones were removed from the list.</p>
+<h3 id="pads-and-drones-9">Pads and drones (9)</h3>
 <table>
 <thead>
 <tr class="header">
+<th>#</th>
 <th>Preset</th>
-<th>Built from</th>
-<th>Voices</th>
-<th>M1 · M2 · M3 · M4</th>
+<th>What it is</th>
+<th>K1 · K2 · K3 · K4</th>
+<th>Movement</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>CH ROUND EP</td>
-<td>Plaits 2OP FM · chorus, plate reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · FX 2.MIX</td>
+<td>1</td>
+<td>WARM PAD</td>
+<td>Six-voice analogue pad: four detuned saws, a low-pass filter, a slow Tides loop, chorus and hall.</td>
+<td>MORPH · MOTION · WASH · GRIT</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>CH BRIGHT EP</td>
-<td>Plaits 2OP FM · chorus, delay</td>
-<td>6</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · FX 2.MIX</td>
+<td>2</td>
+<td>SILK STRINGS</td>
+<td>Slow ensemble strings: a Peaks LFO breathes the filter, chorus widens the section, a hall holds it.</td>
+<td>BOW · BREATH · HALL · ROSIN</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>CH SOFT PIANO</td>
-<td>Plaits 2OP FM, Rings STRING · hall reverb</td>
+<td>3</td>
+<td>SLOW STRINGS</td>
+<td>Slow-attack strings with a Peaks envelope and a Tides loop that move the filter and the timbre.</td>
+<td>SWELL · TIDE · CATHEDRAL · DUST</td>
+<td>medium</td>
+</tr>
+<tr class="even">
 <td>4</td>
-<td>SHP.BRIGHT · SHP.DAMPING · FX 1.MIX · SHP.POSITION</td>
-</tr>
-<tr class="even">
-<td>CH MARIMBA</td>
-<td>Plaits MODAL, filter LP · plate reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SHP.CUTOFF · FX 1.MIX · SRC.MORPH</td>
+<td>VOX PAD</td>
+<td>A choir-like pad from Braids' vowel model, a slow Tides loop and a wide chorus.</td>
+<td>VOWEL · BREATH · CHAPEL · AIR</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>CH VIBES</td>
-<td>Plaits 2OP FM · chorus, hall reverb</td>
 <td>5</td>
-<td>SRC.TIMBRE · FX 1.DEPTH · FX 2.MIX · AMP.DECAY</td>
+<td>VOWEL PAD</td>
+<td>A formant pad where a FUNC envelope pair sweeps the vowel and the filter on every note.</td>
+<td>OPEN · RISE · ROOM · CRUSH</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>CH DRAWBAR</td>
-<td>Plaits ADDITIVE · chorus</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.RATE · FX 1.DEPTH</td>
-</tr>
-<tr class="odd">
-<td>CH POLY SYNTH</td>
-<td>Braids CSAW, filter LP · chorus, plate reverb</td>
 <td>6</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 1.MIX · SHP.F DEC</td>
-</tr>
-<tr class="even">
-<td>CH NYLON</td>
-<td>Plaits STRING · hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · SRC.HARMO</td>
+<td>TIDE PAD</td>
+<td>A saw pad through light Clouds with a Tides AR that moves the colour, the cutoff and the grain blend.</td>
+<td>COLOUR · MOTION · CLOUD · SCATTER</td>
+<td>bold</td>
 </tr>
 <tr class="odd">
-<td>CH HARP</td>
-<td>Braids PLUK, Rings STRING · hall reverb</td>
-<td>4</td>
-<td>SHP.BRIGHT · SHP.DAMPING · FX 1.MIX · SHP.POSITION</td>
+<td>7</td>
+<td>HORN SECT</td>
+<td>A brass section: four saws with a quick filter swell and a Tides envelope, vibrato that the knob brings in.</td>
+<td>BITE · VIBRATO · HALL · BLARE</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>CH CLAV</td>
-<td>Plaits WAVESHP, filter LP · chorus</td>
-<td>6</td>
-<td>SHP.CUTOFF · SRC.TIMBRE · FX 1.MIX · SHP.RESO</td>
+<td>8</td>
+<td>SHIMMER PAD</td>
+<td>A harmonic pad into a shimmer reverb (an octave of the tail rising) with a slow Tides loop and chorus.</td>
+<td>TIMBRE · MOTION · SHIMMER · GRIT</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>CH MUSIC BOX</td>
-<td>Plaits MODAL · delay, hall reverb</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 1.MIX · FX 2.MIX</td>
-</tr>
-<tr class="even">
-<td>CH KOTO</td>
-<td>Braids PLUK, Rings STRING · plate reverb</td>
-<td>6</td>
-<td>SHP.BRIGHT · SHP.POSITION · FX 1.MIX · SHP.DAMPING</td>
-</tr>
-<tr class="odd">
-<td>CH SYNTH PLUCK (new)</td>
-<td>Braids //-_, filter LP · delay, plate reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · SHP.F DEC · FX 1.MIX · SHP.RESO</td>
-</tr>
-<tr class="even">
-<td>CH REED KEYS (new)</td>
-<td>Plaits WAVESHP · chorus, plate reverb</td>
-<td>6</td>
-<td>SRC.TIMBRE · LFO.RATE 2 · FX 2.MIX · SRC.ENV&gt;TIMB</td>
-</tr>
-<tr class="odd">
-<td>CH HOUSE ORGAN (new, update 52)</td>
-<td>Plaits 2OP FM, filter LP · chorus, plate reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SHP.CUTOFF · FX 1.MIX · SRC.MORPH</td>
-</tr>
-<tr class="even">
-<td>CH DEEP STAB (new, update 52)</td>
-<td>Plaits VA VCF, filter LP24 · delay, plate reverb</td>
-<td>5</td>
-<td>SHP.CUTOFF · SHP.ENV AMT · FX 1.MIX · SHP.RESO</td>
-</tr>
-<tr class="odd">
-<td>CH GLASS BELL (new, update 52)</td>
-<td>Plaits 2OP FM · delay, hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 1.MIX · FX 2.MIX</td>
+<td>9</td>
+<td>DEEP DRONE</td>
+<td>A low sub drone, slowly opening and closing with a long chorus and a huge hall; a held note is a room tone.</td>
+<td>DEPTH · TIDE · VOID · ROT</td>
+<td>bold</td>
 </tr>
 </tbody>
 </table>
-<h3 id="bass-bs-14">Bass (BS, 14)</h3>
+<h3 id="keys-bells-and-plucks-9">Keys, bells and plucks (9)</h3>
 <table>
 <thead>
 <tr class="header">
+<th>#</th>
 <th>Preset</th>
-<th>Built from</th>
-<th>Voices</th>
-<th>M1 · M2 · M3 · M4</th>
+<th>What it is</th>
+<th>K1 · K2 · K3 · K4</th>
+<th>Movement</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>BS ROUND SUB</td>
-<td>Plaits VA VCF, filter LP24 · OSC sub</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SHP.ENV AMT · SHP.DRIVE · AMP.GLIDE</td>
+<td>10</td>
+<td>TINE EP</td>
+<td>A tine electric piano: Braids wavetable bark that dies away, Tides as a tremolo and wah, chorus and plate.</td>
+<td>BARK · TREMOLO · CHORUS · GROWL</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>BS ANALOG</td>
-<td>Braids CSAW, filter LP24 · OSC sub</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SHP.RESO · SHP.ENV AMT · SHP.F DEC</td>
+<td>11</td>
+<td>E PIANO</td>
+<td>A Rhodes-like FM piano with a looping Tides as tremolo, chorus and plate.</td>
+<td>TONE · TREMOLO · SPACE · DIRT</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>BS ACID</td>
-<td>Braids //-_, filter LP · delay</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SHP.RESO · SHP.ENV AMT · SHP.F DEC</td>
+<td>12</td>
+<td>SOFT PIANO</td>
+<td>A felt piano: Braids FM as the hammer and string, a dark filter, a long gentle decay, chorus and a hall; no tremolo until K2 brings it in.</td>
+<td>TOUCH · TREMOLO · ROOM · HAMMER</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>BS PICKED</td>
-<td>Plaits 2OP FM, filter LP · OSC sub</td>
-<td>mono</td>
-<td>SHP.CUTOFF · SRC.TIMBRE · SRC.MORPH · AMP.DECAY</td>
+<td>13</td>
+<td>TONEWHEEL</td>
+<td>A drawbar organ with a Peaks LFO that works the key click and cutoff, chorus as the rotary.</td>
+<td>DRAWBARS · LESLIE · HALL · DIRT</td>
+<td>medium</td>
 </tr>
 <tr class="odd">
-<td>BS FINGER</td>
-<td>Plaits STRING, filter LP · OSC sub</td>
-<td>mono</td>
-<td>SHP.CUTOFF · SRC.TIMBRE · SRC.MORPH · SHP.DRIVE</td>
+<td>14</td>
+<td>ROTARY ORGAN</td>
+<td>A rotary-speaker organ: an LFO swings the level, pan and cutoff and the chorus rate follows the knob.</td>
+<td>REGISTER · ROTOR · CABINET · DRIVE</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>BS PULSE</td>
-<td>Plaits VA VCF, filter LP24 · OSC sub</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SRC.MORPH · SHP.ENV AMT · SHP.RESO</td>
+<td>15</td>
+<td>ARP PLUCK</td>
+<td>A short saw pluck for arpeggios, with a Peaks LFO and a ping-pong delay.</td>
+<td>PLUCK · MOTION · ECHO · EDGE</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>BS WARM MOOG</td>
-<td>Plaits PAIR VA, filter LP24 · OSC sub</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SHP.RESO · SHP.DRIVE · AMP.GLIDE</td>
+<td>16</td>
+<td>FM BELL</td>
+<td>A two-operator FM bell: a sharp inharmonic strike that mellows as it rings, Tides breathing the tone, chorus and hall.</td>
+<td>STRIKE · SHIMMER · HALO · RUST</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>BS DUB SINE</td>
-<td>Plaits 2OP FM, filter LP · delay · OSC sub</td>
-<td>legato</td>
-<td>SRC.TIMBRE · SHP.DRIVE · FX 1.MIX · AMP.GLIDE</td>
+<td>17</td>
+<td>GLASS BELLS</td>
+<td>Glass bells: a bright FM strike with a long, glassy ring, a ping-pong delay into a large hall.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>BS SOFT KEYS</td>
-<td>Plaits WAVESHP, filter LP · OSC sub</td>
-<td>mono</td>
-<td>SRC.TIMBRE · SRC.MORPH · SHP.CUTOFF · SRC.HARMO</td>
-</tr>
-<tr class="even">
-<td>BS SUB BOOM (new)</td>
-<td>Plaits BASS DR, filter LP · OSC sub</td>
-<td>mono</td>
-<td>SRC.TIMBRE · SRC.HARMO · SHP.DRIVE · AMP.RELEASE</td>
-</tr>
-<tr class="odd">
-<td>BS WOBBLE (new)</td>
-<td>Braids //-_, filter LP24, FUNC · OSC sub</td>
-<td>legato</td>
-<td>SHP.CUTOFF · MOD A.LVL 4 · SHP.RESO · MOD A.FALL 4</td>
-</tr>
-<tr class="even">
-<td>BS DEEP HOUSE (new, update 52)</td>
-<td>Plaits VA VCF, filter LP24 · OSC sub</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SHP.ENV AMT · SHP.DRIVE · AMP.GLIDE</td>
-</tr>
-<tr class="odd">
-<td>BS REESE (new, update 52)</td>
-<td>Braids CSAW, filter LP24 · chorus</td>
-<td>unison 2</td>
-<td>SHP.CUTOFF · AMP.DETUNE · SHP.DRIVE · SHP.RESO</td>
-</tr>
-<tr class="even">
-<td>BS DNB SUB (new, update 52)</td>
-<td>Plaits 2OP FM, filter LP</td>
-<td>legato</td>
-<td>SHP.DRIVE · SRC.TIMBRE · AMP.GLIDE · SHP.CUTOFF</td>
+<td>18</td>
+<td>SYMPATH HARP</td>
+<td>A harp: a plucked exciter into Rings' sympathetic strings, triggered by Grids for the accents, delay and hall.</td>
+<td>PLUCK · GRIDS · HALL · DRIFT</td>
+<td>medium</td>
 </tr>
 </tbody>
 </table>
-<h3 id="lead-ld-11">Lead (LD, 11)</h3>
+<h3 id="thumb-pianos-6">Thumb pianos (6)</h3>
 <table>
 <thead>
 <tr class="header">
+<th>#</th>
 <th>Preset</th>
-<th>Built from</th>
-<th>Voices</th>
-<th>M1 · M2 · M3 · M4</th>
+<th>What it is</th>
+<th>K1 · K2 · K3 · K4</th>
+<th>Movement</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>LD SOFT SAW</td>
-<td>Braids CSAW, filter LP · delay, plate reverb</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.GLIDE</td>
+<td>19</td>
+<td>KALIMBA</td>
+<td>A kalimba: an FM tine with a quick bright tink that dies into a round fundamental, a touch of chorus and a plate.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>LD SQUARE</td>
-<td>Plaits VA VCF, filter LP · delay</td>
-<td>legato</td>
-<td>SHP.CUTOFF · SRC.MORPH · FX 1.MIX · AMP.GLIDE</td>
+<td>20</td>
+<td>MBIRA</td>
+<td>An mbira: a buzzing, slightly inharmonic tine with a longer ring, a little resonance and a wide chorus.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>LD SYNC</td>
-<td>Braids SYN/, filter LP · delay</td>
-<td>legato</td>
-<td>SRC.TIMBRE · SHP.CUTOFF · FX 1.MIX · SRC.AD&gt;TIMB</td>
+<td>21</td>
+<td>SANSULA</td>
+<td>A sansula: a soft, round tine with a long warm ring, a deep chorus and a hall.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>LD FLUTE</td>
-<td>Braids FLUT · hall reverb</td>
-<td>legato</td>
-<td>SRC.TIMBRE · SRC.COLOR · FX 1.MIX · AMP.ATTACK</td>
+<td>22</td>
+<td>BOX KALIMBA</td>
+<td>A box kalimba: a woody, resonant body behind a short bright tine, a touch of chorus and a small room.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>LD WHISTLE</td>
-<td>Plaits 2OP FM · delay, hall reverb</td>
-<td>legato</td>
-<td>SRC.TIMBRE · AMP.GLIDE · FX 2.MIX · FX 1.MIX</td>
+<td>23</td>
+<td>BELL KALIMBA</td>
+<td>A kalimba with a bell tine: a higher, glassier overtone that rings on, a ping-pong delay and a hall.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>LD BRASS</td>
-<td>Braids CSAW, filter LP · plate reverb</td>
-<td>unison 2</td>
-<td>SHP.CUTOFF · SHP.F ATK · FX 1.MIX · SHP.ENV AMT</td>
-</tr>
-<tr class="odd">
-<td>LD REED</td>
-<td>Plaits FORMANT, filter LP · plate reverb</td>
-<td>legato</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · SHP.CUTOFF</td>
-</tr>
-<tr class="even">
-<td>LD BOWED</td>
-<td>Braids BOWD, Rings STRING · hall reverb</td>
-<td>legato</td>
-<td>SHP.BRIGHT · SRC.TIMBRE · FX 1.MIX · SHP.MIX</td>
-</tr>
-<tr class="odd">
-<td>LD UNISON</td>
-<td>Braids CSAW, filter LP · delay, plate reverb</td>
-<td>unison 4</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.GLIDE</td>
-</tr>
-<tr class="even">
-<td>LD PHASE SWEEP (new)</td>
-<td>Plaits PHASE D, FUNC · delay, plate reverb</td>
-<td>legato</td>
-<td>SRC.TIMBRE · MOD A.FALL 1 · FX 1.MIX · AMP.GLIDE</td>
-</tr>
-<tr class="odd">
-<td>LD HOOVER (new, update 52)</td>
-<td>Braids CSAW, filter LP · chorus, plate reverb</td>
-<td>unison 4</td>
-<td>SHP.CUTOFF · AMP.DETUNE · FX 1.MIX · AMP.GLIDE</td>
+<td>24</td>
+<td>HAZE KALIMBA</td>
+<td>A kalimba lost in a haze: soft tines into a long dotted delay and a very large hall, so each note blooms and fades.</td>
+<td>TINE · SHIVER · ROOM · BREAK</td>
+<td>subtle</td>
 </tr>
 </tbody>
 </table>
-<h3 id="pads-pd-19">Pads (PD, 19)</h3>
+<h3 id="leads-6">Leads (6)</h3>
 <table>
 <thead>
 <tr class="header">
+<th>#</th>
 <th>Preset</th>
-<th>Built from</th>
-<th>Voices</th>
-<th>M1 · M2 · M3 · M4</th>
+<th>What it is</th>
+<th>K1 · K2 · K3 · K4</th>
+<th>Movement</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>PD WARM STRINGS</td>
-<td>Plaits STR MACH · hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · AMP.ATTACK</td>
+<td>25</td>
+<td>SAW LEAD</td>
+<td>A mono saw lead: a filter that opens with the playing, Tides on the colour and a slow vibrato that fades in.</td>
+<td>BITE · VIBRATO · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>PD ANALOG</td>
-<td>Plaits VA VCF, FUNC · chorus, hall reverb</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 1.DEPTH · AMP.ATTACK</td>
+<td>26</td>
+<td>HOLLOW LEAD</td>
+<td>A hollow, square-ish mono lead with a soft filter swell and a slow Tides drift on the cutoff.</td>
+<td>WOOD · DRIFT · SPACE · GRIT</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>PD CHOIR</td>
-<td>Plaits FORMANT · chorus, hall reverb</td>
-<td>4</td>
-<td>SRC.MORPH · SRC.TIMBRE · FX 2.MIX · AMP.ATTACK</td>
+<td>27</td>
+<td>FORMANT LEAD</td>
+<td>A vowel lead: the formants glide between sung vowels under Tides, with a delay and a hall.</td>
+<td>VOWEL · GLIDE · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>PD GLASS</td>
-<td>Plaits WAVETBL · shimmer reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · FX 1.SHIMMER</td>
+<td>28</td>
+<td>HARD SYNC</td>
+<td>A hard-sync lead whose sweep rings out as each note opens: the classic tearing sync tone, with Tides on the timbre.</td>
+<td>SWEEP · TEAR · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="odd">
-<td>PD SOFT SINE</td>
-<td>Plaits 2OP FM · chorus, hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 2.MIX · AMP.ATTACK</td>
+<td>29</td>
+<td>FLUTE</td>
+<td>A mono flute: a few soft harmonics with a slow attack, a vibrato that fades in and the knob brings up, and a hall.</td>
+<td>BREATH · VIBRATO · AIR · GRIT</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>PD RESONANT</td>
-<td>Plaits VA VCF, Rings STR+VERB</td>
-<td>4</td>
-<td>SHP.STRUCT · SHP.BRIGHT · SHP.DAMPING · SHP.MIX</td>
-</tr>
-<tr class="odd">
-<td>PD SHIMMER</td>
-<td>Plaits 2OP FM · shimmer reverb</td>
-<td>6</td>
-<td>SRC.TIMBRE · FX 1.SHIMMER · FX 1.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="even">
-<td>PD HAZE</td>
-<td>Braids CSAW, filter LP · chorus, hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 2.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="odd">
-<td>PD STRING ENS</td>
-<td>Braids CSAW, filter LP · chorus, hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · FX 1.DEPTH · FX 2.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="even">
-<td>PD EVOLVING</td>
-<td>Plaits TERRAIN, FUNC · chorus, hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 2.MIX · MOD A.LVL 4</td>
-</tr>
-<tr class="odd">
-<td>PD DARK</td>
-<td>Braids CSAW, filter LP24 · hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="even">
-<td>PD ORGAN AIR</td>
-<td>Plaits ADDITIVE · chorus, delay · OSC sub</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 2.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="odd">
-<td>PD BELL PAD</td>
-<td>Plaits 2OP FM · chorus, hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 2.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="even">
-<td>PD LIQUID (new, update 52)</td>
-<td>Plaits VA VCF, filter LP · chorus, hall reverb</td>
-<td>5</td>
-<td>SHP.CUTOFF · AMP.ATTACK · FX 2.MIX · SRC.TIMBRE</td>
-</tr>
-<tr class="odd">
-<td>PD AMBIENT WASH (new, update 52)</td>
-<td>Plaits SWARM · chorus, shimmer reverb</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 2.MIX · FX 2.SHIMMER</td>
-</tr>
-<tr class="even">
-<td>PD FROZEN (new, update 52)</td>
-<td>Plaits STR MACH, filter LP · chorus, hall reverb</td>
-<td>4</td>
-<td>SHP.CUTOFF · SRC.TIMBRE · FX 2.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="odd">
-<td>PD SAW SWARM (new)</td>
-<td>Plaits SWARM · hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 1.MIX · AMP.ATTACK</td>
-</tr>
-<tr class="even">
-<td>PD TEMPO GATE (new)</td>
-<td>Braids CSAW, filter LP, FUNC · chorus, hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · MOD A.FALL 1 · FX 2.MIX · SHP.RESO</td>
-</tr>
-<tr class="odd">
-<td>PD SLOW BLOOM (new)</td>
-<td>Braids //x3, filter LP, FUNC · chorus, hall reverb</td>
-<td>5</td>
-<td>SHP.CUTOFF · MOD A.RISE 1 · FX 2.MIX · SHP.RESO</td>
+<td>30</td>
+<td>STRING LEAD</td>
+<td>A bowed-string lead: a detuned saw with a slow filter bloom on every note, a vibrato the knob brings in, a hall and a ping-pong delay.</td>
+<td>BOW · VIBRATO · HALL · GRIT</td>
+<td>subtle</td>
 </tr>
 </tbody>
 </table>
-<h3 id="textures-fx-15">Textures (FX, 15)</h3>
+<h3 id="basses-7">Basses (7)</h3>
 <table>
 <thead>
 <tr class="header">
+<th>#</th>
 <th>Preset</th>
-<th>Built from</th>
-<th>Voices</th>
-<th>M1 · M2 · M3 · M4</th>
+<th>What it is</th>
+<th>K1 · K2 · K3 · K4</th>
+<th>Movement</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>FX RESONATOR</td>
-<td>Plaits 2OP FM, Rings STR+VERB, Tides</td>
-<td>4</td>
-<td>SHP.STRUCT · SHP.BRIGHT · SHP.MIX · SHP.DAMPING</td>
+<td>31</td>
+<td>SUB BASS</td>
+<td>A deep mono sub: a folded sine that stays round at the bottom, a slow Tides motion on the cutoff and a touch of chorus.</td>
+<td>TONE · MOTION · SPACE · GRIT</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>FX DRONE</td>
-<td>Plaits CHORDS · chorus, hall reverb</td>
-<td>3</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 2.MIX · SRC.MORPH</td>
+<td>32</td>
+<td>MOOG BASS</td>
+<td>A warm Moog-style bass: a fat filtered saw with a gentle resonance, drive and a glide the fourth knob brings in.</td>
+<td>CUTOFF · SQUELCH · DRIVE · SLIDE</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>FX WIND</td>
-<td>Plaits NOISE, filter BP · hall reverb</td>
-<td>5</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.ATTACK</td>
+<td>33</td>
+<td>SNAP BASS</td>
+<td>A plucky mono bass: a fast filter snap on every note, a Tides motion on the colour and a little chorus.</td>
+<td>TONE · MOTION · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>FX RAIN</td>
-<td>Plaits PARTICLE · delay, hall reverb</td>
-<td>3</td>
-<td>SRC.TIMBRE · SRC.MORPH · FX 2.MIX · FX 1.FEEDBACK</td>
+<td>34</td>
+<td>ACID BASS</td>
+<td>A 303-style mono line: a resonant saw filter with accent and a ping-pong delay, Tides moving the cutoff.</td>
+<td>TONE · MOTION · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="odd">
-<td>FX OCEAN</td>
-<td>Braids NOIS, filter LP, Tides · hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · MOD A.FREQ · FX 1.MIX · SHP.RESO</td>
+<td>35</td>
+<td>REESE</td>
+<td>A reese bass: two detuned saws beating against each other through a slow filter, chorus and a plate.</td>
+<td>CUTOFF · DETUNE · DRIVE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>FX STRING BLOOM</td>
-<td>Plaits VA VCF, Rings STR+VERB</td>
-<td>4</td>
-<td>SHP.BRIGHT · SHP.STRUCT · SHP.DAMPING · AMP.ATTACK</td>
+<td>36</td>
+<td>FOLD BASS</td>
+<td>A wavefolded mono bass: a harmonic fold that a Func envelope pushes on every note, a filter and a plate.</td>
+<td>FOLD · MOTION · ROOM · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="odd">
-<td>FX CHIMES</td>
-<td>Plaits MODAL · delay, hall reverb</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 1.FEEDBACK · FX 2.MIX</td>
+<td>37</td>
+<td>TIDAL BASS</td>
+<td>A bass the Tides moves in time: the cutoff, the colour and the drive follow a loop, with a chorus and a plate.</td>
+<td>TONE · TIDE · SPACE · GRIT</td>
+<td>bold</td>
+</tr>
+</tbody>
+</table>
+<h3 id="textures-8">Textures (8)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Preset</th>
+<th>What it is</th>
+<th>K1 · K2 · K3 · K4</th>
+<th>Movement</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>38</td>
+<td>MODEL DIAL</td>
+<td>A vowel-organ texture where the first knob dials through four neighbouring Braids models while the Tides moves the cutoff and the colour.</td>
+<td>DIAL · MOTION · SPACE · GRIT</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>FX ECHO KEYS</td>
-<td>Plaits 2OP FM · delay, hall reverb</td>
-<td>4</td>
-<td>SRC.TIMBRE · FX 1.FEEDBACK · FX 1.MIX · FX 1.WOW</td>
+<td>39</td>
+<td>CHORD DRIFT</td>
+<td>Four-voice wavetable chords that drift in colour under a slow two-bar LFO, with a wide chorus and a hall.</td>
+<td>COLOUR · DRIFT · HALL · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="odd">
-<td>FX CHORD DRIFT</td>
-<td>Plaits CHORDS · chorus, hall reverb</td>
-<td>3</td>
-<td>SRC.HARMO · SRC.TIMBRE · FX 2.MIX · SRC.MORPH</td>
+<td>40</td>
+<td>STRING BLOOM</td>
+<td>Harmonic chords that bloom through Rings' string and reverb, the position drifting slowly under an LFO.</td>
+<td>BRIGHT · STRUCT · SPACE · SWELL</td>
+<td>subtle</td>
 </tr>
 <tr class="even">
-<td>FX TIDAL WASH</td>
-<td>Braids CSAW, filter LP, Tides · chorus, hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 2.MIX · MOD A.FREQ</td>
+<td>41</td>
+<td>SINGING BOWL</td>
+<td>A struck singing bowl: a high FM overtone over a long, slowly beating ring, a chorus and a big hall.</td>
+<td>STRIKE · BEAT · HALL · CRACK</td>
+<td>subtle</td>
 </tr>
 <tr class="odd">
-<td>FX SINGING BOWL</td>
-<td>Plaits 2OP FM, Rings FM VOICE · chorus, hall reverb</td>
-<td>3</td>
-<td>SHP.STRUCT · SHP.BRIGHT · FX 2.MIX · SHP.DAMPING</td>
+<td>42</td>
+<td>ATMOSPHERE</td>
+<td>A wavetable atmosphere: a slow Tides loop and two Func cycles move the colour, the timbre and the cutoff, a tape delay and a shimmer reverb.</td>
+<td>TONE · MOTION · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>FX DEEP DRONE</td>
-<td>Braids SUB-, filter LP24 · chorus, hall reverb</td>
-<td>6</td>
-<td>SHP.CUTOFF · SHP.RESO · FX 2.MIX · SRC.TIMBRE</td>
+<td>43</td>
+<td>TIDAL WASH</td>
+<td>A saw wash the Tides sweeps through a dark filter on a very slow loop, with chorus and a big hall.</td>
+<td>TONE · TIDE · WASH · GRIT</td>
+<td>bold</td>
 </tr>
 <tr class="odd">
-<td>FX GLASS RAIN</td>
-<td>Plaits WAVETBL, Peaks · delay, shimmer reverb</td>
-<td>4</td>
-<td>SRC.MORPH · SRC.TIMBRE · FX 1.FEEDBACK · FX 2.MIX</td>
+<td>44</td>
+<td>TAPE KEYS</td>
+<td>Tape-worn keys: a saw through a Func envelope, a tape delay with wow and flutter, and a plate.</td>
+<td>TONE · WOW · DELAY · GRIT</td>
+<td>medium</td>
 </tr>
 <tr class="even">
-<td>FX BOUNCE (new)</td>
-<td>Plaits WAVESHP, FUNC · delay, hall reverb</td>
-<td>5</td>
-<td>SRC.TIMBRE · MOD A.FALL 1 · FX 2.MIX · MOD A.FALL 4</td>
-</tr>
-<tr class="odd">
-<td>FX SPEAK (new)</td>
-<td>Plaits SPEECH, FUNC · delay</td>
-<td>4</td>
-<td>SRC.TIMBRE · SRC.HARMO · FX 1.MIX · MOD A.RISE 1</td>
+<td>45</td>
+<td>FUNC PULSE</td>
+<td>A pulsing saw chord: two Func envelopes fire on a clock so the cutoff, the colour and the fall times breathe in rhythm, with a delay and a hall.</td>
+<td>PULSE · CLOCK · SPACE · GRIT</td>
+<td>medium</td>
 </tr>
 </tbody>
 </table>
@@ -1556,7 +1593,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <ul>
 <li>In the sequencer: parameter locks, the free take, capture, note repeat and the FILL trigger (fill conditions are stored, but nothing triggers a fill yet).</li>
 <li>The TOOLS pages (compare, morph, randomize).</li>
-<li>Modules the FM-1 can't hold: Elements, Warps, Clouds and Marbles.</li>
+<li>Modules the FM-1 can't hold: Elements, Warps and Marbles.</li>
 <li>Bluetooth MIDI, WiFi, screen mirroring, backup and restore, USB MIDI host.</li>
 </ul>
 <h2 id="credits-and-licences">Credits and licences</h2>

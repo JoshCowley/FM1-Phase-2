@@ -673,3 +673,58 @@ static void dkit_checks(int *fails)
     if (bad)
         *fails += 1;
 }
+
+/* --drumdemo OUT.wav: the drums through the real engine (the firmware's scheduler and voices), 120 bpm, 16-bit stereo 48 kHz: the four factory kits
+ * in turn, 2 bars each, then a pattern switch A to B at a bar line, then a Euclid-generated perc lane. Measured, not listened to. */
+void rk_drum_cut(int voice);
+static void dd_cut(int v) { rk_drum_cut(v); }
+static int drum_demo(const char *path)
+{
+    const float d = 48000.0f * 60.0f / 120.0f / 4.0f, bar = 16.0f * d;
+    enum { NB = 48 };
+    static int16_t pcm[2 * 48000 * 40];
+    uint32_t t = 0, total = 0;
+    int k, i, nbar = 0;
+    float pk = 0;
+    FILE *f;
+    rk_seed(0x21u); rk_set_worker(0, 0); cl_patch(0, 0, 0); rk_all_off();
+    dr_hook_hit = rk_drum_hit; dr_hook_cut = dd_cut; dr_hook_midi = 0; dr_hook_run = 0;
+    dr_hz = 48000.0f;
+    dr_reset_state();
+    dr.run = 0;
+#define DD_BARS(n) do { uint32_t end_ = (uint32_t)((float)(nbar + (n)) * bar); for (; t < end_; t += NB) { \
+        dr_block(t, NB, d); rk_render(NB); \
+        for (i = 0; i < NB; i++) { float l = rk_out_l()[i], r = rk_out_r()[i]; \
+            if (fabsf(l) > pk) pk = fabsf(l); if (fabsf(r) > pk) pk = fabsf(r); \
+            if (total < 48000u * 40u) { pcm[2 * total] = (int16_t)(fmaxf(-1.f, fminf(1.f, l)) * 30000.f); pcm[2 * total + 1] = (int16_t)(fmaxf(-1.f, fminf(1.f, r)) * 30000.f); total++; } } } \
+        nbar += (n); } while (0)
+    dr_load_beat();
+    for (k = 0; k < DR_NKIT; k++) {            /* the same beat on each kit; the kit changes at the bar line */
+        dr_load_kit(k);
+        if (!dr.run) dr_start(0);
+        DD_BARS(2);
+    }
+    /* A to B at the bar line: B is the beat with the kick on 1 and the snare on 9 and a half-time hat; read ahead into the stage */
+    memcpy(dr_stage.s, dr_pat, sizeof dr_stage.s); memcpy(dr_stage.f, dr_feel, sizeof dr_stage.f);
+    memset(dr_stage.s[0], 0, sizeof dr_stage.s[0]); memset(dr_stage.s[1], 0, sizeof dr_stage.s[1]);
+    dr_stage.s[0][0] = DRS_NEW; dr_stage.s[0][6] = DRS_NEW; dr_stage.s[0][10] = DRS_NEW; dr_stage.s[0][14] = DRS_MK(1u, DF_GHOST, 1, 5, 0);
+    dr_stage.s[1][8] = DRS_MK(1u, DF_HARD, 1, 5, 0);
+    DD_BARS(1);                                /* a bar of A, the switch queued part-way (here: at the bar's start) */
+    dr.next = 1; dr_staged = 1;
+    DD_BARS(3);                                /* the rest of the bar is A, then B from the next bar line */
+    /* a Euclid perc lane over B: 7 hits in 16, turned 2 */
+    dr_gen_write(5, DG_EUCLID, 7, 2, 20);
+    DD_BARS(2);
+    dr_stop();
+    for (i = 0; i < 24000; i += NB) { rk_render(NB); { int j; for (j = 0; j < NB && total < 48000u * 40u; j++, total++) { pcm[2 * total] = (int16_t)(fmaxf(-1.f, fminf(1.f, rk_out_l()[j])) * 30000.f); pcm[2 * total + 1] = (int16_t)(fmaxf(-1.f, fminf(1.f, rk_out_r()[j])) * 30000.f); } } }
+    rk_drum_off();
+    f = fopen(path, "wb");
+    if (!f) return 1;
+    { uint32_t n = total * 4u, v; uint16_t h;
+      fwrite("RIFF", 1, 4, f); v = 36u + n; fwrite(&v, 4, 1, f); fwrite("WAVEfmt ", 1, 8, f); v = 16; fwrite(&v, 4, 1, f);
+      h = 1; fwrite(&h, 2, 1, f); h = 2; fwrite(&h, 2, 1, f); v = 48000; fwrite(&v, 4, 1, f); v = 48000u * 4u; fwrite(&v, 4, 1, f);
+      h = 4; fwrite(&h, 2, 1, f); h = 16; fwrite(&h, 2, 1, f); fwrite("data", 1, 4, f); fwrite(&n, 4, 1, f); fwrite(pcm, 4, total, f); }
+    fclose(f);
+    printf("drum demo: %.1f s, 4 kits x 2 bars, A to B at the bar line, a Euclid 7-in-16 perc lane; loudest sample %.2f, %d hits\n", (float)total / 48000.0f, pk, (int)dr.hits);
+    return 0;
+}

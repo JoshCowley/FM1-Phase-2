@@ -648,7 +648,7 @@ On a Mac it may take unplugging and plugging back in the first time, for the com
 
 ## 11. The sequencer
 
-Tap **SEQ** to open it; it remembers the page you were on. Tap SEQ again, or turn **SELECT**, to step through its six pages: **NOTES, PATTERN, SPICE, GEN, BANKS, SONG**. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.
+Tap **SEQ** to open it; it remembers the page you were on. Tap SEQ again, or turn **SELECT**, to step through its six pages: **NOTES, PATTERN, SPICE, GEN, BANKS, SONG** (and the seven drum pages after them, see DRUMS below). On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.
 
 - **PLAY** starts and stops it from any page. Stopping also ends held notes (latched chords and the arpeggiator's HOLD).
 - It plays at GLOBAL › TEMPO or on MIDI clock, and sends its notes to MIDI out when that's on.
@@ -732,6 +732,22 @@ Tap **SEQ** to open it; it remembers the page you were on. Tap SEQ again, or tur
 Let go of SEQ to play again.
 
 ![The step layer](../web/manual/img/fm1-layer.png)
+
+### DRUMS
+
+Six drum lanes (**KICK, SNARE, C HAT, O HAT, CLAP, PERC**) of 16 steps play beside the note sequencer, on four voices of the FM-1's own processor (the two hats share one voice, and the clap and perc share one). They start and stop with **PLAY**, at the same tempo or MIDI clock, and each lane's SEND sets how much of it goes through the FX chain. Seven more pages follow SONG when you tap SEQ: **DRUM, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT** (they have their own row of dots).
+
+- **DRUM** is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint **SEL+ALGO: LOAD BEAT**: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.
+- **LANE SOUND** gives the lane a model from a list that shows what each costs in CPU points, and relabels TONE and COLOUR for that model; K4 is the PITCH. **SEL + ALGO** loads a whole kit: **909 ISH, 808 ISH, LO-FI, SPARSE**. Turning anything plays the lane once, so you hear it.
+- **LANE MIX**: DECAY, LEVEL, PAN and SEND (how much goes to the FX).
+- **LANE FEEL**: each lane's LENGTH (1 to 16 steps), DIVIDE (1/8, 1/16, 1/32, 8T, 16T), SHIFT and CHOKE (the lane it cuts when it hits: a closed hat cutting the open one). A lane of 12 against one of 16 drifts and comes back every bar, which is the point.
+- **DRUM GEN** fills a lane with **EUCLID, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, RANDOM, BREAK** or **CLEAR**: K2 HITS, K3 TURN (rotate), K4 VARY (how many hits get another force). Turn ALGO right to write it; the lane is then edited by hand as any other. There is no undo (it would cost RAM), so write it into a lane you can spare.
+- **DRUM MIDI**: per lane OUT (**SOUND**, **MIDI**, **ALSO** or **OFF**), channel and GM note (the defaults are channel 10, kick 36, snare 38, closed hat 42, open hat 46, clap 39, perc 45) and IN. With IN on, a note on that lane's channel and note plays the lane (velocity sets its level) and is not played by the synth; every other note is the synth's.
+- **DRUM KIT**: the pattern chips **A to H** (turn ALGO right to queue one; while the drums play it takes over at the next bar line and every lane restarts, and an edit before then calls it off; ALGO left calls the queue off), the **KIT**, **SWING** (50 to 75 %, on the 16ths; triplets are not swung) and **IF BUSY**, what the drums do when the processor is short of room: **CLOUD** (the default: Clouds' DENSITY is held at 0.9 while the drums play), **VOICES** (a synth voice is shed) or **NONE**. The page shows the load of the current kit in points. SELECT turns on whether **STYLE** starts and stops the drums with it (on by default).
+
+Changing the pattern while playing is refused when the live pattern has unsaved edits, because it would be lost: press SAVE first.
+
+The patterns A to H, the kit, the lane sounds, feel, MIDI settings, swing and IF BUSY are kept by **SAVE** on any drum page (they stay in memory until then). An older save with no drums loads as before, with an empty grid.
 
 ### Keeping the sequencer
 
