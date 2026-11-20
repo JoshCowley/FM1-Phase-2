@@ -1,7 +1,7 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0
 # FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
-# Installs FM1 Phase 2 2.27 (granular WINDOW, SPEED, JITTER; 21 Nov 2026) on an FM-1 connected to this Mac by USB.
+# Installs FM1 Phase 2 2.27 (granular WINDOW, SPEED, JITTER; 20 Nov 2026) on an FM-1 connected to this Mac by USB.
 #   sh /Users/josh/Documents/iClaude/Projects/FM1-Rack/install_fm1ph2_2.27.sh
 # Put this script and fm1ph2-2.27.fwsc together in Projects/FM1-Rack first.
 # Plug the FM-1 straight into the Mac (no hub), and quit anything else using MIDI (DAWs, browser MIDI tabs).
