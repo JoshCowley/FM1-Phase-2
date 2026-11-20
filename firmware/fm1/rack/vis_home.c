@@ -168,7 +168,7 @@ static const float *home_frame(uint32_t dt)
     static const uint8_t FXS[2] = {RS_FX1, RS_FX2};
     const float *mon = rk_monitor(RS_AMP);
     float k = dt >= 150u ? 1.0f : (float)dt / 150.0f, pk_a = mon[48], pk_b = mon[49], raw = pk_a > pk_b ? pk_a : pk_b;
-    int i, cl = -1, fid = rc_patch.mod[RS_SHP];
+    int i, cl = -1;
     uint32_t ids = 0, gates = 0, gnew;
     float env[6], note[6], flt = 0.0f, ycut = 26.0f, dly = 0.0f, rev = 0.0f, rsz = 0.5f, dms = 300.0f, dfb = 0.3f, fb;
     int frz = 0;
@@ -197,13 +197,13 @@ static const float *home_frame(uint32_t dt)
             rsz = P(mon, 0);
         }
     }
-    if (fid == 12) {                              /* the filter's cutoff as heard */
+    {                                             /* the filter's cutoff as heard (always in the chain; update 26) */
         float e = 0.0f, fc;
-        mon = rk_monitor(RS_SHP);
+        mon = rk_monitor(RS_GLO);
         for (i = 0; i < 6; i++) if (env[i] > e) e = env[i];
-        fc = 440.0f * fm_exp2f((P(mon, 1) * 120.0f - 30.0f + P(mon, 4) * e * 60.0f - 9.0f) / 12.0f);
+        fc = 440.0f * fm_exp2f((P(mon, FLT_P0 + 1) * 120.0f - 30.0f + P(mon, FLT_P0 + 4) * e * 60.0f + P(mon, FLT_SWEEP) * 60.0f - 9.0f) / 12.0f);
         fc = fc < 20.0f ? 20.0f : fc > 20000.0f ? 20000.0f : fc;
-        flt = 1.0f;
+        flt = fc < 19000.0f ? 1.0f : 0.0f;        /* open: no line */
         ycut = (float)HR_YB0 - hm_band_p(fc) * (float)HR_DY;
         if (fc < 170.0f) ycut = (float)HR_YB0;
     }

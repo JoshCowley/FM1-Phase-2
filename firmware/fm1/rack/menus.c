@@ -26,7 +26,7 @@
 static void entry_name(int e, char *t);
 
 enum { PG_HOME, PG_RACK, PG_SRC, PG_SHP, PG_MODA, PG_MODB, PG_FX1, PG_FX2, PG_AMP, PG_LFO, PG_MATRIX, PG_SEL, PG_GLO,
-       PG_ARP, PG_OSC, PG_SEQ, PG_MSEQ };
+       PG_ARP, PG_OSC, PG_SEQ, PG_MSEQ, PG_FLT };
 static int is_seq_page(int pg);               /* the sequencer's pages (seqpages.c) */
 static void seq_encoders(void);
 static void seq_delete(void);
@@ -41,6 +41,8 @@ static struct {
     int edited;
     int learn, learn_m, learn_src;            /* learn_src: the source LEARN links (0: the macro learn_m) */
     int lfo_hold;                             /* LFO held: K1 picks LEARN's source, K2-K4 link it */
+    uint32_t env_at;                          /* ENV went down (let go: its page, unless it was held for the SWEEP), 0 up */
+    int env_used;
     uint32_t edit_at;                         /* EDIT went down (a hold is UNDO), 0 up */
     int edit_long;
     uint32_t sel_at;                          /* SEL went down, 0 up */
@@ -62,7 +64,7 @@ static struct {
 } mn;
 
 static const uint8_t SRC_CH[] = {1, 2};
-static const uint8_t SHP_CH[] = {10, 12, 0};
+static const uint8_t SHP_CH[] = {10, 0};   /* (update 26: the filter is no choice here: it is always in the chain, its own page) */
 static const uint8_t MOD_CH[] = {20, 21, 23, 24, 0};
 static const uint8_t FX_CH[] = {30, 31, 32, 33, 0};
 static const char *const SRC_NAMES[] = {"-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1",
@@ -79,8 +81,8 @@ static const ui_mod_t *ui_mod(int id)
     return 0;
 }
 
-static int page_slot(int pg) { return pg >= PG_SRC && pg <= PG_FX2 ? pg - PG_SRC : pg == PG_AMP || pg == PG_OSC ? RS_AMP : pg == PG_LFO ? RS_LFO : -1; }
-static int pofs(int pg) { return pg == PG_OSC ? OSC_P0 : 0; }   /* the page's first parameter in its slot */
+static int page_slot(int pg) { return pg >= PG_SRC && pg <= PG_FX2 ? pg - PG_SRC : pg == PG_AMP || pg == PG_OSC ? RS_AMP : pg == PG_LFO ? RS_LFO : pg == PG_FLT ? RS_GLO : -1; }
+static int pofs(int pg) { return pg == PG_OSC ? OSC_P0 : pg == PG_FLT ? FLT_P0 : 0; }   /* the page's first parameter in its slot */
 static int is_fixed(int pg) { return pg >= PG_SEL && pg <= PG_ARP; }
 /* SEL's pages 3-5 (update 38: the MIDI controller pages, STYLE, LAYER MIDI CH, CHORD + ARP, moved from ARP) show
  * ARP's settings 3-5: the page whose values a fixed page shows */
@@ -117,6 +119,8 @@ static const ui_mod_t *page_mod(int pg)
         return &UI_AMP;
     if (pg == PG_LFO)
         return &UI_LFO;
+    if (pg == PG_FLT)
+        return &UI_FLT;
     return pg >= PG_SRC && pg <= PG_FX2 ? ui_mod(rc_patch.mod[pg - PG_SRC]) : 0;
 }
 static uint16_t slot_colour(int slot)
@@ -125,11 +129,11 @@ static uint16_t slot_colour(int slot)
     return slot >= 0 && slot < 9 ? C[slot] : K_FG;
 }
 static const char *const SLOT_TAG[] = {"SRC", "SHP", "MOD A", "MOD B", "FX 1", "FX 2", "AMP", "GLO", "LFO"};
-static uint16_t page_colour(int pg) { return is_fixed(pg) ? fixed_colour(pg) : pg == PG_OSC ? K_OSC : pg == PG_SEQ ? K_SEQC : pg == PG_MSEQ ? K_LFO : slot_colour(page_slot(pg)); }
+static uint16_t page_colour(int pg) { return is_fixed(pg) ? fixed_colour(pg) : pg == PG_OSC ? K_OSC : pg == PG_SEQ ? K_SEQC : pg == PG_MSEQ ? K_LFO : pg == PG_FLT ? K_SHP : slot_colour(page_slot(pg)); }
 static void choices(int slot, const uint8_t **ch, int *n)
 {
     if (slot == RS_SRC) { *ch = SRC_CH; *n = 2; }
-    else if (slot == RS_SHP) { *ch = SHP_CH; *n = 3; }
+    else if (slot == RS_SHP) { *ch = SHP_CH; *n = 2; }
     else if (slot == RS_MODA || slot == RS_MODB) { *ch = MOD_CH; *n = 5; }
     else { *ch = FX_CH; *n = 5; }
 }
@@ -143,7 +147,7 @@ static int page_first(const ui_mod_t *m, int sub)
 /* a module, AMP or OSC page ends in its MOD page (12 Nov 2026, after the Dirtywave M8's mod slots): the matrix rows
  * into that module, four at a time. SELECT steps through its four rows as it steps through pages (MOD_ROWS subs) */
 #define MOD_ROWS 4
-static int has_mod_page(int pg) { return pg == PG_AMP || pg == PG_OSC || (pg >= PG_SRC && pg <= PG_FX2 && page_mod(pg)); }
+static int has_mod_page(int pg) { return pg == PG_AMP || pg == PG_OSC || pg == PG_FLT || (pg >= PG_SRC && pg <= PG_FX2 && page_mod(pg)); }
 /* the knobs' colours (12 Nov 2026, after Teenage Engineering's colour-linked encoders): K1 blue, K2 green, K3 white,
  * K4 orange, on a page's gauges and on the part of its picture each one moves, so the knob and what it changes on the
  * screen read as one */
@@ -222,6 +226,9 @@ static int dst_list(uint16_t *out)
                 if (UI_OSC.p[i].mod && n < 160)
                     out[n++] = (uint16_t)((slot + 1) << 8 | (OSC_P0 + i));
     }
+    for (i = 0; i < UI_FLT.nparams; i++)        /* the filter (always in the chain; on GLO's 8-23), after the rest */
+        if (UI_FLT.p[i].mod && n < 160)
+            out[n++] = (uint16_t)((RS_GLO + 1) << 8 | (FLT_P0 + i));
     out[1] |= 0x8000u;                          /* PITCH, PAN: marked apart from "none" (both slot -1) */
     out[2] |= 0x8000u;
     return n;
@@ -236,6 +243,11 @@ static void dst_name(uint16_t d, char *t)
     if (slot == RS_AMP && i >= OSC_P0) {
         cat(t, "OSC.");
         cat(t, i - OSC_P0 < UI_OSC.nparams ? UI_OSC.p[i - OSC_P0].l : "?");
+        return;
+    }
+    if (slot == RS_GLO) {
+        cat(t, "FLT.");
+        cat(t, i >= FLT_P0 && i - FLT_P0 < UI_FLT.nparams ? UI_FLT.p[i - FLT_P0].l : "?");
         return;
     }
     m = slot == RS_AMP ? &UI_AMP : slot == RS_LFO ? &UI_LFO : ui_mod(rc_patch.mod[slot]);
@@ -440,6 +452,8 @@ static void well(int pg, const ui_mod_t *m, uint16_t c)
         vis_fixed(pg, mn.sub, c);
     else if (pg == PG_OSC)
         vis_osc(c);
+    else if (pg == PG_FLT)
+        vis_filter(rk_monitor(RS_GLO), c);
     else
         vis_draw(slot, slot >= 0 && slot < 6 ? rc_patch.mod[slot] : 0, mn.sub, c);
     if (m && !is_fixed(pg) && pg != PG_OSC)
@@ -519,7 +533,7 @@ static int picture_first(int pg)              /* (13 Nov 2026: every page with a
         return mn.sub < UI_LFO.npages;
     if (is_fixed(pg))
         return !(pg == PG_GLO && mn.sub == 5);
-    return pg == PG_AMP || pg == PG_OSC || (pg >= PG_SRC && pg <= PG_FX2 && page_mod(pg));
+    return pg == PG_AMP || pg == PG_OSC || pg == PG_FLT || (pg >= PG_SRC && pg <= PG_FX2 && page_mod(pg));
 }
 static void big_well_h(int pg, const ui_mod_t *m, uint16_t c, int32_t wh)
 {
@@ -569,6 +583,7 @@ static void big_well_h(int pg, const ui_mod_t *m, uint16_t c, int32_t wh)
             vm_sy = (float)wh / (float)VH;
             if (is_fixed(pg)) vis_fixed(pg, mn.sub, c);
             else if (pg == PG_OSC) vis_osc(c);
+            else if (pg == PG_FLT) vis_filter(rk_monitor(RS_GLO), c);
             else vis_draw(slot, id, mn.sub, c);
             vm_on = 0;
             vm_lab = 0;
@@ -826,7 +841,7 @@ static int mod_rows(int pg, int *rows)
         int ds = d ? (int)((d >> 8) & 0x7F) - 1 : -2, pi = d & 0xFF;
         if (!d || (d & 0x8000u) || ds != slot)
             continue;
-        if (pg == PG_OSC ? pi < OSC_P0 : pg == PG_AMP ? pi >= OSC_P0 : 0)
+        if (pg == PG_OSC ? pi < OSC_P0 : pg == PG_FLT ? pi < FLT_P0 : pg == PG_AMP ? pi >= OSC_P0 : 0)
             continue;
         rows[n++] = r;
     }
@@ -992,7 +1007,7 @@ static void draw_param_page(int pg)
     {
         int np = npages(pg), sb = mn.sub;
         if (has_mod_page(pg)) { np -= MOD_ROWS - 1; if (sb > m->npages) sb = m->npages; }   /* the MOD page: one dot */
-        header(pg == PG_OSC ? "OSC" : SLOT_TAG[slot], c, is_mod_sub(pg) ? title : pg == PG_OSC ? (mn.sub ? "MIXER" : "OSCILLATOR") : title,
+        header(pg == PG_OSC ? "OSC" : pg == PG_FLT ? "FLT" : SLOT_TAG[slot], c, is_mod_sub(pg) ? title : pg == PG_OSC ? (mn.sub ? "MIXER" : "OSCILLATOR") : title,
                pg == PG_AMP ? IC_AMP : pg == PG_LFO ? IC_LFO : pg == PG_OSC ? IC_KNOB : module_icon(m->id), np, sb);
     }
     page_well(pg);
@@ -1006,7 +1021,7 @@ static void draw_param_page(int pg)
         return;
     }
     param_cells(pg);
-    help(pg == PG_OSC ? "SELECT: PAGE   K1-K4: VALUES   EDIT: SOURCE" : pg == PG_AMP || pg == PG_LFO ? "SELECT: PAGE   K1-K4: VALUES"
+    help(pg == PG_FLT ? "SELECT: PAGE   K1-K4: VALUES   ENV+K1: SWEEP" : pg == PG_OSC ? "SELECT: PAGE   K1-K4: VALUES   EDIT: SOURCE" : pg == PG_AMP || pg == PG_LFO ? "SELECT: PAGE   K1-K4: VALUES"
          : "SELECT: PAGE   K1-K4: VALUES   ALGO: MODULE");
 }
 
@@ -1417,7 +1432,7 @@ static int learnable(int pg)
 {
     if (pg == PG_LFO)
         return mn.sub < UI_LFO.npages;        /* not the LFO target pages */
-    return (pg == PG_AMP || pg == PG_OSC || (is_slot_page(pg) && page_mod(pg))) && !is_mod_sub(pg);
+    return (pg == PG_AMP || pg == PG_OSC || pg == PG_FLT || (is_slot_page(pg) && page_mod(pg))) && !is_mod_sub(pg);
 }
 /* a knob turned while learning: the macro linked to its parameter, the turn its amount */
 static void learn_turn(int k, int32_t e)
@@ -1469,6 +1484,30 @@ static void learn_turn(int k, int32_t e)
 }
 
 /* K1-K4 on a page */
+#define SWEEP_STEP 0.02f
+static void sweep_say(float v)
+{
+    char t[24], d[2];
+    int n = (int)(v * 50.0f + (v < 0.0f ? -0.5f : 0.5f)), a = n < 0 ? -n : n;
+    if (!n) {
+        app_say("FILTER SWEEP", "CENTRE");
+        return;
+    }
+    t[0] = n < 0 ? '-' : '+';
+    int_text(a / 10, t + 1);
+    cat(t, ".");
+    d[0] = (char)('0' + a % 10);
+    d[1] = 0;
+    cat(t, d);
+    cat(t, " OCT");
+    app_say("FILTER SWEEP", t);
+}
+static float sweep_snap(float v)              /* on the 0.02 grid, so the centre is exactly 0 (the preset's own sound) */
+{
+    int n = (int)(v * 50.0f + (v < 0.0f ? -0.5f : 0.5f));
+    n = n < -50 ? -50 : n > 50 ? 50 : n;
+    return (float)n * SWEEP_STEP;
+}
 static void knob(int k, int32_t e)
 {
     const ui_mod_t *m = page_mod(mn.page);
@@ -1540,6 +1579,8 @@ static void knob(int k, int32_t e)
             return;
         p = &m->p[pi];
         v = step(p, rk_get_param(slot, pofs(mn.page) + pi), e);
+        if (mn.page == PG_FLT && pofs(mn.page) + pi == FLT_SWEEP)
+            v = sweep_snap(v);                /* the centre exactly 0 */
         if (slot == RS_SHP && rc_patch.mod[RS_SHP] == 10 && pi == 0) {   /* Rings: only STRING, FM VOICE, STR+VERB */
             static const uint8_t RM[3] = {2, 3, 5};
             int cur = (int)(rk_get_param(slot, 0) + 0.5f), j = cur == 5 ? 2 : cur == 3 ? 1 : 0;
@@ -1558,6 +1599,29 @@ static void knob(int k, int32_t e)
             rc_voices(md == RVM_MONO || md == RVM_LEGATO ? 1 : START_VOICES);
         }
         edited();
+    }
+}
+
+/* The filter's SWEEP (update 26): a performance cutoff offset the player turns by hand, from any page: hold ENV and turn K1.
+ * Centre (0) is the preset's own cutoff, down darker, up brighter, +-1 = 5 octaves (engine/rack.cc FLT_SWEEP_SEMIS); it adds to
+ * the cutoff, the envelope, the matrix and the knob layer. A tap on ENV still turns its page (on letting go, not on the press),
+ * unless K1 was turned while it was held. MIDI CC 74 sets it too (app.c). The engine smooths it a block at a time. */
+static void sweep_hold(uint32_t press, uint32_t btn)
+{
+    int32_t e;
+    if (press >> B_ENV & 1u) {
+        mn.env_at = ms_stamp();
+        mn.env_used = 0;
+    }
+    if (mn.env_at && (btn >> B_ENV & 1u) && !is_seq_page(mn.page) && (e = plat_enc(EN_K1)) != 0) {
+        float old = rk_get_param(RS_GLO, FLT_SWEEP), v = step(&UI_FLT.p[UI_FLT.nparams - 1], old, e);
+        v = sweep_snap(v);
+        mn.env_used = 1;
+        undo_note(UN_PARAM, RS_GLO, FLT_SWEEP, old, 0, 0, 0);
+        rc_set_glide(RS_GLO, FLT_SWEEP, v);
+        edited();
+        sweep_say(v);
+        ui.redraw = 1;
     }
 }
 
@@ -1712,7 +1776,7 @@ static int menu_input(uint32_t press, uint32_t btn)
         }
         cp.oct_both = oc;
     }
-    static const uint8_t ENV_CYC[] = {PG_AMP, PG_SHP}, LFO_CYC[] = {PG_MODA, PG_MODB, PG_LFO, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2};
+    static const uint8_t ENV_CYC[] = {PG_AMP, PG_FLT, PG_SHP}, LFO_CYC[] = {PG_MODA, PG_MODB, PG_LFO, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2};
     static const uint8_t SRC_CYC[] = {PG_SRC, PG_OSC}, ARP_CYC[] = {PG_ARP}, SEL_CYC[] = {PG_SEL}, GLO_CYC[] = {PG_GLO};
     int32_t e;
     int k, both = (btn >> B_EDIT & 1u) && (btn >> B_SEL & 1u);
@@ -1748,7 +1812,11 @@ static int menu_input(uint32_t press, uint32_t btn)
         }
         mn.edit_at = 0;
     }
-    if (press >> B_ENV & 1u) page_button(ENV_CYC, 2);
+    if (mn.env_at && !(btn >> B_ENV & 1u)) {   /* ENV: a tap turns the page when let go (update 26: not when it was held for the SWEEP) */
+        if (!mn.env_used)
+            page_button(ENV_CYC, 3);
+        mn.env_at = 0;
+    }
     /* LFO (update 38): a tap turns the page at once; a second tap within 0.3 s: the MATRIX */
     if (press >> B_LFO & 1u) {
         if (mn.lfo_at && plat_ms() - mn.lfo_at < EDIT_DOUBLE_MS) {

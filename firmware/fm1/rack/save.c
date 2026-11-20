@@ -28,7 +28,7 @@ static const uint16_t *cat_col_tab(void)     /* each category's colour, from the
 static const char CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#.";
 #define NCHARS ((int)sizeof CHARS - 1)
 
-typedef struct {                              /* one user preset: 438 bytes, no padding (int16 first) */
+typedef struct {                              /* one user preset: 470 bytes, no padding (int16 first) */
     int16_t p[6][16];                         /* the slots' parameters (lists, ints as they are; the rest x 10000) */
     int16_t amp[24], lfo[24];
     int16_t ramt[18];                         /* the routes: amount x 10000, source, slot, parameter, via */
@@ -42,9 +42,11 @@ typedef struct {                              /* one user preset: 438 bytes, no 
     uint8_t macro[4];                         /* x 250 */
     uint8_t pad;
     int16_t osc[8];                           /* OSC's 7 parameters less their defaults (lists, ints; the rest x 10000) */
+    int16_t flt[16];                          /* (update 26) the filter, always in the chain: its 15 parameters and the SWEEP (the engine's GLO 8-23); pad bit 2 says it is here */
 } upatch_t;
 #define UPATCH_V1 422                         /* stage 2's size: no OSC */
-typedef char upatch_size_check[sizeof(upatch_t) == 438 ? 1 : -1];
+#define UPATCH_V2 438                         /* up to update 25: no filter record (the filter was the shaper slot's module 12, in p[1]) */
+typedef char upatch_size_check[sizeof(upatch_t) == 470 ? 1 : -1];
 
 static struct {
     char name[NUSER][10];
@@ -104,13 +106,14 @@ static int group_read(int g)                  /* -> ugroup; an object never save
     int n, i;
     share_undo = 0;
     n = plat_store_load(OBJ_USER0 + (uint32_t)g, ugroup, sizeof ugroup);
-    if (n == UPATCH_V1 * UP_PER_OBJ) {        /* stage 2's: spread out to the new size, OSC at its defaults */
+    if (n == UPATCH_V1 * UP_PER_OBJ || n == UPATCH_V2 * UP_PER_OBJ) {   /* an older size: spread out to the new one, the rest at its defaults */
         uint8_t *b = (uint8_t *)ugroup;
+        uint32_t old = n == UPATCH_V1 * UP_PER_OBJ ? UPATCH_V1 : UPATCH_V2;
         for (i = UP_PER_OBJ - 1; i >= 0; i--) {
             int j;
-            for (j = UPATCH_V1 - 1; j >= 0; j--)   /* (back to front: the copy lands past where it came from) */
-                b[(uint32_t)i * sizeof(upatch_t) + (uint32_t)j] = b[(uint32_t)i * UPATCH_V1 + (uint32_t)j];
-            memset(b + (uint32_t)i * sizeof(upatch_t) + UPATCH_V1, 0, sizeof(upatch_t) - UPATCH_V1);
+            for (j = (int)old - 1; j >= 0; j--)   /* (back to front: the copy lands past where it came from) */
+                b[(uint32_t)i * sizeof(upatch_t) + (uint32_t)j] = b[(uint32_t)i * old + (uint32_t)j];
+            memset(b + (uint32_t)i * sizeof(upatch_t) + old, 0, sizeof(upatch_t) - old);
         }
         return 1;
     }
@@ -169,7 +172,7 @@ static void snapshot(upatch_t *u, const char *name, int cat)
     u->cat = (uint8_t)cat;
     u->base = (uint8_t)(rc_patch.index < 0 ? 0 : rc_patch.index);
     u->mode = (uint8_t)rc_patch.mode;
-    u->pad = 3;                               /* (bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0. Bit 1: its base is a number
+    u->pad = 7;                               /* (bit 2: saved with the filter record flt[]; older slots have the filter in the shaper slot's p[1]. Bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0. Bit 1: its base is a number
                                                  of the 45-preset bank; older slots hold the old 125-preset bank's, see apply) */
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(rc_patch.mod[s]);
@@ -194,6 +197,8 @@ static void snapshot(upatch_t *u, const char *name, int cat)
     u->tempo = (uint8_t)(rk_get_param(RS_GLO, 0) + 0.5f);
     for (i = 0; i < UI_OSC.nparams && i < 8; i++)
         u->osc[i] = q_param(&UI_OSC.p[i], rk_get_param(RS_AMP, OSC_P0 + i) - UI_OSC.p[i].def);
+    for (i = 0; i < UI_FLT.nparams && i < 16; i++)   /* the filter and its SWEEP (the sweep is kept: a saved sound comes back as it was left) */
+        u->flt[i] = q_param(&UI_FLT.p[i], rk_get_param(RS_GLO, FLT_P0 + i));
 }
 
 /* a user preset into the engine (the audio standing aside): its factory preset first, then what it changed */
@@ -206,8 +211,22 @@ static void apply(const upatch_t *u)
     rc_load(base < NPRESETS ? base : 0);
     if (!(u->pad & 1) || !(u->pad & 2))
         rk_clear_macro_targets();             /* a slot saved before the knob layer, or before this bank, plays as it was saved, whatever its base gains later */
+    if (u->pad & 4) {                         /* the filter record */
+        for (i = 0; i < UI_FLT.nparams && i < 16; i++)
+            rk_set_param(RS_GLO, FLT_P0 + i, dq_param(&UI_FLT.p[i], u->flt[i]));
+    } else {                                  /* an older slot: the filter was the shaper's module 12 (its parameters in p[1]), else none: open */
+        for (i = 0; i < UI_FLT.nparams; i++)
+            rk_set_param(RS_GLO, FLT_P0 + i, i == 1 ? 1.0f : 0.0f);
+        if (u->mod[1] == 12)
+            for (i = 0; i < 15; i++)
+                rk_set_param(RS_GLO, FLT_P0 + i, dq_param(&UI_FLT.p[i], u->p[1][i]));
+    }
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(u->mod[s]);
+        if (s == 1 && u->mod[1] == 12) {      /* (no shaper: module 12 is the always-on filter now) */
+            if (rc_patch.mod[1] != 0) { rk_set_module(1, 0); rc_patch.mod[1] = 0; rc_meta(1, 0); }
+            continue;
+        }
         if (rc_patch.mod[s] != (int8_t)u->mod[s]) {
             rk_set_module(s, u->mod[s]);
             rc_patch.mod[s] = (int8_t)u->mod[s];
@@ -222,7 +241,11 @@ static void apply(const upatch_t *u)
         rk_set_param(RS_LFO, i, dq_param(&UI_LFO.p[i], u->lfo[i]));
     rc_rings_fix();
     for (i = 0; i < 18; i++)
-        rk_set_route(i, u->rsrc[i], u->rslot[i], u->rpar[i], dq_param(0, u->ramt[i]), u->rvia[i]);
+    {
+        int sl = u->rslot[i], pa = u->rpar[i];
+        if (!(u->pad & 4) && u->mod[1] == 12 && sl == 1) { sl = RS_GLO; pa += FLT_P0; }   /* an older slot's route into the filter */
+        rk_set_route(i, u->rsrc[i], sl, pa, dq_param(0, u->ramt[i]), u->rvia[i]);
+    }
     for (i = 0; i < 4; i++) {
         rc_patch.macro[i] = (float)u->macro[i] / 250.0f;
         rk_set_macro(i, rc_patch.macro[i]);

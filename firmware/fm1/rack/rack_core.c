@@ -69,6 +69,11 @@ typedef struct { uint8_t param; float lo, hi, span; } rk_meta_t;
 #include "presets.h"
 
 enum { RS_SRC, RS_SHP, RS_MODA, RS_MODB, RS_FX1, RS_FX2, RS_AMP, RS_GLO, RS_LFO, RS_N };
+/* The filter is always in each voice's chain (update 26): its parameters sit on GLO's 8-22 (engine/rack.cc FLT_P0), the player's
+ * SWEEP (a cutoff offset, -1..+1 = 5 octaves down / up, 0 = the preset's own) on GLO 23. CC 74 sets it from outside. */
+#define FLT_P0 8
+#define FLT_SWEEP 23
+#define SWEEP_CC 74
 enum { RVM_POLY, RVM_MONO, RVM_LEGATO, RVM_UNI2, RVM_UNI4 };
 #define RC_MAXV 6
 
@@ -199,7 +204,7 @@ static void rc_refit(void)
 }
 
 /* ------------------------------------------------------------------ notes --- */
-enum { RCE_ON, RCE_OFF, RCE_ALL_OFF, RCE_MACRO, RCE_VOICES, RCE_BEND };
+enum { RCE_ON, RCE_OFF, RCE_ALL_OFF, RCE_MACRO, RCE_VOICES, RCE_BEND, RCE_SWEEP };
 typedef struct { uint8_t type, a; float x, y; } rc_ev_t;
 #define RC_QN 64u                                /* a power of two */
 static rc_ev_t rc_q[RC_QN];
@@ -274,6 +279,7 @@ static void rc_do(int type, int a, float x, float y)
     case RCE_MACRO: rk_set_macro_glide(a, x); break;   /* a knob or a CC: glides (a preset's macros: rc_run) */
     case RCE_VOICES: rk_set_voices(a); rc_patch.voices_now = a; break;
     case RCE_BEND: rk_set_bend(x); break;
+    case RCE_SWEEP: rk_set_param_glide(RS_GLO, FLT_SWEEP, x); break;   /* the filter's SWEEP from CC 74: glides */
     default: if (rc_ext) rc_ext(type, a, x, y);
     }
 }

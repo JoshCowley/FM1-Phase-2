@@ -272,10 +272,10 @@ static const fm_geo_t G_FSP = {38, 98, 80, 206, 70, 228, 8, 34};
 #define FF_H 96
 static void fm_filter_step(const float *mon, uint32_t dt)
 {
-    int type = (int)(P(mon, 0) + 0.5f), x;
-    float cut = P(mon, 1), reso = P(mon, 2), q = 0.5f + reso * reso * 25.0f, fc, e = fm_envmax(mon);
+    int type = (int)(P(mon, FLT_P0) + 0.5f), x;
+    float cut = P(mon, FLT_P0 + 1), reso = P(mon, FLT_P0 + 2), q = 0.5f + reso * reso * 25.0f, fc, e = fm_envmax(mon);
     type = type < 0 ? 0 : type > 5 ? 5 : type;
-    fc = 440.0f * fm_exp2f((cut * 120.0f - 30.0f + P(mon, 4) * e * 60.0f - 9.0f) / 12.0f);
+    fc = 440.0f * fm_exp2f((cut * 120.0f - 30.0f + P(mon, FLT_P0 + 4) * e * 60.0f + P(mon, FLT_SWEEP) * 60.0f - 9.0f) / 12.0f);
     fc = fc < 20.0f ? 20.0f : fc > 20000.0f ? 20000.0f : fc;
     for (x = 0; x < 240; x += 2) {                /* the curve's height 0-255 every second column (-36 to +18 dB), the others between */
         float f = 20.0f * fm_exp2f((float)x / 239.0f * 9.9658f), m = fmag(type, f / fc, q, reso), db = 6.0206f * fm_log2f(m + 1e-6f);

@@ -97,6 +97,14 @@ def main():
     d["MODULES"]["FUNC"] = FUNC
     for name in LITE:
         m = d["MODULES"][name]
+        if name == "FILTER":
+            # update 26: the filter is always in the chain, no module of the shaper slot: its own page (FLT) on GLO's parameters
+            # 8-23 (engine/rack.cc FLT_P0), the browser's FILTER pages and the player's SWEEP (the performance cutoff offset)
+            # on the last page (CC 74; ENV held + K1 from any page)
+            pages = [list(pg) for pg in m["pages"]]
+            pages[-1] = pages[-1] + [{"l": "SWEEP", "t": "bip", "def": 0.0}]
+            f_pg, f_n = params("FILTER", pages)
+            continue
         npg, npar = params(name, m["pages"])
         outs = m.get("outs", [])
         o = ", ".join(cstr(x) for x in outs) or "0"
@@ -146,6 +154,7 @@ def main():
     out += tables
     out.append(f"#define UI_NMODS {len(mods)}")
     out.append("static const ui_mod_t UI_MODS[UI_NMODS] = {\n" + "\n".join(mods) + "\n};")
+    out.append(f"static const ui_mod_t UI_FLT = {{\"FILTER\", \"SVF / LP BP HP\", 12, 1, {f_pg}, {f_n}, UG_FILTER, UP_FILTER, 0, {{0}}}};")
     out.append(f"static const ui_mod_t UI_AMP = {{\"AMP\", \"ENVELOPES\", 0, 4, {a_pg}, {a_n}, UG_AMP, UP_AMP, 0, {{0}}}};")
     out.append(f"static const ui_mod_t UI_LFO = {{\"LFO\", \"THREE LFOS\", 0, 5, {l_pg}, {l_n}, UG_LFO, UP_LFO, 0, {{0}}}};")
     out.append(f"static const ui_mod_t UI_OSC = {{\"OSC\", \"OSC + MIXER\", 0, 0, {o_pg}, {o_n}, UG_OSC, UP_OSC, 0, {{0}}}};")

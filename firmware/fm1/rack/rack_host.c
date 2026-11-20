@@ -11,6 +11,7 @@
  *   6. CLOUDS: its modes sound, the arena holds, the reverb gives way first (clouds_check.c);
  *   7. CLOUDS on the second core (update 9, RACK_FX_CORE2): the same sound as one core, a block late (fx_core2_check.c).
  *   8. the knob layer (update 18): the curve maths, and MACRO TEST's eight K1 targets (presets_macrotest.h).
+ *   10. the filter's SWEEP (update 26): darker down, brighter up, the matrix's LFO on the cutoff still moves it.
  * Build and run: sh build_host.sh */
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,6 +107,62 @@ static void play_codec(int k, int notes, const int *chord, float *peak, int *bad
                 *bad = 1;
             if (fabsf(v) > *peak)
                 *peak = fabsf(v);
+        }
+    }
+}
+
+
+/* check 10's helpers. The centroid (Hz) of 1024 samples, Hann, DFT bins 1-511 */
+static float centroid(const float *b)
+{
+    double sm = 0.0, sw = 0.0;
+    int w, j;
+    for (w = 1; w < 512; w++) {
+        double re = 0.0, im = 0.0;
+        for (j = 0; j < 1024; j++) {
+            double h = 0.5 - 0.5 * cos(6.283185307179586 * j / 1024.0), ph = 6.283185307179586 * (double)w * j / 1024.0;
+            re += b[j] * h * cos(ph); im -= b[j] * h * sin(ph);
+        }
+        sm += re * re + im * im; sw += (re * re + im * im) * (double)w * 48000.0 / 1024.0;
+    }
+    return sm > 0.0 ? (float)(sw / sm) : 0.0f;
+}
+/* a note on a patch, the sweep set: nwin windows of 1024 samples (60 ms apart when more than one, else after 300 blocks); buf: the
+ * last window's samples; cmin/cmax: the centroids' range, emin/emax: the cutoff as the engine has it (matrix included). A first,
+ * warm-up pass with the sweep centred: the engine keeps some state from the patch played before it, so each run follows one of
+ * its own kind. clean: the preset's matrix rows and knob targets cleared and ENV AMT 0; plain: the filter set to mid cutoff;
+ * lfo: the amount of a row from LFO 1 (a sine) to the cutoff */
+static void patch_run(int pk, float sw, int clean, int plain, float lfo, int nwin, float *buf, float *cmin, float *cmax, float *emin, float *emax)
+{
+    int pass, i, j, n;
+    for (pass = 0; pass < 2; pass++) {
+        rk_seed(0x21u);
+        rc_pause(); rc_load(pk); rc_resume();
+        if (clean) {
+            for (i = 0; i < 18; i++) rk_set_route(i, 0, -1, 0, 0.0f, 0);
+            rk_clear_macro_targets();
+            rk_set_param(RS_GLO, FLT_P0 + 4, 0.0f);
+        }
+        if (plain) rk_set_param(RS_GLO, FLT_P0 + 1, 0.5f);
+        rk_set_param(RS_GLO, FLT_SWEEP, pass ? sw : 0.0f);
+        if (lfo != 0.0f) {
+            rk_set_param(RS_LFO, 0, 0.0f); rk_set_param(RS_LFO, 1, 0.55f);
+            rk_set_route(11, 13, RS_GLO, FLT_P0 + 1, lfo, 0);
+        }
+        rk_note_on(55.0f, 0.8f);
+        for (j = 0; j < (nwin > 1 ? 100 : 300); j++) rk_render(48);
+        if (!pass)
+            continue;
+        *cmin = 1e9f; *cmax = 0.0f; *emin = 1e9f; *emax = -1e9f;
+        for (n = 0; n < nwin; n++) {
+            float c, e;
+            if (nwin > 1) for (j = 0; j < 60; j++) rk_render(48);
+            for (j = 0; j < 22; j++) { rk_render(48); memcpy(buf + j * 48, rk_out_l(), 48 * sizeof(float)); }
+            c = centroid(buf); e = rk_eff_param(RS_GLO, FLT_P0 + 1);
+            if (c < *cmin) *cmin = c;
+            if (c > *cmax) *cmax = c;
+            if (e < *emin) *emin = e;
+            if (e > *emax) *emax = e;
         }
     }
 }
@@ -380,6 +437,55 @@ int main(int argc, char **argv)
         }
         printf("9 notes end: %d presets (%d with sustain) x %d ways of playing, no gate left on, silent within the release time: %d wrong\n", NPRESETS, nsus, 10, bad9);
         if (bad9)
+            fails++;
+    }
+    /* 10: the filter's SWEEP (update 26). The filter is always in the chain: a patch with it open is transparent (the build's render
+     * check compares the 46 presets with the sweep centred, sample for sample, with the build before it), turned down the sound
+     * gets darker (its spectral centroid falls), up brighter (rises), the open filter stays open, and a matrix LFO on the cutoff
+     * still moves it, with the SWEEP at any place. A plain patch (INIT, its filter set) and three factory presets with their own
+     * modulation taken out, so the centroid stands still in time */
+    {
+        static const char *const FN[] = {"INIT", "SAW LEAD", "MOOG BASS", "HORN SECT"};
+        float buf[1152], opn[2][1152], c0, c1, e0, e1;
+        int bad10 = 0, fi, j, v;
+        const float SW[3] = {-0.4f, 0.0f, 0.4f};
+        for (fi = 0; fi < 4; fi++) {
+            int pk = -1;
+            float cen[3];
+            for (k = 0; k < NPRESETS; k++)
+                if (!strcmp(PRESETS[k].name, FN[fi])) pk = k;
+            if (pk < 0) { bad10++; printf("10 preset %s not found\n", FN[fi]); continue; }
+            for (v = 0; v < 3; v++) {
+                patch_run(pk, SW[v], 1, fi == 0, 0.0f, 1, buf, &c0, &c1, &e0, &e1);
+                cen[v] = centroid(buf);
+            }
+            {
+                int dn = cen[0] < cen[1] * 0.97f, up = cen[2] > cen[1] * 1.03f;
+                printf("10 SWEEP %-10s centroid %.0f Hz at -0.4, %.0f at 0, %.0f at +0.4: %s, %s\n", FN[fi], cen[0], cen[1], cen[2],
+                       dn ? "down darker" : "DOWN NOT DARKER", up ? "up brighter" : "UP NOT BRIGHTER");
+                if (!dn || !up) bad10++;
+            }
+        }
+        {   /* open: INIT's filter at its default (cutoff at the top): transparent; the sweep up changes nothing, down darkens */
+            float cd[3], md = 0.0f;
+            for (v = 0; v < 3; v++) {
+                patch_run(0, v == 0 ? -0.7f : SW[v], 0, 0, 0.0f, 1, buf, &c0, &c1, &e0, &e1);
+                if (v < 2) memcpy(opn[v], buf, sizeof buf);
+                cd[v] = centroid(buf);
+            }
+            for (j = 0; j < 1024; j++) if (fabsf(buf[j] - opn[1][j]) > md) md = fabsf(buf[j] - opn[1][j]);
+            printf("10 open filter (INIT): centroid %.0f Hz at -0.7, %.0f at 0, %.0f at +0.4; +0.4 against 0: largest sample difference %g\n", cd[0], cd[1], cd[2], md);
+            if (md != 0.0f || !(cd[0] < cd[1] * 0.97f)) bad10++;
+        }
+        for (v = 0; v < 3; v++) {   /* an LFO on the cutoff (matrix row 11: LFO 1 -> the filter's CUTOFF), SWEEP at -0.3, 0 and +0.3 */
+            float lo, hi, flo, fhi, slo, shi;
+            patch_run(0, 0.3f * (float)(v - 1), 1, 1, 0.0f, 36, buf, &slo, &shi, &e0, &e1);
+            patch_run(0, 0.3f * (float)(v - 1), 1, 1, 0.25f, 36, buf, &lo, &hi, &flo, &fhi);
+            printf("10 LFO on CUTOFF, SWEEP %+.1f: cutoff %.2f..%.2f, centroid %.0f..%.0f Hz (x%.2f; without the LFO x%.2f)\n", 0.3 * (v - 1), flo, fhi, lo, hi, hi / (lo > 1.0f ? lo : 1.0f), shi / (slo > 1.0f ? slo : 1.0f));
+            if (!(hi > lo * 1.5f) || !(shi < slo * 1.1f)) bad10++;
+        }
+        printf("10 filter SWEEP: darker down, brighter up, an open filter transparent, the matrix still moves the cutoff: %d wrong\n", bad10);
+        if (bad10)
             fails++;
     }
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);

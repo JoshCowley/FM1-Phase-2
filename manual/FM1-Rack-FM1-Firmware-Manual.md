@@ -2,7 +2,7 @@
 
 Nov 11, 2026 · Josh Cowley
 
-FM1 Rack turns the M-VAVE FM-1 into a small modular synthesizer built from Mutable Instruments' open module code. Each sound is a short chain of modules: a source (Plaits or Braids), a shaper (Rings or a filter), two modulators, two effects and an amplifier. You play it from the keys, shape it with the knobs, and link anything to anything through a modulation matrix. This manual covers the firmware on the FM-1; the browser version has its own manual, the [FM1 Rack Manual](index.html).
+FM1 Rack turns the M-VAVE FM-1 into a small modular synthesizer built from Mutable Instruments' open module code. Each sound is a short chain of modules: a source (Plaits or Braids), a shaper (Rings or empty), a filter that is always there, two modulators, two effects and an amplifier. You play it from the keys, shape it with the knobs, and link anything to anything through a modulation matrix. This manual covers the firmware on the FM-1; the browser version has its own manual, the [FM1 Rack Manual](index.html).
 
 > **This is a test version (update 43).** The sound engine and the first menus have been played on an FM-1. The newer screens, the FUNC module, the 67 factory presets, the button shortcuts, STYLE, the smoother preset and knob changes, LEARN on SEL + EDIT, the chords' and arpeggio's FM-1 / SEND switches, the finer pictures, the BASS zone and the sequencer's editing (lasso, copy and paste, dynamics, articulations) and the click track have so far run only in a computer simulator of the FM-1. Keep the recovery steps in section 2 to hand.
 
@@ -31,7 +31,7 @@ FM1 Rack turns the M-VAVE FM-1 into a small modular synthesizer built from Mutab
 2. **Choose a sound**: turn **PRESET**. The new preset loads when you stop turning. **ALGORITHM** jumps a whole category (keys, bass, lead, pads, textures).
 3. **Play** the keys. They respond to how hard you play.
 4. **Shape it**: on HOME, **K1–K4** are the preset's four macros. Each starts in the middle, where the preset sounds as designed, and moves something useful (brightness, character, space, motion). The name under each says what it moves.
-5. **Look inside**: press **EDIT** for the sound source, **ENV** for the envelopes and the shaper, **LFO** for the modulation, **FX** for the effects. On each page, **K1–K4** set the four parameters shown and **SELECT** turns the page.
+5. **Look inside**: press **EDIT** for the sound source, **ENV** for the envelopes, the filter and the shaper (hold ENV and turn K1: the filter sweep), **LFO** for the modulation, **FX** for the effects. On each page, **K1–K4** set the four parameters shown and **SELECT** turns the page.
 6. **Undo**: hold **EDIT** to put back the last change.
 7. **Keep it**: press **SAVE**, then SAVE again. Section 12 covers names and slots.
 8. **Back home**: press **HOME**.
@@ -92,7 +92,7 @@ Each page button opens its first page. **Tap it again to turn through that page'
 | --- | --- | --- | --- |
 | **HOME** | HOME | RACK, an overview of every slot; once more, HOME with all notes off | Also closes the module picker, the SAVE page and LEARN |
 | **EDIT** | the source (Plaits or Braids) | OSC, the second oscillator and mixer | **Hold: UNDO** the last change; hold again to go further back (up to 16). With SEL: LEARN. On the sequencer's NOTES: **delete** (section 11) |
-| **ENV** | AMP (envelopes, voice mode) | the shaper (Rings or the filter) | |
+| **ENV** | AMP (envelopes, voice mode) | the FILTER, then the shaper (Rings or empty) | **Hold ENV and turn K1, on any page: the filter's SWEEP** (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned) |
 | **LFO** | MOD A | MOD B, the LFOs, MSEQ, the MATRIX | **Two taps: the MATRIX** |
 | **FX** | FX 1 | FX 2 | **Hold, let go, then one tap: FX 1 off or on; two taps: FX 2** (section 10) |
 | **ARP** | the arpeggiator | HOLD + TURING | **Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on** (section 10) |
@@ -211,12 +211,13 @@ HOME shows the preset's category, name and number (or its user slot), the sound'
 | Slot | Choices | Button |
 | --- | --- | --- |
 | **SRC** (source) | Plaits, Braids | EDIT |
-| **SHP** (shaper) | Rings, the filter, or empty | ENV twice |
+| **SHP** (shaper) | Rings, or empty | ENV, turned to its last page |
+| **FILTER** (always there) | the state-variable filter, one per voice, after the shaper and before AMP | ENV, turned to its second page |
 | **MOD A**, **MOD B** (modulators) | Peaks, Tides, Grids, FUNC, or empty | LFO |
 | **FX 1**, **FX 2** | delay, reverb, chorus, or empty (not the same one twice) | FX |
 | **AMP** | the envelopes and voice mode (always there) | ENV |
 
-Every voice has its own source, shaper and amplifier. The modulators and effects are shared by all the voices, and so is Rings (see below).
+Every voice has its own source, shaper, filter and amplifier. The modulators and effects are shared by all the voices, and so is Rings (see below).
 
 ### The modules
 
@@ -225,7 +226,7 @@ Every voice has its own source, shaper and amplifier. The modulators and effects
 | **Plaits** | A macro oscillator with 24 models: virtual analog, phase distortion, FM, wavetables, chords, speech, swarm, noise, particles, modal and string physics, drums | MODEL, HARMO, TIMBRE, MORPH; LPG and DECAY (its own low-pass gate); ENV>TIMB, ENV>MRPH, ENV>FM; AUX MIX |
 | **Braids** | A macro oscillator with 47 shapes: saws, triple and swarm oscillators, sync, vowels, plucked, bowed and blown models, bit-crushed and noisy shapes | MODEL, TIMBRE, COLOR, DRIFT; BITS and RATE (crushing); its own AD envelope onto TIMBRE, COLOR, pitch or level |
 | **Rings** | A resonator that the voices ring; on the FM-1 the models STRING, FM VOICE and STR+VERB | STRUCT, BRIGHT, DAMPING, POSITION, EXCITE, MIX (dry and rung), SPREAD, TUNE, CHORD |
-| **Filter** | A state-variable filter per voice: LP, BP, HP, LP24, NOTCH, PEAK | CUTOFF, RESO, DRIVE; ENV AMT from AMP's envelope, its own (F ATK–F REL) or MOD ENV; KEY TRK; SAT; GAIN |
+| **Filter** | A state-variable filter per voice, **always in the chain** (update 26; it is no longer a choice for the shaper slot): LP, BP, HP, LP24, NOTCH, PEAK | TYPE, CUTOFF, RESO, DRIVE; ENV AMT from AMP's envelope, its own (F ATK–F REL) or MOD ENV; KEY TRK, VEL AMT; SAT, AUDIO FM, GAIN; **SWEEP** |
 | **Peaks** | An envelope, LFO or tap-tempo LFO | FUNC, K1, K2, GATE, SUSTAIN, INVERT |
 | **Tides** | A slope generator: AD, LOOP (an LFO) or AR | FREQ, SHAPE, SLOPE, SMOOTH, RANGE, GATE |
 | **Grids** | A drum-pattern map giving triggers and accents | X, Y, FILL, OUT, CHAOS, DECAY |
@@ -233,6 +234,20 @@ Every voice has its own source, shaper and amplifier. The modulators and effects
 | **Delay** | Stereo echo: ping-pong, mono or tape | TIME (in beats or free), FEEDBACK, TONE, MIX, WOW, LO CUT, DUCK |
 | **Reverb** | Plate, hall or shimmer | SIZE, DAMP, DIFFUSE, MIX, PRE, SHIMMER, LO CUT, DUCK |
 | **Chorus** | Chorus, flanger or vibrato | RATE, DEPTH, WIDTH, MIX, FEEDBACK |
+
+### The filter and its SWEEP (update 26)
+
+**The filter is in every voice's chain, always** (after the shaper, before AMP), not a module you load. ENV, then ENV again, opens its page (AMP's pages and its MOD page come first); the shaper (Rings or empty) is the page after it, and its picker no longer offers the filter. Its page has four pages of four: TYPE, CUTOFF, RESO, DRIVE; ENV AMT, KEY TRK, VEL AMT, ENV SRC; F ATK, F DEC, F SUS, F REL; SAT, AUDIO FM, GAIN and **SWEEP**. Every one of them can be a destination of the matrix and of the knob layer, listed as **FLT.** in the destinations (FLT.CUTOFF, FLT.SWEEP, ...).
+
+**A preset with no filter has it open.** A low-pass with no resonance, drive, saturation, audio FM or gain whose cutoff is above the audio band (the CUTOFF at the top of its travel) is transparent: the filter fades out over the last 14 semitones below 21.6 kHz and is then skipped, so a sound that had no filter sounds exactly as it did (every one of the 46 factory presets plays sample for sample as before, with the SWEEP in the centre). The filter every other preset has is the same as it always was.
+
+**SWEEP is for your hand.** It adds to the cutoff, the envelope, the matrix and the knob layer, never replacing them: the centre (0) is the preset's own cutoff; turn it down for darker, up for brighter, in the pitch-like (exponential) scale of the cutoff: the whole travel, **-1 to +1, is 5 octaves each way** (the display shows the octaves). The engine smooths it a block at a time, so a quick sweep does not zipper or click. Three ways to move it:
+
+- **Hold ENV and turn K1, on any page** (not the sequencer's, which have their own K1): the toast shows FILTER SWEEP and its value in octaves, CENTRE at 0. This takes no macro from the presets: K1-K4 stay the macros, and the sweep is only under K1 while ENV is down.
+- **MIDI CC 74** (brightness, the standard one): 64 is the centre, 0 the bottom, 127 the top. It glides to each value. (K1 afterwards goes on from where the CC left it.)
+- The **FILTER page's** last parameter, SWEEP, and as a destination of the matrix or the knob layer.
+
+SWEEP is saved by SAVE in a user slot with the rest of the filter and comes back with it; **loading a factory preset puts it back in the centre**. A user slot saved before update 26 plays as it was saved: its filter (the shaper's module 12) moves into the filter's own page, with the SWEEP in the centre. With Rings in the shaper slot, Rings is shared by the voices and the filter only takes the dry sound.
 
 ### Module pages
 
@@ -321,7 +336,7 @@ RATE runs from about 0.03 Hz to 30 Hz; at 75 it is about 5 Hz, a singer's vibrat
 
 The MATRIX holds 12 routes. **SELECT** chooses the row. **K1** sets the source, **K2** the destination, **K3** the amount (−100 to +100). **K4** sets a **via**: a second source that scales the route. With VELO as the via, for example, harder notes modulate more.
 
-Destinations are any parameter that can be modulated on SRC, SHP, MOD A, MOD B, FX 1, FX 2, AMP and OSC, plus pitch and pan.
+Destinations are any parameter that can be modulated on SRC, SHP, MOD A, MOD B, FX 1, FX 2, AMP, OSC and FLT (the filter), plus pitch and pan.
 
 ![The matrix](../web/manual/img/fm1-matrix.png)
 
@@ -569,7 +584,7 @@ On a Mac it may take unplugging and plugging back in the first time, for the com
 - pitch bend and sustain (CC 64);
 - program change, when PROG CHG is on (factory presets, then yours);
 - CC 120 and 123 (all notes off);
-- CC 20–23 for the macros;
+- CC 20–23 for the macros, and **CC 74 for the filter's SWEEP** (64 the centre);
 - clock, start and stop, when CLOCK is MIDI: the arpeggiator, the sequencer and the tempo follow it. (Update 59) The FM-1 follows the clock with a steady internal clock that the incoming ticks keep in step, so a little jitter in the clock, or in when the FM-1 reads it, doesn't make the groove wobble: notes land within about half a millisecond of the beat, a constant 3 ms behind it. It locks within a beat of the clock starting or changing tempo.
 
 **Out**, over USB, when GLOBAL › MIDI OUT is on (off by default):

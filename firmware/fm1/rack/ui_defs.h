@@ -106,8 +106,9 @@ static const ui_param_t UP_FILTER[] = {
     {"SAT", 2, 0, 0, 3, 77, 0.0f},
     {"AUDIO FM", 0, 1, 0, 1, 0, 0.0f},
     {"GAIN", 1, 1, -1, 1, 0, 0.0f},
+    {"SWEEP", 1, 1, -1, 1, 0, 0.0f},
 };
-static const uint8_t UG_FILTER[] = {4, 4, 4, 3};
+static const uint8_t UG_FILTER[] = {4, 4, 4, 4};
 static const ui_param_t UP_PEAKS[] = {
     {"FUNC", 2, 0, 0, 2, 81, 0.0f},
     {"K1", 0, 1, 0, 1, 0, 0.0f},
@@ -411,11 +412,10 @@ static const uint8_t SCALE_DEG[][8] = {{0, 2, 4, 5, 7, 9, 11}, {0, 2, 3, 5, 7, 8
 static const uint8_t SCALE_N[] = {7, 7, 7, 7, 5, 5, 7, 6, 7};
 #define NTUNE 13
 #define NSCALE 9
-#define UI_NMODS 11
+#define UI_NMODS 10
 static const ui_mod_t UI_MODS[UI_NMODS] = {
     {"BRAIDS", "47 SHAPES / BIT CRUSH", 2, 0, 4, 16, UG_BRAIDS, UP_BRAIDS, 0, {0}},
     {"RINGS", "RESONATOR / 6 MODELS", 10, 1, 3, 12, UG_RINGS, UP_RINGS, 0, {0}},
-    {"FILTER", "SVF / LP BP HP", 12, 1, 4, 15, UG_FILTER, UP_FILTER, 0, {0}},
     {"PEAKS", "ENVELOPE / LFO / TAP", 20, 2, 2, 6, UG_PEAKS, UP_PEAKS, 1, {"PEAKS"}},
     {"TIDES", "SLOPE GENERATOR", 21, 2, 2, 8, UG_TIDES, UP_TIDES, 2, {"TIDES", "TIDE+"}},
     {"GRIDS", "TOPOGRAPHIC DRUM MAP", 23, 2, 2, 6, UG_GRIDS, UP_GRIDS, 2, {"GRID", "ACCENT"}},
@@ -425,6 +425,7 @@ static const ui_mod_t UI_MODS[UI_NMODS] = {
     {"REVERB", "PLATE / HALL / SHIMMER", 32, 3, 3, 10, UG_REVERB, UP_REVERB, 0, {0}},
     {"CHORUS", "STEREO CHORUS", 33, 3, 2, 7, UG_CHORUS, UP_CHORUS, 0, {0}},
 };
+static const ui_mod_t UI_FLT = {"FILTER", "SVF / LP BP HP", 12, 1, 4, 16, UG_FILTER, UP_FILTER, 0, {0}};
 static const ui_mod_t UI_AMP = {"AMP", "ENVELOPES", 0, 4, 6, 22, UG_AMP, UP_AMP, 0, {0}};
 static const ui_mod_t UI_LFO = {"LFO", "THREE LFOS", 0, 5, 6, 24, UG_LFO, UP_LFO, 0, {0}};
 static const ui_mod_t UI_OSC = {"OSC", "OSC + MIXER", 0, 0, 2, 8, UG_OSC, UP_OSC, 0, {0}};

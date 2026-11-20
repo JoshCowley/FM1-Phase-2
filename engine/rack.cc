@@ -98,6 +98,16 @@ static bool grain_filled_ = false;
 static void grain_fill_test();
 #endif   // RACK_WITH_GRAIN
 
+// FM1 Phase 2 update 26: the filter is always in each voice's chain; its 15 parameters and the SWEEP sit on GLO's spare
+// parameters (GLO 0 is the tempo): FLT_P0 + 0..14 as the old FILTER module's, FLT_SWEEP the performance cutoff offset
+#ifdef RACK_FM1
+static const int FLT_SLOT = 7, FLT_P0 = 8, FLT_SWEEP = 23;   // (7 = S_GLO)
+static const bool FLT_ALWAYS = true;
+#else
+static const int FLT_SLOT = 1, FLT_P0 = 0, FLT_SWEEP = 23;   // the browser's engine keeps the FILTER module in the shaper slot
+static const bool FLT_ALWAYS = false;
+#endif
+static const float FLT_SWEEP_SEMIS = 60.0f, FLT_WET_STEP = 0.05f, FLT_TOP_SEMIS = 78.0f;
 enum Slot { S_SRC, S_SHP, S_MODA, S_MODB, S_FX1, S_FX2, S_AMP, S_GLO, S_LFO, NSLOT };
 enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4,
              M_RINGS = 10, M_WARPS = 11, M_FILTER = 12,
@@ -116,6 +126,7 @@ static float card_[6], vdrift_[6];
 
 static const int NP = 32;
 static float base_[NSLOT][NP];
+static void flt_defaults();
 static void osc_defaults();   // OSC (below): its ranges and defaults, on AMP's spare parameters
 static float lo_[NSLOT][NP], hi_[NSLOT][NP], span_[NSLOT][NP];
 static int mod_id_[NSLOT];
@@ -919,6 +930,9 @@ EXPORT int fm1_status(int what) {
 #endif
 
 EXPORT void set_module(int slot, int id) {
+#ifdef RACK_FM1
+  if (id == M_FILTER) id = M_NONE;   // the filter is no module any more (update 26): it is always in the chain, on GLO's parameters
+#endif
 #ifdef RACK_LITE
   // the Lite firmware ships without Elements, Warps and Marbles (and without Clouds unless built with -DRACK_CLOUDS): they play as an empty slot
   if (id == M_ELEMENTS || id == M_WARPS || id == M_MARBLES) id = M_NONE;
@@ -1074,6 +1088,7 @@ EXPORT void init() {
   master_reset();   // none of the old patch's block left to play
   for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; span_[s][p] = 1.0f; }
   osc_defaults();
+  flt_defaults();
   for (int i = 0; i < MAXV; ++i) { memset(&vs_[i], 0, sizeof(VoiceState)); svf_[i].Init(); svf2_[i].Init(); card_[i] = randf() * 2.0f - 1.0f; vdrift_[i] = 0.0f; }
   memset(tune_, 0, sizeof(tune_)); bend_ = 0.0f; vintage_ = 0.0f; legato_ = true;
   for (int i = 0; i < 6; ++i) ext_tgt_[i] = ext_cur_[i] = 0.0f;
@@ -1162,7 +1177,7 @@ static void run_env(VoiceState& v) {
 }
 // the filter's own ADSR (FILTER params 8-11), used when ENV SRC is OWN
 static void run_fenv(VoiceState& v) {
-  float a = P(S_SHP, 8, &v), d = P(S_SHP, 9, &v), s = P(S_SHP, 10, &v), r = P(S_SHP, 11, &v);
+  float a = P(FLT_SLOT, FLT_P0 + 8, &v), d = P(FLT_SLOT, FLT_P0 + 9, &v), s = P(FLT_SLOT, FLT_P0 + 10, &v), r = P(FLT_SLOT, FLT_P0 + 11, &v);
   if (v.retrig) v.fstage = 1;
   if (!v.gate && v.fstage >= 1 && v.fstage <= 3) v.fstage = 4;
   switch (v.fstage) {
@@ -1433,6 +1448,12 @@ static void run_lfos() {
 enum { OSC_WAVE = 24, OSC_OCT, OSC_SEMI, OSC_FINE, OSC_PW, OSC_LVL, OSC_MAIN, OSC_AUX };   // OSC_AUX: Plaits' AUX into the mix (0 off)
 static float osc_ph_[MAXV];
 static uint32_t osc_rng_[MAXV];
+static void flt_defaults() {
+#ifdef RACK_FM1   // the always-on filter starts open (cutoff at the top: transparent) and its SWEEP centred, -1..+1
+  base_[S_GLO][FLT_P0 + 1] = 1.0f;
+  lo_[S_GLO][FLT_SWEEP] = -1.0f; hi_[S_GLO][FLT_SWEEP] = 1.0f; span_[S_GLO][FLT_SWEEP] = 1.0f;
+#endif
+}
 static void osc_defaults() {
   static const float LO[8] = {0, -3, -12, -1, 0.05f, 0, 0, 0}, HI[8] = {5, 2, 12, 1, 0.95f, 1, 1, 1};
   for (int k = 0; k < 8; ++k) { lo_[S_AMP][OSC_WAVE + k] = LO[k]; hi_[S_AMP][OSC_WAVE + k] = HI[k]; span_[S_AMP][OSC_WAVE + k] = 1.0f; }
@@ -1783,52 +1804,86 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
       vaux_[n] = vaux_[n] * (1.0f - mix) + b * mix;
     }
 #endif
-  } else if (shp == M_FILTER) {
-    // TYPE CUTOFF RESO DRIVE | ENV AMT KEY TRK VEL AMT ENV SRC | F ATK F DEC F SUS F REL | SAT AUDIO FM GAIN
-    int type = PI(S_SHP, 0, &v);
-    float cutoff = P(S_SHP, 1, &v), reso = P(S_SHP, 2, &v), drive = P(S_SHP, 3, &v);
-    float env_amt = P(S_SHP, 4, &v), ktrk = P(S_SHP, 5, &v), velamt = P(S_SHP, 6, &v);
-    int esrc = PI(S_SHP, 7, &v);
+  }
+  // ---- FILTER: always in the voice's chain (FM1 Phase 2 update 26). Its parameters sit on GLO's 8-23 (FLT_P0; the UI's FILTER
+  // page), after the shaper and before AMP. "Open" (LP or LP24, the cutoff at the top, nothing else on) is transparent: the
+  // filter is then skipped, and a wet level that moves a block at a time crossfades it in and out, so a sweep or a modulation
+  // that takes it out of the open state does not click. A patch that leaves the filter open (the default) sounds as it did without one.
+  if (FLT_ALWAYS || shp == M_FILTER) {
+    // TYPE CUTOFF RESO DRIVE | ENV AMT KEY TRK VEL AMT ENV SRC | F ATK F DEC F SUS F REL | SAT AUDIO FM GAIN | SWEEP
+    int type = PI(FLT_SLOT, FLT_P0 + 0, &v);
+    float cutoff = P(FLT_SLOT, FLT_P0 + 1, &v);
+    float env_amt = P(FLT_SLOT, FLT_P0 + 4, &v), ktrk = P(FLT_SLOT, FLT_P0 + 5, &v), velamt = P(FLT_SLOT, FLT_P0 + 6, &v);
+    int esrc = PI(FLT_SLOT, FLT_P0 + 7, &v);
     float e = v.env;
     if (esrc == 1) { run_fenv(v); e = v.fenv; } else if (esrc == 2) e = v.menv;
     float semis = cutoff * 120.0f - 30.0f + env_amt * e * 60.0f + ktrk * (note - 60.0f);
     if (velamt != 0.0f) semis += velamt * v.vel * 48.0f;
-    float f = clampf(440.0f * SemitonesToRatio(semis - 69.0f + 60.0f) / SR, 0.0001f, 0.45f);
+    float reso = P(FLT_SLOT, FLT_P0 + 2, &v), drive = P(FLT_SLOT, FLT_P0 + 3, &v);
+    int sat = PI(FLT_SLOT, FLT_P0 + 12, &v); float fm = P(FLT_SLOT, FLT_P0 + 13, &v), gdb = P(FLT_SLOT, FLT_P0 + 14, &v);
+    // a "plain" filter (a low-pass with no resonance, drive, saturation, audio FM or gain) is transparent when its cutoff is above
+    // the audio band: a low-pass at its highest is not (the SVF droops near Nyquist), so the filter fades out in step with the
+    // cutoff over 14 semitones (9.6 to 21.6 kHz), and is skipped above that. The cutoff counts from 78 semitones (the top of that
+    // range) at most, so a sweep down from an open filter starts to close it at once, not after the 13 semitones to the top
+    // of the knob's travel. Any other filter (every factory preset's own) is filtered as it always was
+    const bool plain = FLT_ALWAYS && (type == 0 || type == 3) && reso == 0.0f && drive == 0.0f && sat == 0 && fm == 0.0f && gdb == 0.0f;
+    if (plain && semis > FLT_TOP_SEMIS) semis = FLT_TOP_SEMIS;
+    // the player's SWEEP: octaves on top of everything above (the preset's cutoff, the envelope, the matrix and the knob layer),
+    // a pitch-like (exponential) scale: -1 is FLT_SWEEP_SEMIS down, +1 that far up, 0 adds nothing
+    float sweep = P(FLT_SLOT, FLT_SWEEP, &v);
+    if (sweep != 0.0f) semis += sweep * FLT_SWEEP_SEMIS;
+    float fraw = 440.0f * SemitonesToRatio(semis - 69.0f + 60.0f) / SR;
+    float f = clampf(fraw, 0.0001f, 0.45f);
     float q = 0.5f + reso * reso * 25.0f;
-    int sat = PI(S_SHP, 12, &v); float fm = P(S_SHP, 13, &v), gdb = P(S_SHP, 14, &v);
     float post = gdb != 0.0f ? powf(10.0f, gdb * 12.0f / 20.0f) : 1.0f;
     bool four = type == 3;
-    svf_[i].set_f_q<FREQUENCY_FAST>(f, four ? 0.5f + reso * reso * 4.0f : q);
-    if (four) svf2_[i].set_f_q<FREQUENCY_FAST>(f, 0.6f + reso * reso * 20.0f);
+    float want = 1.0f;
+    if (plain && fraw > 0.2f)
+      want = fmaxf(0.0f, 1.0f - 12.0f * log2f(fraw * 5.0f) / 14.0f);
     float g1 = 1.0f + drive * 6.0f, norm1 = drive > 0.0f ? sqrtf(g1) : 1.0f;
     // DRIVE and GAIN ramp across the block from the last block's (a knob turned stepped the level, 11 Nov 2026)
-    static float flt_g_[MAXV], flt_norm_[MAXV], flt_post_[MAXV];
-    if (flt_g_[i] <= 0.0f || v.retrig) { flt_g_[i] = g1; flt_norm_[i] = norm1; flt_post_[i] = post; }
-    float g = flt_g_[i], norm = flt_norm_[i], post1 = post;
-    const float dgr = (g1 - g) * (1.0f / BLOCK), dnr = (norm1 - norm) * (1.0f / BLOCK), dpo = (post1 - flt_post_[i]) * (1.0f / BLOCK);
-    post = flt_post_[i];
-    flt_g_[i] = g1; flt_norm_[i] = norm1; flt_post_[i] = post1;
-    for (int n = 0; n < BLOCK; ++n) {
-      g += dgr; norm += dnr; post += dpo;
-      float in = (vbuf_[n] + vaux_[n]) * 0.5f, xg = in * g, x;
-      switch (sat) {
-        case 1: x = clampf(xg, -1.0f, 1.0f) / norm; break;                        // HARD
-        case 2: x = sinf(clampf(xg, -4.0f, 4.0f) * 1.5707963f) / norm; break;      // FOLD
-        case 3: x = (xg >= 0.0f ? TANHF(xg) : TANHF(xg * 0.6f) / 0.6f) / norm; break;   // ASYM
-        default: x = TANHF(xg) / norm;                                             // SOFT (as before)
+    static float flt_g_[MAXV], flt_norm_[MAXV], flt_post_[MAXV], flt_wet_[MAXV];
+    bool fresh = flt_g_[i] <= 0.0f || v.retrig;
+    if (fresh) flt_wet_[i] = want;
+    float wet0 = flt_wet_[i], wet1 = wet0 < want ? fminf(wet0 + FLT_WET_STEP, want) : fmaxf(wet0 - FLT_WET_STEP, want);
+    flt_wet_[i] = wet1;
+    if (fresh) { flt_g_[i] = g1; flt_norm_[i] = norm1; flt_post_[i] = post; }
+    if (wet0 > 0.0f || wet1 > 0.0f) {
+      if (wet0 <= 0.0f) { svf_[i].Init(); svf2_[i].Init(); }   // coming in from open: no old state
+      svf_[i].set_f_q<FREQUENCY_FAST>(f, four ? 0.5f + reso * reso * 4.0f : q);
+      if (four) svf2_[i].set_f_q<FREQUENCY_FAST>(f, 0.6f + reso * reso * 20.0f);
+      float g = flt_g_[i], norm = flt_norm_[i], post1 = post;
+      const float dgr = (g1 - g) * (1.0f / BLOCK), dnr = (norm1 - norm) * (1.0f / BLOCK), dpo = (post1 - flt_post_[i]) * (1.0f / BLOCK);
+      post = flt_post_[i];
+      flt_g_[i] = g1; flt_norm_[i] = norm1; flt_post_[i] = post1;
+      const bool xf = wet0 < 1.0f || wet1 < 1.0f;
+      float w = wet0; const float dw = (wet1 - wet0) * (1.0f / BLOCK);
+      for (int n = 0; n < BLOCK; ++n) {
+        g += dgr; norm += dnr; post += dpo; w += dw;
+        float in = (vbuf_[n] + vaux_[n]) * 0.5f, xg = in * g, x;
+        switch (sat) {
+          case 1: x = clampf(xg, -1.0f, 1.0f) / norm; break;                        // HARD
+          case 2: x = sinf(clampf(xg, -4.0f, 4.0f) * 1.5707963f) / norm; break;      // FOLD
+          case 3: x = (xg >= 0.0f ? TANHF(xg) : TANHF(xg * 0.6f) / 0.6f) / norm; break;   // ASYM
+          default: x = TANHF(xg) / norm;                                             // SOFT (as before)
+        }
+        if (fm > 0.0f) {      // AUDIO FM: the source moves the cutoff at audio rate
+          float ff = clampf(f * SemitonesToRatio(in * fm * 48.0f), 0.0001f, 0.45f);
+          svf_[i].set_f_q<FREQUENCY_FAST>(ff, four ? 0.5f + reso * reso * 4.0f : q);
+          if (four) svf2_[i].set_f_q<FREQUENCY_FAST>(ff, 0.6f + reso * reso * 20.0f);
+        }
+        float y;
+        if (type == 0) y = svf_[i].Process<FILTER_MODE_LOW_PASS>(x);
+        else if (type == 1) y = svf_[i].Process<FILTER_MODE_BAND_PASS>(x);
+        else if (type == 2) y = svf_[i].Process<FILTER_MODE_HIGH_PASS>(x);
+        else if (four) y = svf2_[i].Process<FILTER_MODE_LOW_PASS>(svf_[i].Process<FILTER_MODE_LOW_PASS>(x));
+        else { float lp, hp; svf_[i].Process<FILTER_MODE_LOW_PASS, FILTER_MODE_HIGH_PASS>(x, &lp, &hp); y = type == 4 ? lp + hp : lp - hp; }   // NOTCH, PEAK
+        y *= post;
+        if (xf) { vbuf_[n] += (y - vbuf_[n]) * w; vaux_[n] += (y - vaux_[n]) * w; }
+        else vbuf_[n] = vaux_[n] = y;
       }
-      if (fm > 0.0f) {      // AUDIO FM: the source moves the cutoff at audio rate
-        float ff = clampf(f * SemitonesToRatio(in * fm * 48.0f), 0.0001f, 0.45f);
-        svf_[i].set_f_q<FREQUENCY_FAST>(ff, four ? 0.5f + reso * reso * 4.0f : q);
-        if (four) svf2_[i].set_f_q<FREQUENCY_FAST>(ff, 0.6f + reso * reso * 20.0f);
-      }
-      float y;
-      if (type == 0) y = svf_[i].Process<FILTER_MODE_LOW_PASS>(x);
-      else if (type == 1) y = svf_[i].Process<FILTER_MODE_BAND_PASS>(x);
-      else if (type == 2) y = svf_[i].Process<FILTER_MODE_HIGH_PASS>(x);
-      else if (four) y = svf2_[i].Process<FILTER_MODE_LOW_PASS>(svf_[i].Process<FILTER_MODE_LOW_PASS>(x));
-      else { float lp, hp; svf_[i].Process<FILTER_MODE_LOW_PASS, FILTER_MODE_HIGH_PASS>(x, &lp, &hp); y = type == 4 ? lp + hp : lp - hp; }   // NOTCH, PEAK
-      vbuf_[n] = vaux_[n] = y * post;
+    } else {
+      flt_g_[i] = g1; flt_norm_[i] = norm1; flt_post_[i] = post;
     }
   }
   v.retrig = false;

@@ -1,0 +1,193 @@
+# sim_sweep (update 26): the filter is always in the chain, no module of the shaper slot (ENV: AMP, FILTER, SHAPER), and the filter's
+# SWEEP is a performance cutoff offset: hold ENV and turn K1 from any page (the toast shows it), CC 74, the FILTER page's last
+# parameter; it is kept by SAVE in a user slot, and a factory preset load puts it back to the centre.
+listen
+wait 500
+turn PRESET 25
+wait 700
+expect shp_mod 0
+expect flt_sweep 0
+expect page 0
+shot sweep_home.png
+# hold ENV on HOME, turn K1: five steps up (0.02 each, 0.1 octave... 5 octaves over the whole travel), the toast, no page change on letting go
+press ENV
+wait 100
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+wait 200
+expect flt_sweep 10
+said +0.5 OCT
+shot sweep_up.png
+release ENV
+wait 300
+expect page 0
+# down: past the centre to the dark side
+press ENV
+wait 100
+turn K1 -1
+turn K1 -1
+turn K1 -1
+turn K1 -1
+turn K1 -1
+wait 100
+expect flt_sweep 0
+said CENTRE
+turn K1 -1
+turn K1 -1
+wait 100
+expect flt_sweep -4
+turn K1 -3
+wait 100
+expect flt_sweep -10
+shot sweep_down.png
+release ENV
+wait 300
+expect page 0
+# K2-K4 stay the macros' (ENV not held): K1 moves macro 1 on HOME, not the sweep
+turn K1 3
+wait 200
+expect flt_sweep -10
+# a tap on ENV still turns its page (on letting go): AMP, then on to its pages, the MOD page, then the FILTER page
+tap ENV
+wait 300
+expect page 8
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+tap ENV
+wait 300
+expect page 17
+expect sub 0
+shot sweep_filter_page.png
+# the FILTER page: its own pages; the last parameter is SWEEP (page 4, K4): turn it up from here
+turn SELECT 3
+wait 200
+expect sub 3
+shot sweep_filter_p4.png
+turn K4 1
+wait 200
+expect flt_sweep -8
+turn K4 -1
+turn K4 -1
+turn K4 -1
+turn K4 -1
+turn K4 -1
+turn K4 -1
+turn K4 -1
+wait 200
+expect flt_sweep -22
+# held ENV and K1 here too, from this page: and no page change
+press ENV
+wait 100
+turn K1 1
+wait 100
+release ENV
+wait 200
+expect page 17
+expect flt_sweep -20
+# the shaper after it: Rings or empty, no FILTER in its picker
+tap ENV
+wait 200
+tap ENV
+wait 300
+expect page 3
+turn ALGO 1
+turn ALGO 1
+turn ALGO 1
+wait 200
+shot sweep_picker.png
+tap HOME
+wait 300
+tap HOME
+wait 300
+expect page 0
+# MIDI CC 74: 64 centre, 127 top, 0 bottom
+midi B0 4A 7F
+wait 200
+expect flt_sweep 100
+midi B0 4A 40
+wait 200
+expect flt_sweep 0
+midi B0 4A 00
+wait 200
+expect flt_sweep -100
+midi B0 4A 60
+wait 200
+expect flt_sweep 51
+# the knob turned after a CC starts from the CC's value
+press ENV
+wait 100
+turn K1 1
+wait 100
+release ENV
+wait 100
+expect flt_sweep 52
+# a factory preset load puts the sweep back to the centre
+turn PRESET 1
+wait 700
+expect flt_sweep 0
+# save in a user slot: SWEEP up 0.3 and the cutoff of the preset, SAVE, play another preset, then the user slot comes back with it
+press ENV
+wait 100
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+wait 100
+release ENV
+wait 200
+expect flt_sweep 30
+tap SAVE
+wait 100
+turn K1 13
+wait 100
+tap SAVE
+wait 800
+tap HOME
+wait 300
+expect entry 46
+turn PRESET 3
+wait 700
+expect entry 2
+expect flt_sweep 0
+turn PRESET -3
+wait 800
+expect entry 46
+expect flt_sweep 30
+expect shp_mod 0
+shot sweep_user.png
+# and after a power-off and on: the slot keeps it
+reboot
+wait 800
+expect entry 46
+expect flt_sweep 30
+# a patch with the filter off (no filter in the preset: open) sweeps down too: INIT, SWEEP -0.6
+turn PRESET 1
+wait 700
+expect entry 0
+press ENV
+wait 100
+turn K1 -1
+turn K1 -1
+turn K1 -1
+wait 100
+release ENV
+wait 100
+expect flt_sweep -6

@@ -293,12 +293,13 @@ static float fmag(int type, float r, float q, float reso)
     if (type == 2) return r * r / d;
     return 1.0f / d;
 }
+/* (update 26: the filter's parameters on GLO 8-23, SWEEP included: the line moves as it is turned) */
 static void vis_filter(const float *mon, uint16_t c)
 {
     static const char *const NAME[] = {"LP", "BP", "HP", "LP24", "NOTCH", "PEAK"};
-    int type = (int)(P(mon, 0) + 0.5f), x;
-    float cut = P(mon, 1), reso = P(mon, 2), q = 0.5f + reso * reso * 25.0f;
-    float fc = 440.0f * fm_exp2f((cut * 120.0f - 30.0f + P(mon, 4) * env_max(mon) * 60.0f - 9.0f) / 12.0f);
+    int type = (int)(P(mon, FLT_P0) + 0.5f), x;
+    float cut = P(mon, FLT_P0 + 1), reso = P(mon, FLT_P0 + 2), q = 0.5f + reso * reso * 25.0f;
+    float fc = 440.0f * fm_exp2f((cut * 120.0f - 30.0f + P(mon, FLT_P0 + 4) * env_max(mon) * 60.0f + P(mon, FLT_SWEEP) * 60.0f - 9.0f) / 12.0f);
     int16_t ys[115];
     if (type < 0) type = 0;
     if (type > 5) type = 5;

@@ -134,7 +134,9 @@ def macro_test_header(init):
     f = SRC.with_name("presets-macrotest-calls.json")
     if not f.exists():
         return
-    p = json.loads(f.read_text())[0]
+    p = json.loads(f.read_text())[:1]
+    migrate_filter(p)
+    p = p[0]
     st = {k: c for k, c in final_state(p["calls"]).items() if c[0] != "set_meta"}
     mods = {c[1]: c[2] for c in p["calls"] if c[0] == "set_module"}
     ops = [["set_module", s, mods.get(s, 0)] for s in range(6)] + [c for k, c in st.items() if c[0] != "set_module" and init.get(k) != c]
@@ -154,6 +156,32 @@ def macro_test_header(init):
 OSC_KEYS = ["WAVE", "OCTAVE", "SEMI", "FINE", "PW", "OSC LVL", "MAIN LVL"]   # AMP's parameters 24-30 (engine/rack.cc)
 
 
+FLT_SLOT, FLT_P0 = 7, 8      # (update 26) the filter, always in the chain, sits on GLO's parameters 8-22 (SWEEP: 23); engine/rack.cc FLT_*
+MT_ROW = 9                   # a knob target's slot of 9 means a matrix row's depth, not a slot
+
+
+def migrate_filter(data):
+    """The filter is no module of the shaper slot any more: a preset that had it there (module 12 in slot 1) gets it as GLO's
+    parameters 8-22, in its set_param, set_meta, set_route and set_macro_target calls; the shaper slot is then empty. Rings and
+    empty shapers are untouched (the filter then stays open: its default, transparent)."""
+    for p in data:
+        if not any(c[0] == "set_module" and c[1] == 1 and c[2] == 12 for c in p["calls"]):
+            continue
+        out = []
+        for c in p["calls"]:
+            c = list(c)
+            if c[0] == "set_module" and c[1] == 1:
+                c[2] = 0
+            elif c[0] in ("set_param", "set_meta") and c[1] == 1:
+                c[1], c[2] = FLT_SLOT, c[2] + FLT_P0
+            elif c[0] == "set_route" and c[3] == 1:
+                c[3], c[4] = FLT_SLOT, c[4] + FLT_P0
+            elif c[0] == "set_macro_target" and c[3] == 1:
+                c[3], c[4] = FLT_SLOT, c[4] + FLT_P0
+            out.append(c)
+        p["calls"] = out
+
+
 def add_osc(data):
     """the firmware's OSC (the page has none): a preset's "osc" as set_param calls on AMP (slot 6), 24-30"""
     for p in data:
@@ -165,6 +193,7 @@ def main():
     global CAP
     data = json.loads(SRC.read_text())
     add_osc(data)
+    migrate_filter(data)
     CAP = {p["name"]: p["fm1"]["fm1_voices"] for p in data if p.get("fm1", {}).get("fm1_voices")}
     meta = meta_table(data)
     from func_def import FUNC_ID, func_meta     # FUNC: the firmware's own module: its ranges as func_def has them

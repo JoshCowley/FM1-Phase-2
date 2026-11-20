@@ -494,6 +494,8 @@ static int pic_scene(int pg)
             return -1;
         return pg == PG_AMP ? SC_AMP : SC_LFO;
     }
+    if (pg == PG_FLT)                         /* the filter's own page (update 26): its picture, on GLO's parameters */
+        return mn.pick || is_mod_sub(pg) ? -1 : SC_FILTER;
     if (pg < PG_SRC || pg > PG_FX2)
         return -1;
     m = page_mod(pg);

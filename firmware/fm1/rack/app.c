@@ -117,6 +117,8 @@ static void midi_in(void)                     /* audio interrupt: the packets th
             rc_do(RCE_ALL_OFF, 0, 0.0f, 0.0f);
         else if ((st & 0xF0u) == 0xB0u && d1 >= 20u && d1 <= 23u)   /* CC 20-23: the macros */
             rc_do(RCE_MACRO, (int)d1 - 20, (float)d2 / 127.0f, 0.0f);
+        else if ((st & 0xF0u) == 0xB0u && d1 == SWEEP_CC)   /* CC 74 (brightness): the filter's SWEEP, 64 the preset's own cutoff */
+            rc_do(RCE_SWEEP, 0, d2 <= 64u ? ((float)d2 - 64.0f) / 64.0f : ((float)d2 - 64.0f) / 63.0f, 0.0f);
     }
 }
 
@@ -834,7 +836,7 @@ static uint32_t page_leds(void)
     switch (mn.page) {
     case PG_HOME: case PG_RACK: return 1u << B_HOME;
     case PG_SRC: case PG_OSC: return 1u << B_EDIT;
-    case PG_SHP: case PG_AMP: return 1u << B_ENV;
+    case PG_SHP: case PG_AMP: case PG_FLT: return 1u << B_ENV;
     case PG_MODA: case PG_MODB: case PG_LFO: return 1u << B_LFO;
     case PG_FX1: case PG_FX2: return 1u << B_FX;
     case PG_ARP: return 1u << B_ARP;
@@ -1066,6 +1068,7 @@ static void input(void)
         seq_save_btn(press, btn);
     else if (press >> B_SAVE & 1u)           /* SAVE: the page to name and store what is playing */
         save_open();
+    sweep_hold(press, btn);                   /* ENV held + K1: the filter's SWEEP, on any page (menus.c) */
     if (menu_input(press, btn)) {                 /* a menu page: its own encoders */
         ui.btn = btn;
         leds(btn | page_leds(), keys);
@@ -1305,7 +1308,7 @@ void app_init(void)
 }
 
 #ifdef PLAT_HOST
-/* the host simulator's "expect voices_on N" / "expect gates_on N" (sim_taps.txt): the engine's voices not yet silent, and
+/* the host simulator's "expect voices_on N" / "expect gates_on N" (sim_taps.txt; also flt_sweep, flt_cutoff, shp_mod, page, sub: sim_sweep.txt): the engine's voices not yet silent, and
  * those whose key is still held (fm1_status 8, 9) */
 int app_expect(const char *what, int *got)
 {
@@ -1315,6 +1318,23 @@ int app_expect(const char *what, int *got)
     }
     if (same(what, "gates_on")) {
         *got = rk_fm1_status(9);
+        return 1;
+    }
+    if (same(what, "flt_sweep") || same(what, "flt_cutoff")) {   /* the filter's SWEEP / CUTOFF x 100 (update 26, sim_sweep.txt) */
+        float v = rk_get_param(RS_GLO, same(what, "flt_sweep") ? FLT_SWEEP : FLT_P0 + 1) * 100.0f;
+        *got = (int)(v < 0.0f ? v - 0.5f : v + 0.5f);
+        return 1;
+    }
+    if (same(what, "entry")) {                /* the preset playing: 0-45 factory, 46 and on user slots */
+        *got = cur_entry;
+        return 1;
+    }
+    if (same(what, "shp_mod")) {              /* the module in the shaper slot (0 empty, 10 Rings) */
+        *got = rc_patch.mod[RS_SHP];
+        return 1;
+    }
+    if (same(what, "page") || same(what, "sub")) {   /* the menu's page (menus.c PG_*: 0 HOME, 8 AMP, 16 FILTER) and its page within */
+        *got = same(what, "page") ? mn.page : mn.sub;
         return 1;
     }
     if (same(what, "seq_cursor")) {           /* the sequencer's step cursor (0 is the first step) */
