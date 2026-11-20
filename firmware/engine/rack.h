@@ -62,6 +62,9 @@ float* out_r(void);
 
 // screen data
 float* monitor(int slot);
+#ifdef RACK_GR_STATS
+void grain_stats(double* out, int reset);   // the host check's: CLOUDS' grain start positions (count, sum, sum of squares, least, greatest)
+#endif
 float voice_env(int i);
 float get_param(int slot, int param);   // a parameter as set (before modulation)
 float get_route(int i, int* out);       // a matrix row: out[0] source, [1] slot, [2] param, [3] via; returns the amount           // voice i's amplitude envelope, 0-1 (the screen's voice lights)        // 200 values: live parameters, envelopes, voices, LFOs, levels

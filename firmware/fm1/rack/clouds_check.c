@@ -11,6 +11,9 @@
  *       the effects and RACK_CLOUDS_VOICES (3) voices don't fit), the DELAY only if one voice would not fit even so; CLOUDS stays;
  *       in either slot; and with room for all, nothing is dropped; without CLOUDS the old order holds (FX 2, then FX 1). */
 #include "ui_defs.h"
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/wait.h>
 
 #define CL_FX1 RS_FX1
 #define CL_FX2 RS_FX2
@@ -329,11 +332,170 @@ static int check_clouds_pitch(void)
     return fails;
 }
 
+/* ---- the grain controls (update 27): WINDOW, SPEED, JITTER (parameters 22-24) ------------------------------------------------ */
+void rk_gr_stats(double *out, int reset);
+enum { GP_WIN = 22, GP_SPEED = 23, GP_JIT = 24 };
+/* the buffer's length in seconds for QUALITY 0-3 (rack.cc: CL_SMALL, CL_LARGE): 24,576 samples a channel, 49,152 mono 16-bit, 49,152 and 98,304 for the 8-bit
+ * qualities, which Clouds stores at half its 32 kHz */
+static const double CL_BUF_S[4] = {24576.0 / 32000, 49152.0 / 32000, 49152.0 / 16000, 98304.0 / 16000};
+
+/* GRANULR in a Clouds patch with a held chord; POSITION pos, WINDOW win, SPEED sp, JITTER jit, QUALITY q; freeze from 1.0 s when `freeze`.
+ * Runs `secs`; the playhead (monitor 162) is read every 10 ms from 1.2 s on. out[]: the number of steps, the mean step against the way it
+ * should go (should be 0), wraps (a step of more than half the window the other way), least and greatest place, mean |step| (no wraps) */
+typedef struct { int n, wraps; double step, lo, hi, back; } cg_track_t;
+static cg_track_t cg_track(int q, float pos, float win, float sp, float jit, int freeze, int secs)
+{
+    cg_track_t r = {0, 0, 0, 9, -9, 0};
+    int s, ms;
+    float last = -1;
+    double sum = 0;
+    cl_patch(30, 0, 0);
+    s = cl_clouds_slot();
+    cl_set(s, P_POS, pos); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 1.0f);
+    cl_set(s, P_QUAL, (float)q); cl_set(s, GP_WIN, win); cl_set(s, GP_SPEED, sp); cl_set(s, GP_JIT, jit);
+    rk_set_voices(4);
+    for (ms = 0; ms < secs * 1000; ms += 10) {
+        if (ms == 0) cl_chord(0);
+        if (ms == 1000 && freeze) cl_set(s, P_FREEZE, 1.0f);
+        rk_render(480);
+        if (ms >= 1200) {
+            float p = rk_monitor(s)[162];
+            if (last >= 0) {
+                float d = p - last;
+                if (fabsf(d) > 0.5f * win && win > 0) r.wraps++;
+                else { sum += fabsf(d); r.n++; r.back += sp > 0 ? (d < 0 ? 1 : 0) : sp < 0 ? (d > 0 ? 1 : 0) : 0;   /* forward: toward the newest audio, POSITION 0 */ }
+            }
+            last = p;
+            if (p < r.lo) r.lo = p;
+            if (p > r.hi) r.hi = p;
+        }
+    }
+    r.step = r.n ? sum / r.n : 0;
+    return r;
+}
+static float cg_speed_x(float sp) { return 2.0f * sp * fabsf(sp); }   /* SPEED's knob as x real time (rack.cc) */
+
+static int check_clouds_grain_run(void)
+{
+    int fails = 0, k;
+    /* a) SPEED moves the playhead at the rate set, in the direction set, wrapping inside the window; frozen and live; two buffer lengths */
+    static const struct { int q, freeze; float sp, win; } C[] = {
+        {0, 1, 0.5f, 0.5f}, {0, 1, -0.5f, 0.5f}, {0, 1, 0.0f, 0.5f}, {0, 0, 0.5f, 0.5f}, {3, 1, 0.8f, 0.4f}, {3, 1, -1.0f, 0.4f}, {1, 1, 0.7f, 1.0f}};
+    for (k = 0; k < (int)(sizeof C / sizeof C[0]) ; k++) {
+        cg_track_t r = cg_track(C[k].q, 0.5f, C[k].win, C[k].sp, 0.0f, C[k].freeze, 4);
+        double want = fabs(cg_speed_x(C[k].sp)) * 0.01 / CL_BUF_S[C[k].q];   /* a 10 ms step, as a share of the buffer */
+        double lo = 0.5 - C[k].win / 2, hi = 0.5 + C[k].win / 2;
+        int ok = r.n > 100 && fabs(r.step - want) <= 0.03 * want + 1e-6 && r.lo >= lo - 1e-4 && r.hi <= hi + 1e-4
+                 && (C[k].sp == 0 ? r.hi - r.lo < 1e-6 : r.back >= r.n - 1 && r.wraps >= 1);
+        if (C[k].sp != 0 && (r.hi - r.lo) < 0.9 * C[k].win) ok = 0;   /* it travels the whole window */
+        printf("6g %s GRANULR q%d (buffer %.2f s) WINDOW %.1f SPEED %+.1f (%+.2fx): step %.5f of the buffer a 10 ms (want %.5f), place %.3f..%.3f, %d wraps, %.0f%% the right way%s\n",
+               C[k].freeze ? "frozen" : "live  ", C[k].q, CL_BUF_S[C[k].q], C[k].win, C[k].sp, cg_speed_x(C[k].sp), r.step, want, r.lo, r.hi, r.wraps,
+               r.n ? 100.0 * r.back / r.n : 0.0, ok ? "" : "   FAIL");
+        fails += !ok;
+    }
+    /* b) WINDOW 0 is the old behaviour: SPEED and JITTER do nothing, the playhead is POSITION, and the sound is the same sample for sample.
+     * (Two runs in one process never repeat: Clouds' buffers are not cleared when it is loaded. So each runs in a child process forked from the same state.) */
+    {
+        enum { NB = 4 * 480 * 2 };
+        float *a = mmap(0, 2 * NB * sizeof(float) + 2 * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+        int *pok = (int *)(a + 2 * NB), v, ok = 1, i;
+        double same = 0;
+        for (v = 0; v < 2; v++) {
+            pid_t c = fork();
+            if (c == 0) {
+                int ms, s;
+                cl_patch(30, 0, 0);
+                s = cl_clouds_slot();
+                cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 1.0f); cl_set(s, P_SPREAD, 0.7f);
+                if (v) { cl_set(s, GP_SPEED, 0.9f); cl_set(s, GP_JIT, 1.0f); }     /* WINDOW stays 0 */
+                rk_set_voices(4);
+                pok[v] = 1;
+                for (ms = 0; ms < 2400; ms += 10) {
+                    if (ms == 0) cl_chord(0);
+                    rk_render(480);
+                    if (fabsf(rk_monitor(s)[162] - 0.3f) > 1e-6f) pok[v] = 0;
+                    if (ms >= 2000) for (i = 0; i < 480; i++) { a[v * NB + (ms - 2000) / 10 * 960 + i] = rk_out_l()[i]; a[v * NB + (ms - 2000) / 10 * 960 + 480 + i] = rk_out_r()[i]; }
+                }
+                _exit(0);
+            }
+            waitpid(c, 0, 0);
+        }
+        for (i = 0; i < NB; i++) same = fmax(same, fabs(a[i] - a[NB + i]));
+        ok = pok[0] && pok[1] && same == 0.0 && a[NB - 1] != 0.0f;
+        printf("6g WINDOW 0, SPEED 0.9 and JITTER 1 against all three at 0: playhead stays on POSITION (%s), largest difference between the two outputs %g%s\n", pok[0] && pok[1] ? "yes" : "NO", same, ok ? "" : "   FAIL");
+        fails += !ok;
+        munmap(a, 2 * NB * sizeof(float) + 2 * sizeof(int));
+    }
+    /* c) JITTER spreads the grains' starts over the window: the starts' spread (standard deviation) is JITTER x WINDOW / sqrt(12), their mean the window's centre */
+    {
+        static const float J[] = {0.0f, 0.5f, 1.0f};
+        for (k = 0; k < 3; k++) {
+            double st[5], mean, sd, want = J[k] * 0.4 / sqrt(12.0);
+            int ok;
+            rk_gr_stats(st, 1);                                  /* (counts from here) */
+            (void)cg_track(0, 0.5f, 0.4f, 0.0f, J[k], 1, 6);
+            rk_gr_stats(st, 0);
+            mean = st[0] > 0 ? st[1] / st[0] : 0;
+            sd = st[0] > 1 ? sqrt(fmax(0.0, st[2] / st[0] - mean * mean)) : 0;
+            ok = st[0] > 200 && fabs(mean - 0.5) < 0.02 && fabs(sd - want) <= 0.1 * want + 0.002 && st[3] >= 0.3 - 1e-4 && st[4] <= 0.7 + 1e-4;
+            printf("6g JITTER %.1f, WINDOW 0.4 at POSITION 0.5: %.0f grains, starts %.3f..%.3f, mean %.3f, spread %.4f (want %.4f)%s\n", J[k], st[0], st[3], st[4], mean, sd, want, ok ? "" : "   FAIL");
+            fails += !ok;
+        }
+    }
+    /* d) FREEZE + SPEED scrubs the frozen buffer: a short chord, frozen after it ended; with the playhead still, one steady sound; swept, the sound follows the content
+     * (loud where the chord was, quiet where it was not): the level moves by much more from one 100 ms to the next */
+    {
+        int v;
+        double var[2];
+        for (v = 0; v < 2; v++) {
+            int s, ms, bin = 0, i;
+            double e = 0, lv[40], mn = 1e9, mx = 0;
+            cl_patch(30, 0, 0);
+            s = cl_clouds_slot();
+            cl_set(s, P_POS, 0.5f); cl_set(s, P_SIZE, 0.3f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 1.0f);
+            cl_set(s, GP_WIN, 0.7f); cl_set(s, GP_SPEED, v ? 0.5f : 0.0f);
+            rk_set_voices(4);
+            for (ms = 0; ms < 5000; ms += 10) {
+                if (ms == 0) cl_chord(0);
+                if (ms == 300) rk_all_off();
+                if (ms == 1200) cl_set(s, P_FREEZE, 1.0f);
+                rk_render(480);
+                if (ms >= 2000) {
+                    for (i = 0; i < 480; i++) e += 0.5 * (rk_out_l()[i] * rk_out_l()[i] + rk_out_r()[i] * rk_out_r()[i]);
+                    if ((ms - 2000) % 100 == 90 && bin < 30) { lv[bin] = sqrt(e / 4800.0); e = 0; if (lv[bin] < mn) mn = lv[bin]; if (lv[bin] > mx) mx = lv[bin]; bin++; }
+                }
+            }
+            var[v] = mx > 0 ? (mx - mn) / mx : 0;
+        }
+        printf("6g FREEZE + SPEED: level of the frozen sound (loudest 100 ms against quietest, as a share of the loudest): playhead still %.2f, swept at +0.5 %.2f%s\n", var[0], var[1], var[1] > var[0] + 0.15 ? "" : "   FAIL");
+        fails += !(var[1] > var[0] + 0.15);
+    }
+    return fails;
+}
+
+/* (run in a child process, so what it leaves in the engine (Clouds loaded and frozen, its buffers, the parameters) does not reach the checks after it:
+ * check 10's exact comparison of two renders of INIT is affected by it, which the cause of is not known) */
+static int check_clouds_grain(void)
+{
+    pid_t c;
+    int st = 0;
+    fflush(stdout);
+    c = fork();
+    if (c == 0) {
+        int f = check_clouds_grain_run();
+        fflush(stdout);
+        _exit(f > 100 ? 100 : f);
+    }
+    waitpid(c, &st, 0);
+    return WIFEXITED(st) ? WEXITSTATUS(st) : 1;
+}
+
 static int check_clouds(void)
 {
     int fails = check_clouds_audio();
     fails += check_clouds_arena();
     fails += check_clouds_giveway();
+    fails += check_clouds_grain();
 #ifdef RACK_CLOUDS_SKIP_REVERB
     fails += check_clouds_skip();
 #endif

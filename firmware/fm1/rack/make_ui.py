@@ -66,10 +66,10 @@ def main():
            "typedef struct { const char *l; uint8_t t, mod; int16_t lo, hi; uint16_t opt; float def; } ui_param_t;",
            "enum { UT_NUM, UT_BIP, UT_LIST, UT_INT };",
            "typedef struct { const char *name, *blurb; uint8_t id, kind, npages, nparams; const uint8_t *pages;"
-           " const ui_param_t *p; uint8_t nouts; const char *outs[2]; } ui_mod_t;"]
+           " const ui_param_t *p; uint8_t nouts; const char *outs[2]; const uint8_t *pm; } ui_mod_t;"]   # pm: (update 27) page, knob -> parameter; 0: the parameters in order
     tables = []
 
-    def params(tag, pages):
+    def params(tag, pages, layout=None):
         flat = [p for pg in pages for p in pg]
         rows = []
         for p in flat:
@@ -88,6 +88,10 @@ def main():
             mod = 0 if p.get("mod") is False else 1
             rows.append(f"    {{{cstr(p['l'])}, {t}, {mod}, {lo}, {hi}, {o}, {float(p['def'])!r}f}},")
         tables.append(f"static const ui_param_t UP_{tag}[] = {{\n" + "\n".join(rows) + "\n};")
+        if layout:   # update 27 (CLOUDS): the pages as lists of parameter numbers: UPM_ maps (page, knob) to the parameter
+            tables.append(f"static const uint8_t UG_{tag}[] = {{{', '.join(str(len(pg)) for pg in layout)}}};")
+            tables.append(f"static const uint8_t UPM_{tag}[] = {{{', '.join(str(i) for pg in layout for i in pg)}}};")
+            return len(layout), len(flat)
         tables.append(f"static const uint8_t UG_{tag}[] = {{{', '.join(str(len(pg)) for pg in pages)}}};")
         return len(pages), len(flat)
 
@@ -105,11 +109,11 @@ def main():
             pages[-1] = pages[-1] + [{"l": "SWEEP", "t": "bip", "def": 0.0}]
             f_pg, f_n = params("FILTER", pages)
             continue
-        npg, npar = params(name, m["pages"])
+        npg, npar = params(name, m["pages"], m.get("layout"))
         outs = m.get("outs", [])
         o = ", ".join(cstr(x) for x in outs) or "0"
         mods.append(f"    {{{cstr(name)}, {cstr(m['blurb'])}, {MID[name]}, {KIND[m['kind']]}, {npg}, {npar}, UG_{name},"
-                    f" UP_{name}, {len(outs)}, {{{o}}}}},")
+                    f" UP_{name}, {len(outs)}, {{{o}}}" + (f", UPM_{name}" if m.get("layout") else "") + "},")
     a_pg, a_n = params("AMP", d["AMP"]["pages"])
     l_pg, l_n = params("LFO", d["LFOS"]["pages"])
     # OSC: the firmware's own page (not on the browser page): a plain oscillator per voice mixed with the source,

@@ -244,6 +244,15 @@ static clouds::GranularProcessor* const clouds_ = &clouds_storage_;
 #endif
 #endif
 static int clouds_quality_ = 0;
+#ifdef RACK_GR_STATS
+// the host check's (build_host.sh only): the grains' start positions since the last reset: count, sum, sum of squares, least, greatest
+namespace clouds { static double gr_st[5]; void rack_gr_stat(float s) { gr_st[0] += 1; gr_st[1] += s; gr_st[2] += (double)s * s; if (gr_st[0] == 1 || s < gr_st[3]) gr_st[3] = s; if (gr_st[0] == 1 || s > gr_st[4]) gr_st[4] = s; } }
+EXPORT void grain_stats(double* out, int reset) { for (int i = 0; i < 5; ++i) { out[i] = clouds::gr_st[i]; if (reset) clouds::gr_st[i] = 0; } }
+#endif
+// update 27, the GR-1 style grain controls (engine/shim/clouds/dsp/granular_sample_player.h reads them): CLOUDS' parameters 22-24, WINDOW, SPEED and
+// JITTER, set each block in run_fx. All 0 = Clouds as it was (the player takes its old path and draws no extra random number). ph, pos, lo, hi:
+// the playhead (its phase in the window, 0..1; its place and the window's ends on POSITION's axis), which the screen reads (monitor 162-164)
+namespace clouds { float rack_gr_window = 0.0f, rack_gr_speed = 0.0f, rack_gr_jitter = 0.0f, rack_gr_ph = 0.5f, rack_gr_pos = 0.0f, rack_gr_lo = 0.0f, rack_gr_hi = 0.0f; }
 static float cl_scan_ = 0.0f, cl_tone_l_ = 0.0f, cl_tone_r_ = 0.0f;
 static int cl_grid_ = -1;
 #ifdef RACK_CLOUDS_32K
@@ -735,6 +744,7 @@ static void init_fx(int id) {
   if (id == M_CLOUDS) {
     clouds_->Init(clouds_large_, CL_LARGE, clouds_small_, CL_SMALL);
     clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
+    clouds::rack_gr_window = clouds::rack_gr_speed = clouds::rack_gr_jitter = 0.0f; clouds::rack_gr_ph = 0.5f;
 #ifdef RACK_CLOUDS_32K
     memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_mix_init_ = false;
 #ifdef FXC2
@@ -2178,6 +2188,10 @@ static void run_fx(int slot, float* l, float* r) {
 #endif
     clouds_->set_playback_mode((clouds::PlaybackMode)cmode);
     p->freeze = PI(slot, 10, 0) == 1;
+    // WINDOW (22), SPEED (23: bipolar, -2x .. +2x real time, finer near the centre), JITTER (24); only GRANULR uses them
+    clouds::rack_gr_window = clampf(P(slot, 22, 0), 0.0f, 1.0f);
+    { float sp = clampf(P(slot, 23, 0), -1.0f, 1.0f); clouds::rack_gr_speed = 2.0f * sp * fabsf(sp); }
+    clouds::rack_gr_jitter = clampf(P(slot, 24, 0), 0.0f, 1.0f);
     // page 3-4: QUALITY (16/8-bit, stereo/mono, as the hardware's button), IN GAIN, NOTE TRG (a grain on each new note), PITCH TRK
     int qual = PI(slot, 11, 0);
 #ifdef CL_TRIMMED
@@ -2612,7 +2626,7 @@ EXPORT void render(int n) {
 
 // monitor: what the screen draws. 0-15 modulated params of `slot` (as the most recent voice hears them),
 // 16 envs, 22 mod envs, 28 gates, 34 notes, 40 mod outs, 44 lfos, 47 clock (16ths), 48 peaks, 50 route values,
-// 62 last voice, 63 voices; 64-159 Grids levels (3 x 32) when `slot` holds Grids; 160-161 master gain reduction; 168-183 params 16-31.
+// 62 last voice, 63 voices; 64-159 Grids levels (3 x 32) when `slot` holds Grids; 160-161 master gain reduction; 162-164 CLOUDS' playhead, window start and end (0..1 on POSITION's axis); 168-183 params 16-31.
 static float mon_[200];
 EXPORT float* monitor(int slot) {
   const VoiceState* v = &vs_[last_voice_];
@@ -2634,6 +2648,9 @@ EXPORT float* monitor(int slot) {
   }
   mon_[62] = (float)last_voice_; mon_[63] = (float)nvoices_;
   mon_[160] = comp_gr_db_; mon_[161] = lim_gr_db_;
+#ifdef HAVE_CLOUDS
+  mon_[162] = clouds::rack_gr_pos; mon_[163] = clouds::rack_gr_lo; mon_[164] = clouds::rack_gr_hi;   // CLOUDS' playhead and window
+#endif
   if ((slot == S_MODA || slot == S_MODB) && mod_id_[slot] == M_GRIDS)
     for (int inst = 0; inst < 3; ++inst) for (int st = 0; st < 32; ++st) mon_[64 + inst * 32 + st] = grids_level(slot, inst, st) / 255.0f;
   return mon_;

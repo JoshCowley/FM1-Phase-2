@@ -5,6 +5,7 @@
  *                             01_granular_on_pad.wav    GRANULR on a Braids pad: the pad and a cloud made from it
  *                             02_frozen_cloud.wav       a chord, FREEZE, the notes end and the cloud stays, its POSITION and TEXTURE moving
  *                             03_pitch_shifted_grains.wav  GRANULR with PITCH +12 then -12, the pad's own notes under it
+ *   clouds_demo --grain OUTDIR   update 27: two demos of 19 s, the grain controls (WINDOW, SPEED, JITTER): a frozen chord progression scrubbed, then live playing
  *   clouds_demo --cost      the x86 host's time to render (a PROXY: this PC's CPU, not the FM-1's), and the buffers
  *   clouds_demo --cost2     update 8: Clouds' own share of the render (over Braids x4) before (update 7: 48 kHz, no grain ceiling, the reverb always
  *                           running) and after, five runs each, for GRANULR 16 ST at DENSITY 0.7 / 0.9 / 1.0, LOOPDLY, SPECTRL; and the grain ceiling's
@@ -283,6 +284,94 @@ static void print_cost2(void)
     print_grains();
 }
 
+/* ---- update 27: the grain controls (WINDOW, SPEED, JITTER) ------------------------------------------------------------------ */
+#define GSECS 20
+static int32_t glr[2 * SR * GSECS];
+static void gplay(const ev_t *ev, int nev, void (*auto_)(int ms, int slot), int slot, int secs)
+{
+    int b, i, on[256] = {0};
+    for (b = 0; b + 256 <= SR * secs; b += 256) {
+        float t0 = (float)b / SR, t1 = (float)(b + 256) / SR;
+        for (i = 0; i < nev; i++) {
+            if (!on[i] && ev[i].t >= t0 - 1e-6f && ev[i].t < t1) { rc_note_on(ev[i].n, ev[i].v); on[i] = 1; }
+            if (on[i] == 1 && ev[i].t + ev[i].d < t1) { rc_note_off(ev[i].n); on[i] = 2; }
+        }
+        if (auto_)
+            auto_((int)(t0 * 1000.0f), slot);
+        rc_render(glr + 2 * b, 256, 8388607.0f * 0.7f);
+    }
+}
+static int grain_patch(const char *preset)
+{
+    int s;
+    rk_seed(0x21u);
+    rc_pause();
+    rc_load(preset_named(preset));
+    cl_swap(RS_FX1, 30);
+    rc_resume();
+    s = RS_FX1;
+    cl_set(s, P_MODE, 0.0f); cl_set(s, P_POS, 0.5f); cl_set(s, P_SIZE, 0.4f); cl_set(s, P_DENS, 0.78f); cl_set(s, P_TEX, 0.5f);
+    cl_set(s, P_BLEND, 0.9f); cl_set(s, P_SPREAD, 0.6f); cl_set(s, P_FB, 0.1f); cl_set(s, P_REV, 0.25f);
+    return s;
+}
+/* 1: a chord progression held into CLOUDS (16 MONO: 1.5 s of buffer), FREEZE as the last chord ends, then SPEED from full reverse through stop to full
+ * forward while WINDOW opens and JITTER rises. Blend is mostly wet. */
+static const ev_t GCH[] = {
+    {0.2f, 0.95f, 48, 0.7f}, {0.2f, 0.95f, 55, 0.7f}, {0.2f, 0.95f, 59, 0.7f}, {0.2f, 0.95f, 64, 0.7f},
+    {1.15f, 0.95f, 45, 0.7f}, {1.15f, 0.95f, 52, 0.7f}, {1.15f, 0.95f, 57, 0.7f}, {1.15f, 0.95f, 60, 0.7f},
+    {2.1f, 0.6f, 41, 0.7f}, {2.1f, 0.6f, 48, 0.7f}, {2.1f, 0.6f, 53, 0.7f}, {2.1f, 0.6f, 57, 0.7f},
+};
+static void auto_scrub(int ms, int s)
+{
+    float t = ms / 1000.0f, x;
+    if (ms >= 2750) cl_set(s, P_FREEZE, 1.0f);
+    if (t < 4.0f) return;
+    x = (t - 4.0f) / 14.0f;                                        /* 4 .. 18 s */
+    cl_set(s, 22, lerp(0.08f, 0.7f, x));                           /* WINDOW opens */
+    cl_set(s, 23, lerp(-1.0f, 1.0f, x));                           /* SPEED: -2x, stopped at 11 s, +2x */
+    cl_set(s, 24, lerp(0.0f, 0.7f, (t - 9.0f) / 9.0f));            /* JITTER from 9 s */
+}
+/* 2: the FM-1's own playing through it live (FREEZE off): an arpeggio over four chords, the window and the playhead moving under it */
+static ev_t GARP[160];
+static int garp_build(void)
+{
+    static const int ROOT[4] = {45, 41, 48, 43};                    /* A F C G */
+    static const int IV[4][4] = {{0, 7, 12, 15}, {0, 7, 12, 16}, {0, 7, 12, 16}, {0, 7, 12, 16}};
+    int n = 0, bar, st;
+    for (bar = 0; bar < 8; bar++)
+        for (st = 0; st < 8; st++) {
+            int r = ROOT[bar % 4], k = (st < 4 ? st : 7 - st) & 3;
+            if (n >= 160) return n;
+            GARP[n].t = 0.2f + (float)(bar * 8 + st) * 0.3f; GARP[n].d = 0.26f;
+            GARP[n].n = r + 12 + IV[bar % 4][k]; GARP[n].v = 0.75f; n++;
+        }
+    return n;
+}
+static void auto_live(int ms, int s)
+{
+    float t = ms / 1000.0f;
+    cl_set(s, 22, lerp(0.1f, 0.65f, t / 14.0f));                   /* WINDOW */
+    cl_set(s, 23, t < 8.0f ? lerp(0.0f, 0.45f, t / 8.0f) : lerp(0.45f, -0.5f, (t - 8.0f) / 8.0f));   /* SPEED: forward, then back */
+    cl_set(s, 24, lerp(0.15f, 0.5f, t / 18.0f));                   /* JITTER */
+}
+static int grain_demos(const char *dir)
+{
+    int s, n;
+    char path[512];
+    s = grain_patch("PD WARM STRINGS");
+    cl_set(s, P_QUAL, 1.0f);
+    gplay(GCH, (int)(sizeof GCH / sizeof *GCH), auto_scrub, s, 19);
+    snprintf(path, sizeof path, "%s/granular-scrub-demo.wav", dir);
+    wav(path, glr, SR * 19);
+    s = grain_patch("SAW LEAD");
+    cl_set(s, P_QUAL, 0.0f); cl_set(s, P_SIZE, 0.3f); cl_set(s, P_BLEND, 0.65f);
+    n = garp_build();
+    gplay(GARP, n, auto_live, s, 19);
+    snprintf(path, sizeof path, "%s/granular-live-demo.wav", dir);
+    wav(path, glr, SR * 19);
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int s;
@@ -295,8 +384,10 @@ int main(int argc, char **argv)
         if (argc >= 3 && !strcmp(argv[2], "grains")) { print_grains(); print_grain_sound(); } else print_cost2();
         return 0;
     }
+    if (argc >= 3 && !strcmp(argv[1], "--grain"))   /* update 27: the grain controls' two demos (granular-scrub-demo.wav, granular-live-demo.wav) */
+        return grain_demos(argv[2]);
     if (argc < 2) {
-        fprintf(stderr, "clouds_demo OUTDIR | --cost | --cost2\n");
+        fprintf(stderr, "clouds_demo OUTDIR | --grain OUTDIR | --cost | --cost2\n");
         return 1;
     }
     if (getenv("CL_K32"))                          /* update 8: CL_K32=0 renders with Clouds at 48 kHz (RACK_CLOUDS_32K off at run time), for the A/B */

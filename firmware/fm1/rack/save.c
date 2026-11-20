@@ -5,7 +5,7 @@
  * A user preset keeps what the menus edit: the factory preset it started from (which brings what the menus don't
  * reach: master EQ, tuning, slews), the six slots' modules and parameters, AMP, the LFOs, the 18 routes (the matrix's
  * 12 and the LFOs' direct targets), the macros and the tempo; its name (10 characters) and category; OSC (its
- * difference from the defaults, so stage 2's presets, read 422 bytes each, load with it off). 438 bytes, eight to a
+ * difference from the defaults, so stage 2's presets, read 422 bytes each, load with it off). 474 bytes (update 27; 470 before CLOUDS' grain controls, 438 before the filter), eight to a
  * store object (OBJ_USER0..7, torn-write safe A/B sectors in the data area).
  *
  *   SAVE page 1, NAME:  SELECT the letter, ALGORITHM or K1 change it, K2 the slot, K3 the category, K4 the page of 16;
@@ -28,7 +28,7 @@ static const uint16_t *cat_col_tab(void)     /* each category's colour, from the
 static const char CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-#.";
 #define NCHARS ((int)sizeof CHARS - 1)
 
-typedef struct {                              /* one user preset: 470 bytes, no padding (int16 first) */
+typedef struct {                              /* one user preset: 474 bytes, no padding (int16 first) */
     int16_t p[6][16];                         /* the slots' parameters (lists, ints as they are; the rest x 10000) */
     int16_t amp[24], lfo[24];
     int16_t ramt[18];                         /* the routes: amount x 10000, source, slot, parameter, via */
@@ -43,10 +43,13 @@ typedef struct {                              /* one user preset: 470 bytes, no 
     uint8_t pad;
     int16_t osc[8];                           /* OSC's 7 parameters less their defaults (lists, ints; the rest x 10000) */
     int16_t flt[16];                          /* (update 26) the filter, always in the chain: its 15 parameters and the SWEEP (the engine's GLO 8-23); pad bit 2 says it is here */
+    int8_t clx[3];                            /* (update 27) CLOUDS' WINDOW, SPEED and JITTER (its parameters 22-24, x 127; the slot that holds CLOUDS); pad bit 3 says they are here */
+    uint8_t pad2;
 } upatch_t;
 #define UPATCH_V1 422                         /* stage 2's size: no OSC */
+#define UPATCH_V3 470                         /* up to update 26: no CLOUDS grain controls */
 #define UPATCH_V2 438                         /* up to update 25: no filter record (the filter was the shaper slot's module 12, in p[1]) */
-typedef char upatch_size_check[sizeof(upatch_t) == 470 ? 1 : -1];
+typedef char upatch_size_check[sizeof(upatch_t) == 474 && 8 * sizeof(upatch_t) <= 3840 ? 1 : -1];   /* (a store object holds 3,840 bytes: storage.c ST_PAYLOAD_MAX) */
 
 static struct {
     char name[NUSER][10];
@@ -106,9 +109,9 @@ static int group_read(int g)                  /* -> ugroup; an object never save
     int n, i;
     share_undo = 0;
     n = plat_store_load(OBJ_USER0 + (uint32_t)g, ugroup, sizeof ugroup);
-    if (n == UPATCH_V1 * UP_PER_OBJ || n == UPATCH_V2 * UP_PER_OBJ) {   /* an older size: spread out to the new one, the rest at its defaults */
+    if (n == UPATCH_V1 * UP_PER_OBJ || n == UPATCH_V2 * UP_PER_OBJ || n == UPATCH_V3 * UP_PER_OBJ) {   /* an older size: spread out to the new one, the rest at its defaults */
         uint8_t *b = (uint8_t *)ugroup;
-        uint32_t old = n == UPATCH_V1 * UP_PER_OBJ ? UPATCH_V1 : UPATCH_V2;
+        uint32_t old = n == UPATCH_V1 * UP_PER_OBJ ? UPATCH_V1 : n == UPATCH_V2 * UP_PER_OBJ ? UPATCH_V2 : UPATCH_V3;
         for (i = UP_PER_OBJ - 1; i >= 0; i--) {
             int j;
             for (j = (int)old - 1; j >= 0; j--)   /* (back to front: the copy lands past where it came from) */
@@ -172,7 +175,7 @@ static void snapshot(upatch_t *u, const char *name, int cat)
     u->cat = (uint8_t)cat;
     u->base = (uint8_t)(rc_patch.index < 0 ? 0 : rc_patch.index);
     u->mode = (uint8_t)rc_patch.mode;
-    u->pad = 7;                               /* (bit 2: saved with the filter record flt[]; older slots have the filter in the shaper slot's p[1]. Bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0. Bit 1: its base is a number
+    u->pad = 15;                              /* (bit 2: saved with the filter record flt[]; older slots have the filter in the shaper slot's p[1]. Bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0. Bit 1: its base is a number
                                                  of the 45-preset bank; older slots hold the old 125-preset bank's, see apply) */
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(rc_patch.mod[s]);
@@ -180,6 +183,13 @@ static void snapshot(upatch_t *u, const char *name, int cat)
         for (i = 0; m && i < m->nparams && i < 16; i++)
             u->p[s][i] = q_param(&m->p[i], rk_get_param(s, i));
     }
+    for (s = 0; s < 6; s++)                   /* CLOUDS' grain controls (its parameters 22-24, past the 16 the slots keep) */
+        if (rc_patch.mod[s] == 30)
+            for (i = 0; i < 3; i++) {
+                float v = rk_get_param(s, 22 + i) * 127.0f;
+                v = v < -127.0f ? -127.0f : v > 127.0f ? 127.0f : v;
+                u->clx[i] = (int8_t)(v < 0.0f ? v - 0.5f : v + 0.5f);
+            }
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         u->amp[i] = q_param(&UI_AMP.p[i], rk_get_param(RS_AMP, i));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)
@@ -235,6 +245,10 @@ static void apply(const upatch_t *u)
         for (i = 0; m && i < m->nparams && i < 16; i++)
             rk_set_param(s, i, dq_param(&m->p[i], u->p[s][i]));
     }
+    for (s = 0; s < 6; s++)                   /* CLOUDS' grain controls: as saved, or (older slots) neutral */
+        if (rc_patch.mod[s] == 30)
+            for (i = 0; i < 3; i++)
+                rk_set_param(s, 22 + i, u->pad & 8 ? (float)u->clx[i] / 127.0f : 0.0f);
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         rc_set(RS_AMP, i, dq_param(&UI_AMP.p[i], u->amp[i]));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)

@@ -140,7 +140,7 @@ static uint32_t cp_hue(int32_t k)             /* HUE step k (0-15) as 0xRRGGBB *
     return (uint32_t)HUE[k * 3] << 16 | (uint32_t)HUE[k * 3 + 1] << 8 | HUE[k * 3 + 2];
 }
 static const char *const CP_MODE[3] = {"GRANULR", "LOOPDLY", "SPECTRL"};
-static const uint16_t CP_BUF_MS[4] = {510, 930, 1020, 1850};   /* the buffer's length at 48 kHz for QUALITY 16 ST, 16 MONO, 8 ST, 8 MONO (1.5 x as long at 32 kHz, update 8) */
+static const uint16_t CP_BUF_MS[4] = {512, 1024, 2048, 4096};   /* the buffer's length at 48 kHz for QUALITY 16 ST, 16 MONO, 8 ST, 8 MONO (1.5 x as long at 32 kHz, update 8) */
 
 
 static void cp_birth(int32_t x, int32_t y, int32_t vx, int32_t vy, int hue, int sz, int soft, int spark, uint32_t life)
@@ -278,7 +278,11 @@ static void cp_step(const float *mon, uint32_t dt)
             else if (pf > 11 && sz > 0 && (r >> 6 & 1u)) sz--;
             mult = -170 + 680 * pf / 15;       /* x 1/256: sinking a little at the bottom of PITCH, rising fast at the top */
             if (mode == 0) {
-                int32_t j = 14 + (int32_t)(spray * 80.0f), px = (int32_t)(pos * 239.0f);
+                /* (update 27: the newest audio at the right; with WINDOW up the grains rise round the playhead, JITTER spreading them over the window) */
+                float win = P(mon, 22);
+                int32_t j = 14 + (int32_t)(spray * 80.0f), px = (int32_t)((1.0f - (win > 0.0f ? mon[162] : pos)) * 239.0f);
+                if (win > 0.0f)
+                    j += (int32_t)(P(mon, 24) * win * 120.0f);
                 x = px + (int32_t)((cp_rnd() & 255u) + (cp_rnd() & 255u) - 255u) * j / 255;
                 x = x < 2 ? 2 : x > 237 ? 237 : x;
                 y = cp.cy - 18 + (int32_t)(cp_rnd() % 36u);
@@ -403,10 +407,10 @@ static int32_t cp_ro_act(int k, float v, int key)
 
 static void cp_readouts(int pg, const ui_mod_t *m)
 {
-    int slot = page_slot(pg), off = page_first(m, mn.sub), k, key = pg << 4 | mn.sub;
+    int slot = page_slot(pg), k, key = pg << 4 | mn.sub;
     cp_ro_begin();
     for (k = 0; k < 4; k++) {
-        int pi = off + k, np = m->pages[mn.sub], q = 0;
+        int np = m->pages[mn.sub], pi = k < np ? page_ix(m, mn.sub, k) : 0, q = 0;
         const ui_param_t *p = k < np ? &m->p[pi] : 0;
         float v;
         char t[24], l[16];

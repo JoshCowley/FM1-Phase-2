@@ -11,7 +11,14 @@ KINDS = ["n", "n", "b", "n",              # POSITION SIZE PITCH DENSITY
          "n", 3, 2, 4,                    # REVERB MODE FREEZE QUALITY
          "b", 2, 2, 5,                    # IN GAIN NOTE TRG PITCH TRK GRN SYNC
          "n", "n", 4, "n",                # SPRAY PITCH RND PITCH QNT SIZE RND
-         "b", "b"]                        # SCAN TONE
+         "b", "b",                        # SCAN TONE
+         "n", "b", "n"]                   # WINDOW SPEED JITTER (update 27, the GR-1 style grain controls; the firmware's own, not on the page)
+
+# update 27: the firmware's CLOUDS pages, as lists of parameter numbers. The parameters keep their numbers (so every saved preset and
+# route still points where it did); only the order of the pages changes: the grain-shaping set first (GRAIN 1: POSITION WINDOW SPEED
+# JITTER, GRAIN 2: SIZE DENSITY RND PAN FREEZE), then the rest in the order they had. SCAN stays (older presets use it) on the last page.
+GRAIN_PAGE = [{"l": "WINDOW", "t": "num", "def": 0.0}, {"l": "SPEED", "t": "bip", "def": 0.0}, {"l": "JITTER", "t": "num", "def": 0.0}]
+LAYOUT = [[0, 22, 23, 24], [1, 3, 6, 10], [2, 4, 5, 7], [8, 9, 11, 12], [13, 14, 15, 21], [16, 17, 18, 19], [20]]
 
 
 def clouds_meta():
@@ -31,13 +38,25 @@ def lite_page(page):
             p["def"] = 0
         if p["l"] == "DENSITY":
             p["def"] = 0.7
+        if p["l"] == "SPREAD":                # the grain's random place in the stereo field (Clouds draws one for each grain)
+            p["l"] = "RND PAN"
+            p["alias"] = "SPREAD"           # (the presets and routes written with the old name still find it)
+    page["pages"].append([dict(p) for p in GRAIN_PAGE])   # parameters 22-24, after the page's 22
+    page["layout"] = LAYOUT
     check_page(page)
     return page
+
+
+def check_layout():
+    flat = [i for pg in LAYOUT for i in pg]
+    if sorted(flat) != list(range(len(KINDS))) or any(len(pg) > 4 for pg in LAYOUT):
+        raise SystemExit("clouds_def: LAYOUT is not every parameter once, four to a page")
 
 
 def check_page(page):
     """page: the CLOUDS entry of the page's MODULES (evaluated by make_ui.py): the same parameters in the same order"""
     flat = [p for pg in page["pages"] for p in pg]
     kinds = [len(p["opts"]) if p["t"] == "list" else "b" if p["t"] == "bip" else "n" for p in flat]
+    check_layout()
     if kinds != KINDS:
         raise SystemExit("make_ui: clouds_def.KINDS differs from the page's CLOUDS parameters")

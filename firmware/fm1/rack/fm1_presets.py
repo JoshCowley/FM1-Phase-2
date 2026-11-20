@@ -54,7 +54,7 @@ def meta(p):
 def apply_over(m, vals, over, who):
     fl = flat(m)
     for label, v in (over or {}).items():
-        j = next((i for i, p in enumerate(fl) if p["l"] == label), -1)
+        j = next((i for i, p in enumerate(fl) if p["l"] == label or p.get("alias") == label), -1)
         if j < 0:
             raise SystemExit(f"fm1_presets: {who}: no parameter {label}")
         if fl[j]["t"] == "list":
@@ -110,7 +110,7 @@ def calls_for(pr, D, tail):
         for si, (sid, sname) in enumerate(SLOTS):
             mod = rack[sid][0]
             if mod:
-                j = next((i for i, p in enumerate(flat(M[mod])) if f"{sname}.{p['l']}" == name), -1)
+                j = next((i for i, p in enumerate(flat(M[mod])) if name in (f"{sname}.{p['l']}", f"{sname}.{p.get('alias')}")), -1)
                 if j >= 0:
                     return [si, j]
         return None

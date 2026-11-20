@@ -144,6 +144,22 @@ static int page_first(const ui_mod_t *m, int sub)
         o += m->pages[i];
     return o;
 }
+/* update 27: the parameter on knob k of page `sub`: the page's place in the parameters, or (CLOUDS, whose pages group the grain controls: ui_mod_t.pm)
+ * the parameter that page's table names. k is the knob (0-3), and k < m->pages[sub] */
+static int page_ix(const ui_mod_t *m, int sub, int k)
+{
+    int o = page_first(m, sub) + k;
+    return m->pm ? m->pm[o] : o;
+}
+/* the knob a parameter is on in page `sub`, or -1 */
+static int page_knob(const ui_mod_t *m, int sub, int pi)
+{
+    int k;
+    for (k = 0; k < m->pages[sub]; k++)
+        if (page_ix(m, sub, k) == pi)
+            return k;
+    return -1;
+}
 /* a module, AMP or OSC page ends in its MOD page (12 Nov 2026, after the Dirtywave M8's mod slots): the matrix rows
  * into that module, four at a time. SELECT steps through its four rows as it steps through pages (MOD_ROWS subs) */
 #define MOD_ROWS 4
@@ -152,11 +168,12 @@ static int has_mod_page(int pg) { return pg == PG_AMP || pg == PG_OSC || pg == P
  * K4 orange, on a page's gauges and on the part of its picture each one moves, so the knob and what it changes on the
  * screen read as one */
 #define KNOB_C (fm1_pal + P_KN1)                  /* K1-K4's colours (theme.h; update 55: the palette in use) */
-static int vk_on, vk_first, vk_n;             /* the picture being drawn: its parameters vk_first.. on K1.. */
+static int vk_on, vk_sub, vk_n;               /* the picture being drawn: its page (of vk_m) with vk_n parameters on K1.. */
+static const ui_mod_t *vk_m;
 static uint16_t kc(int pi, uint16_t c)        /* parameter pi's knob's colour when it is on the page, else c */
 {
-    int k = pi - vk_first;
-    return vk_on && k >= 0 && k < vk_n ? KNOB_C[k] : c;
+    int k = vk_on ? page_knob(vk_m, vk_sub, pi) : -1;
+    return k >= 0 && k < vk_n ? KNOB_C[k] : c;
 }
 static int npages(int pg)
 {
@@ -540,7 +557,7 @@ static void big_well_h(int pg, const ui_mod_t *m, uint16_t c, int32_t wh)
     int slot = page_slot(pg), bnd, id = slot >= 0 && slot < 6 ? rc_patch.mod[slot] : 0, nb = (wh + 29) / 30;
     int32_t x, i;
     vk_on = !is_fixed(pg) && m && mn.sub < m->npages;
-    vk_first = vk_on ? page_first(m, mn.sub) : 0;
+    vk_m = m; vk_sub = mn.sub;
     vk_n = vk_on ? m->pages[mn.sub] : 0;
     for (bnd = 0; bnd < nb; bnd++) {
         int32_t y0 = bnd * 30, hb = wh - y0 < 30 ? wh - y0 : 30;
@@ -803,16 +820,15 @@ static void draw_lfo_targets(int l)
 static void param_cells(int pg)
 {
     const ui_mod_t *m = page_mod(pg);
-    int slot = page_slot(pg), i, off;
+    int slot = page_slot(pg), i;
     uint16_t c = page_colour(pg);
     float *live = 0;
     if (!m)
         return;
     if (slot >= 0 && slot != RS_LFO)
         live = rk_monitor(slot);
-    off = page_first(m, mn.sub);
     for (i = 0; i < 4; i++) {
-        int pi = off + i, ei = pofs(pg) + pi;   /* (OSC: AMP's 24-30) */
+        int pi = i < m->pages[mn.sub] ? page_ix(m, mn.sub, i) : 0, ei = pofs(pg) + pi;   /* (OSC: AMP's 24-30) */
         const ui_param_t *p = i < m->pages[mn.sub] ? &m->p[pi] : 0;
         float v = p ? rk_get_param(slot, ei) : 0.0f, lv = v;
         uint16_t mc = 0;
@@ -1444,7 +1460,7 @@ static void learn_turn(int k, int32_t e)
     char t[40], u[24];
     if (!m || mn.sub >= m->npages || k >= m->pages[mn.sub])
         return;
-    pi = page_first(m, mn.sub) + k;
+    pi = page_ix(m, mn.sub, k);
     if (!m->p[pi].mod) {
         app_say(m->p[pi].l, "CAN'T BE MODULATED");
         return;
@@ -1539,9 +1555,9 @@ static void knob(int k, int32_t e)
         if (pi == -1)
             return;
         if (pi == -2) {
-            pi = page_first(m, mn.sub) + k;
             if (k >= m->pages[mn.sub])
                 return;
+            pi = page_ix(m, mn.sub, k);
         }
         old = fv[pi];
         undo_note(UN_FIXED, dp, pi, old, 0, 0, 0);
@@ -1572,11 +1588,12 @@ static void knob(int k, int32_t e)
         return;
     }
     {
-        int pi = page_first(m, mn.sub) + k;
+        int pi;
         const ui_param_t *p;
         float v;
         if (k >= m->pages[mn.sub])
             return;
+        pi = page_ix(m, mn.sub, k);
         p = &m->p[pi];
         v = step(p, rk_get_param(slot, pofs(mn.page) + pi), e);
         if (mn.page == PG_FLT && pofs(mn.page) + pi == FLT_SWEEP)

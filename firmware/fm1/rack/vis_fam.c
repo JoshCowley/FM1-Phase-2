@@ -615,7 +615,20 @@ static void fm_clouds_draw(const float *mon)
         fm_seg(xc, y1 + 2, xc + 14, y0, fm_sw(fm_acc(ramp)));
         fm_node(xc, y1 + 2, ramp, 230u);
     } else if (cp.mode == 0) {                    /* the scan line: POSITION, with SPRAY a band either side */
-        int32_t xf = 20 + (int32_t)(pos * 200.0f), xbk = 70 + (int32_t)(pos * 100.0f);
+        /* (update 27: the newest audio is at the right, as the terrain has it: POSITION 0 is there. With WINDOW up, the scan line is the playhead (the engine's real
+         * one, monitor 162) and the window's two ends are dashed lines; the window at 0 draws what it always did) */
+        float win = P(mon, 22);
+        int32_t xf, xbk, xl, xh;
+        if (win > 0.0f) {
+            float ph = mon[162];
+            xf = 20 + (int32_t)((1.0f - ph) * 200.0f); xbk = 70 + (int32_t)((1.0f - ph) * 100.0f);
+            xl = 20 + (int32_t)((1.0f - mon[164]) * 200.0f); xh = 20 + (int32_t)((1.0f - mon[163]) * 200.0f);
+            fm_dash(xl, y1 + 3, 70 + (xl - 20) / 2, y0, 0xFFC878u, 150u);
+            fm_dash(xh, y1 + 3, 70 + (xh - 20) / 2, y0, 0xFFC878u, 150u);
+            fm_dash(xl, y1 + 4, xh, y1 + 4, 0xFFC878u, 150u);
+        } else {
+            xf = 20 + (int32_t)((1.0f - pos) * 200.0f); xbk = 70 + (int32_t)((1.0f - pos) * 100.0f);
+        }
         if (wd > 3) {
             fm_dash(xf - wd, y1, xbk - wd / 2, y0, 0xFFC878u, 80u);
             fm_dash(xf + wd, y1, xbk + wd / 2, y0, 0xFFC878u, 80u);

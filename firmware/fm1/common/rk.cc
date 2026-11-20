@@ -49,6 +49,9 @@ int rk_fm1_fit_needed(void) { return fm1_fit_needed(); }
 float rk_get_param(int slot, int param) { return get_param(slot, param); }
 float rk_get_route(int i, int *out) { return get_route(i, out); }
 float *rk_monitor(int slot) { return monitor(slot); }
+#ifdef RACK_GR_STATS
+void rk_gr_stats(double *out, int reset) { grain_stats(out, reset); }   // the host check's (CLOUDS grain starts)
+#endif
 // the second core: the platform's worker (plat_cpu2_run, plat_cpu2_wait) renders half the voices (rack.cc)
 void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void)) { set_worker(run, wait); }
 uint32_t rk_worker_blocks(void) { return worker_blocks(); }

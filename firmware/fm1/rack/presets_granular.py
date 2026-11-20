@@ -42,7 +42,7 @@ def _param(slots, dest):
         mod = D["MODULES"][slots[SLOTN[sl]]]
     for pg in mod["pages"]:
         for p in pg:
-            if p["l"] == lab:
+            if p["l"] == lab or p.get("alias") == lab:
                 return ("AMP" if sl == "AMP" else "LFO" if sl == "LFO" else SLOTN[sl]), lab, p
     raise SystemExit(f"presets_granular: no parameter {dest}")
 

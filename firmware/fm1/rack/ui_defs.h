@@ -3,7 +3,7 @@
 #pragma once
 typedef struct { const char *l; uint8_t t, mod; int16_t lo, hi; uint16_t opt; float def; } ui_param_t;
 enum { UT_NUM, UT_BIP, UT_LIST, UT_INT };
-typedef struct { const char *name, *blurb; uint8_t id, kind, npages, nparams; const uint8_t *pages; const ui_param_t *p; uint8_t nouts; const char *outs[2]; } ui_mod_t;
+typedef struct { const char *name, *blurb; uint8_t id, kind, npages, nparams; const uint8_t *pages; const ui_param_t *p; uint8_t nouts; const char *outs[2]; const uint8_t *pm; } ui_mod_t;
 static const char *const UI_OPT[] = {
     "CSAW", "/\\-_", "//-_", "FOLD", "UUUU", "SUB-", "SUB/", "SYN-",
     "SYN/", "//x3", "-_x3", "/\\x3", "SIx3", "RING", "////", "//uu",
@@ -170,7 +170,7 @@ static const ui_param_t UP_CLOUDS[] = {
     {"DENSITY", 0, 1, 0, 1, 0, 0.7f},
     {"TEXTURE", 0, 1, 0, 1, 0, 0.4f},
     {"BLEND", 0, 1, 0, 1, 0, 0.3f},
-    {"SPREAD", 0, 1, 0, 1, 0, 0.5f},
+    {"RND PAN", 0, 1, 0, 1, 0, 0.5f},
     {"FEEDBACK", 0, 1, 0, 1, 0, 0.2f},
     {"REVERB", 0, 1, 0, 1, 0, 0.3f},
     {"MODE", 2, 1, 0, 2, 139, 0.0f},
@@ -186,8 +186,12 @@ static const ui_param_t UP_CLOUDS[] = {
     {"SIZE RND", 0, 1, 0, 1, 0, 0.0f},
     {"SCAN", 1, 1, -1, 1, 0, 0.0f},
     {"TONE", 1, 1, -1, 1, 0, 0.0f},
+    {"WINDOW", 0, 1, 0, 1, 0, 0.0f},
+    {"SPEED", 1, 1, -1, 1, 0, 0.0f},
+    {"JITTER", 0, 1, 0, 1, 0, 0.0f},
 };
-static const uint8_t UG_CLOUDS[] = {4, 4, 4, 4, 4, 2};
+static const uint8_t UG_CLOUDS[] = {4, 4, 4, 4, 4, 4, 1};
+static const uint8_t UPM_CLOUDS[] = {0, 22, 23, 24, 1, 3, 6, 10, 2, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15, 21, 16, 17, 18, 19, 20};
 static const ui_param_t UP_DELAY[] = {
     {"TIME", 2, 1, 0, 8, 155, 2.0f},
     {"FEEDBACK", 0, 1, 0, 1, 0, 0.4f},
@@ -420,7 +424,7 @@ static const ui_mod_t UI_MODS[UI_NMODS] = {
     {"TIDES", "SLOPE GENERATOR", 21, 2, 2, 8, UG_TIDES, UP_TIDES, 2, {"TIDES", "TIDE+"}},
     {"GRIDS", "TOPOGRAPHIC DRUM MAP", 23, 2, 2, 6, UG_GRIDS, UP_GRIDS, 2, {"GRID", "ACCENT"}},
     {"FUNC", "FUNCTIONS + MIXER", 24, 2, 6, 22, UG_FUNC, UP_FUNC, 2, {"OUT 1", "OUT 2"}},
-    {"CLOUDS", "GRANULAR TEXTURES", 30, 3, 6, 22, UG_CLOUDS, UP_CLOUDS, 0, {0}},
+    {"CLOUDS", "GRANULAR TEXTURES", 30, 3, 7, 25, UG_CLOUDS, UP_CLOUDS, 0, {0}, UPM_CLOUDS},
     {"DELAY", "PING / MONO / TAPE", 31, 3, 3, 11, UG_DELAY, UP_DELAY, 0, {0}},
     {"REVERB", "PLATE / HALL / SHIMMER", 32, 3, 3, 10, UG_REVERB, UP_REVERB, 0, {0}},
     {"CHORUS", "STEREO CHORUS", 33, 3, 2, 7, UG_CHORUS, UP_CHORUS, 0, {0}},
