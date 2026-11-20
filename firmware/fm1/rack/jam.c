@@ -58,6 +58,7 @@ static uint8_t jam_live;                      /* the engine has offsets: to be s
 static uint32_t jam_rng = 0x1F2E3D4Cu;
 static float jam_gr[4];                       /* GLITCH's random values for this 16th, and its cell */
 static int32_t jam_gcell = -1;
+static float jam_gs[3];                       /* the stutters' gates, smoothed */
 
 static void jam_defaults(void)
 {
@@ -103,8 +104,11 @@ static void jam_press(int m, int vel127)
     } else {
         s->on |= 1u;
     }
-    if (s->on && s->lvl < 0.002f)
+    if (s->on && s->lvl < 0.002f) {
         s->age = 0.0f;
+        if (m >= 1 && m <= 3)
+            jam_gs[m - 1] = 0.0f;
+    }
 }
 static void jam_release(int m)
 {
@@ -124,14 +128,16 @@ static void jam_mv(int m, float s, float lvl, float age)
     switch (m) {
     case 0:   /* GRAIN DELAY: the sound thrown back in pitched, smeared echoes, the feedback up */
         JA(T_GBLEND, 0.5f); JA(T_GFB, 0.4f); JA(T_GDENS, 0.25f); JA(T_GTEX, 0.2f); JA(T_GPITCH, 0.5f); JA(T_GSIZE, -0.15f); JA(T_GREV, 0.15f);
-        JA(T_DFB, 0.45f); JA(T_DMIX, 0.35f); JA(T_DWOW, 0.5f); JA(T_CMIX, 0.25f); JA(T_RMIX, 0.15f);
+        JA(T_DFB, 0.45f); JA(T_DMIX, 0.35f); JA(T_DWOW, 0.5f); JA(T_CMIX, 0.4f); JA(T_CDEPTH, 0.45f); JA(T_CRATE, 0.35f);
+        JA(T_RMIX, 0.35f); JA(T_RSIZE, 0.2f); JA(T_LFO1, 0.3f); JA(T_LFO2, 0.3f);
         break;
-    case 1: case 2: case 3: {   /* STUTTER: the voices chopped on the grid (8ths, 16ths, 32nds), the echoes and a frozen slice filling the gaps */
-        float div = m == 1 ? 2.0f : m == 2 ? 1.0f : 0.5f;
-        JA(T_LEVEL, -jam_gate(age, div));
+    case 1: case 2: case 3: {   /* STUTTER: the voices and the wet of the chorus, delay and reverb chopped on the grid (8ths, 16ths, 32nds), the gate's edges
+                                 * about 10 ms; with Clouds, a frozen slice of short grains plays through the gaps */
+        float div = m == 1 ? 2.0f : m == 2 ? 1.0f : 0.5f, *gs = &jam_gs[m - 1];
+        *gs += (jam_gate(age, div) - *gs) * 0.5f;
+        JA(T_LEVEL, -*gs); JA(T_RMIX, -*gs); JA(T_DMIX, -*gs); JA(T_CMIX, -*gs);
         if (lvl > 0.02f && s > 0.01f) jam_off[T_GFREEZE] += 1.0f;
-        JA(T_GSIZE, -0.4f); JA(T_GDENS, 0.3f); JA(T_GBLEND, 0.6f);
-        JA(T_DMIX, 0.3f); JA(T_DFB, 0.15f); JA(T_RMIX, 0.1f);
+        JA(T_GSIZE, -0.4f); JA(T_GDENS, 0.3f); JA(T_GBLEND, -*gs);
         break;
     }
     case 4: {   /* REVERSE SCRUB: a frozen slice read backwards; without Clouds the filter opens under a swelling reverb */
@@ -153,7 +159,8 @@ static void jam_mv(int m, float s, float lvl, float age)
     case 7:   /* FREEZE PAD: the sound held and smeared wide */
         if (lvl > 0.02f && s > 0.01f) jam_off[T_GFREEZE] += 1.0f;
         JA(T_GWIN, 0.7f); JA(T_GJIT, 0.5f); JA(T_GBLEND, 0.8f); JA(T_GSIZE, 0.4f); JA(T_GDENS, 0.2f);
-        JA(T_DFB, 0.5f); JA(T_DMIX, 0.35f); JA(T_RMIX, 0.35f); JA(T_RSIZE, 0.4f); JA(T_RSHIM, 0.2f); JA(T_CDEPTH, 0.25f);
+        JA(T_DFB, 0.5f); JA(T_DMIX, 0.35f); JA(T_RMIX, 0.6f); JA(T_RSIZE, 0.55f); JA(T_RSHIM, 0.3f); JA(T_CDEPTH, 0.3f); JA(T_CMIX, 0.25f);
+        JA(T_SWEEP, -0.15f);
         break;
     case 8: {   /* GLITCH: every 16th a new position, size, pitch, a drop-out or a crushed bit */
         int32_t cell = (int32_t)age;
