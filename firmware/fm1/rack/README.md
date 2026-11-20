@@ -291,6 +291,28 @@ number, no preset change); the others keep their target names.
 an estimate of the load on each core from the owner's FM-1 figures). `python3 granular_report.py [NAME] --host-log LOG --mp3 DIR --json FILE` (LOG: rack_host's output, for the arena and voices).
 `level_fm1.py --bank` sets only these presets' levels. `make_presets.py` holds 208 different floats (256 at most). Known: FROZEN PAD stays silent if K4 is above 0.8 before any note has filled Clouds' buffer.
 
+## Update 27: CLOUDS grain controls, WINDOW SPEED JITTER (20 Nov 2026; host-tested and built, NOT heard, NOT run on an FM-1)
+
+What was there: POSITION, SIZE, PITCH, DENSITY, TEXTURE, BLEND, SPREAD (a random pan drawn for every grain), FEEDBACK, REVERB, MODE, FREEZE, QUALITY,
+IN GAIN, NOTE TRG, PITCH TRK, GRN SYNC, SPRAY (a random offset, per control block), PITCH RND, PITCH QNT, SIZE RND, SCAN (a whole-buffer scan), TONE;
+all matrix destinations and knob-layer targets (NP = 32). Buffers at 32 kHz: 0.77 / 1.54 / 3.07 / 6.14 s for QUALITY 16 ST / 16 MONO / 8 ST / 8 MONO (the
+8-bit qualities are stored at 16 kHz).
+
+Added: parameters 22-24, WINDOW, SPEED, JITTER (neutral 0), read by `engine/shim/clouds/dsp/granular_sample_player.h` (a copy of Mutable's, found
+first by the include path, like the Rings shims; the grain scheduler is the hook, so JITTER is per grain). `rack.cc` sets `clouds::rack_gr_*` each block.
+WINDOW 0 = the old path, no extra random draw: the 46 factory presets and 8 Clouds configurations render bit-identical to 2.26. SPEED is
+-2x..+2x real time (2 s |s|), forward = toward the newest audio, wrapping inside the window (kept inside the buffer), per Play call, grains placed at
+their moment in the block. RND PAN is SPREAD renamed (old name kept as an alias for presets). Pages: GRAIN 1 / GRAIN 2 first, parameters keep their
+numbers (`ui_mod_t.pm`, `clouds_def.LAYOUT`). Saved in user presets (474-byte record, pad bit 3; 470 and older sizes migrate). The picture draws the window
+and the playhead (monitor 162-164) and now has the newest audio at the right; its comet's buffer times were wrong for QUALITY 1-3 and are corrected.
+Not saved in user presets, as before: SPRAY .. TONE (parameters 16-21; the record keeps 16 a slot, and a store object has 80 spare bytes).
+
+Cost: flash +1,692 B (image 513,952 -> 515,644 B), static RAM +64 B (free 1,820 -> 1,756 B), no arena change. CPU: a few flops a grain and one random
+draw with JITTER; on the host, 0.10-0.11 ms per 10 ms with or without the controls (noise); not measured on the FM-1.
+Checks: rack_host 6g (rate, direction, wrap, WINDOW 0, JITTER spread, FREEZE scrub; built with -DRACK_GR_STATS, host only), `sim_clouds_grain.txt`,
+`clouds_demo --grain DIR` (two demos). rack_host check 10 fails if a frozen Clouds run is added before it, with or without this update (state it leaves
+behind; not understood), so 6g runs in a forked child.
+
 ## Update 10: the second core takes the work around Clouds (host-tested, NOT yet run on an FM-1)
 
 The device bench (update 9's build, 4 held Braids voices) had the first core at 55.7 / 56.2 / 56.7 % with Clouds on the second core at GRANULR DENSITY 0.7 / 0.9 / 1.0,

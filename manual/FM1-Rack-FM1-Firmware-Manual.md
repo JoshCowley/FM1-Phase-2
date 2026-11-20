@@ -214,7 +214,7 @@ HOME shows the preset's category, name and number (or its user slot), the sound'
 | **SHP** (shaper) | Rings, or empty | ENV, turned to its last page |
 | **FILTER** (always there) | the state-variable filter, one per voice, after the shaper and before AMP | ENV, turned to its second page |
 | **MOD A**, **MOD B** (modulators) | Peaks, Tides, Grids, FUNC, or empty | LFO |
-| **FX 1**, **FX 2** | delay, reverb, chorus, or empty (not the same one twice) | FX |
+| **FX 1**, **FX 2** | Clouds, delay, reverb, chorus, or empty (not the same one twice; Clouds only in one of them) | FX |
 | **AMP** | the envelopes and voice mode (always there) | ENV |
 
 Every voice has its own source, shaper, filter and amplifier. The modulators and effects are shared by all the voices, and so is Rings (see below).
@@ -231,6 +231,7 @@ Every voice has its own source, shaper, filter and amplifier. The modulators and
 | **Tides** | A slope generator: AD, LOOP (an LFO) or AR | FREQ, SHAPE, SLOPE, SMOOTH, RANGE, GATE |
 | **Grids** | A drum-pattern map giving triggers and accents | X, Y, FILL, OUT, CHAOS, DECAY |
 | **FUNC** | Two slopes, two scaled inputs and a mixer, after Maths (section 9) | RISE, FALL, CURVE, CYCLE, TRIG, levels, outputs |
+| **Clouds** | Mutable's granular texture processor: records the sound reaching it (the FM-1's own playing) and replays it as grains; see *Clouds: the grain controls* below | GRAIN 1: POSITION, WINDOW, SPEED, JITTER; GRAIN 2: SIZE, DENSITY, RND PAN, FREEZE; then PITCH, TEXTURE, BLEND, FEEDBACK, REVERB, MODE, QUALITY, IN GAIN, NOTE TRG, PITCH TRK, GRN SYNC, TONE, SPRAY, PITCH RND, PITCH QNT, SIZE RND, SCAN |
 | **Delay** | Stereo echo: ping-pong, mono or tape | TIME (in beats or free), FEEDBACK, TONE, MIX, WOW, LO CUT, DUCK |
 | **Reverb** | Plate, hall or shimmer | SIZE, DAMP, DIFFUSE, MIX, PRE, SHIMMER, LO CUT, DUCK |
 | **Chorus** | Chorus, flanger or vibrato | RATE, DEPTH, WIDTH, MIX, FEEDBACK |
@@ -266,6 +267,24 @@ Open a slot with its button. **SELECT** turns the pages within the module; **K1â
 **UNDO**: hold EDIT to put the last change back: a parameter, a matrix route, or a SEL, ARP or GLOBAL setting ("UNDO SRC.COLOR"). Hold it again to go further back, up to 16 changes. One turn of a knob counts as one change. Changing preset or loading a module starts afresh.
 
 Edits are lost when you change preset unless you SAVE.
+
+### Clouds: the grain controls (update 27)
+
+Clouds sits in FX 1 or FX 2 and listens to everything before it, so it granulates the FM-1's own sound, live. Its buffer is short, set by QUALITY (page 4): **0.77 s** at 16 ST, **1.5 s** at 16 MONO, **3.1 s** at 8 ST, **6.1 s** at 8 MONO (the 8-bit qualities are lo-fi). The grain controls shape GRANULR mode; LOOPDLY and SPECTRL ignore WINDOW, SPEED and JITTER.
+
+**The first two pages are the grain set.** Every control is a matrix destination and a knob-layer target, and the three new ones are saved in user presets.
+
+| Page | Knob | Does |
+| --- | --- | --- |
+| GRAIN 1 | **POSITION** | Where in the buffer grains start: 0 is the newest sound (right on the picture), 1 the oldest |
+| | **WINDOW** | The width of the region around POSITION that grains start in: 0 is one point (Clouds as it was), 1 the whole buffer |
+| | **SPEED** | A playhead that travels through the window by itself: centre stops it, right is forward (toward the newest sound), left reverse, up to 2x real time either way, finer near the centre. It wraps at the window's ends. With FREEZE on this scrubs the frozen buffer; with it off, the buffer is itself moving, and the playhead travels through the recent sound |
+| | **JITTER** | Each grain starts at a random place over this share of the window (0 on the playhead, 1 anywhere in the window); chosen for every grain |
+| GRAIN 2 | **SIZE**, **DENSITY** | Grain length; how many grains (none at the middle, as with Clouds) |
+| | **RND PAN** | Each grain's random place in the stereo field (0 all centred); drawn for every grain. This is the old SPREAD under a clearer name |
+| | **FREEZE** | ON holds the buffer |
+
+WINDOW has to be above 0 for SPEED and JITTER to do anything: the playhead needs a window to travel in. The older SPRAY (a random offset in the whole buffer, per control block) and SCAN (a playhead round the whole buffer) are still there, on the last pages, and add to these. The picture shows the window as two dashed lines with the playhead moving between them. A preset saved before update 27 loads with WINDOW, SPEED and JITTER at 0.
 
 ### Rings on the FM-1
 
@@ -832,7 +851,7 @@ Nothing in this bank has been heard on an FM-1: every figure behind it is a desk
 
 - In the sequencer: parameter locks, the free take, capture, note repeat and the FILL trigger (fill conditions are stored, but nothing triggers a fill yet).
 - The TOOLS pages (compare, morph, randomize).
-- Modules the FM-1 can't hold: Elements, Warps, Clouds and Marbles.
+- Modules the FM-1 can't hold: Elements, Warps and Marbles.
 - Bluetooth MIDI, WiFi, screen mirroring, backup and restore, USB MIDI host.
 
 ## Credits and licences
