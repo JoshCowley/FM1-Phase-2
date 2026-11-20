@@ -30,6 +30,7 @@ enum { PG_HOME, PG_RACK, PG_SRC, PG_SHP, PG_MODA, PG_MODB, PG_FX1, PG_FX2, PG_AM
        PG_ARP, PG_OSC, PG_SEQ, PG_MSEQ, PG_FLT, PG_JAM };
 static int is_seq_page(int pg);               /* the sequencer's pages (seqpages.c) */
 static void seq_encoders(void);
+static void drum_edit_btn(void);              /* the DRUM page's (drumpages.c) */
 static void seq_delete(void);
 static int sp_lasso_off(void);
 static int32_t cv_text_acc(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c);
@@ -1860,6 +1861,8 @@ static int menu_input(uint32_t press, uint32_t btn)
         if (!mn.edit_long) {
             if (mn.page == PG_SEQ && mn.sub == 0)   /* (NOTES) */
                 seq_delete();                 /* the sequencer's NOTES: EDIT deletes the note picked, or the lasso */
+            else if (mn.page == PG_SEQ && mn.sub == 6)   /* (DRUM: the step on / off) */
+                drum_edit_btn();
             else
                 page_button(SRC_CYC, 2);
         }

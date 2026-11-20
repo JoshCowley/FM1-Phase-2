@@ -10,8 +10,8 @@
  * On each page SELECT moves the cursor (the step, the bank, the row), ALGORITHM does the page's action, K1-K4 its four
  * values, drawn as dials. The pages draw a 94-row area in three bands (the canvas holds 40 rows). */
 
-enum { SQP_NOTES, SQP_PATTERN, SQP_SPICE, SQP_GEN, SQP_BANKS, SQP_SONG, SQP_N };
-static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE", "GEN", "BANKS", "SONG"};
+enum { SQP_NOTES, SQP_PATTERN, SQP_SPICE, SQP_GEN, SQP_BANKS, SQP_SONG, SQP_DRUM, SQP_N };
+static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE", "GEN", "BANKS", "SONG", "DRUM"};
 static const char *const GEN_TOOLS[] = {"EUCLID", "RANDOM", "ACID", "ARP UP", "ARP UPDN", "BERLIN", "OCTAVES", "OFFBEAT",
                                         "ROLLING", "STABS", "PROGRESS", "GATES", "SHIFT >", "SHIFT <", "REVERSE", "DOUBLE",
                                         "HALF", "CLEAR"};
@@ -37,6 +37,13 @@ static sq_step_t sq_clip[SQ_CLIP];            /* the steps hold SAVE copied (at 
 static int sq_nclip;
 #define sp_undo share.undo                    /* GEN and BANKS: the bank before, ALGO left puts it back (shares save.c's RAM) */
 
+static void pic_drum(void);                   /* the DRUM page (drumpages.c, after this file) */
+static void drum_header_text(char *t, const char *state);
+static void drum_dials(const char **l, char v[4][16], float *f);
+static void drum_encoders(const int32_t *e);
+static int drum_layer_keys(uint32_t keys, uint32_t prev);
+static void drum_layer_encoders(void);
+static void draw_drum_layer(void);
 static int is_seq_page(int pg) { return pg == PG_SEQ || pg == PG_MSEQ; }
 static sq_bank_t *cur_bank(void) { return &sqb[sq.bank]; }
 static void sq_touch(void) { sq_dirty |= (uint8_t)(1u << sq.bank); ui.redraw = 1; }
@@ -377,6 +384,7 @@ static void seq_area(void)
             case SQP_SPICE: pic_steps(1); break;
             case SQP_GEN: pic_gen(); break;
             case SQP_BANKS: pic_banks(); break;
+            case SQP_DRUM: pic_drum(); break;
             default: pic_song();
         }
         cv_blit(6, (uint32_t)AREA_Y + (uint32_t)AB * (uint32_t)b);
@@ -441,6 +449,8 @@ static void draw_seq_page(void)
     } else if (mn.sub == SQP_SONG) {
         cat(t, sq.song_on ? " SONG ON" : " SONG OFF");
     }
+    if (mn.sub == SQP_DRUM)
+        drum_header_text(t, state);
     header(SQP_NAME[mn.sub], sq.armed || (sq.rec && sq.run) ? K_WARN : K_SEQC, t, IC_SEQ, SQP_N, mn.sub);
     seq_area();
     switch (mn.sub) {
@@ -504,6 +514,11 @@ static void draw_seq_page(void)
         seq_dials(l, v, f, K_SEQC);
         help("SELECT: BANK   ALGO RIGHT: DO THE ACTION");
         break;
+    case SQP_DRUM:
+        drum_dials(l, v, f);
+        seq_dials(l, v, f, K_SEQC);
+        help("SEL: STEP  EDIT: ON/OFF  ALGO RIGHT: MUTE");
+        break;
     default:
         l[0] = "ROW"; l[1] = "BANK"; l[2] = "REPEATS"; l[3] = "TRANSP";
         int_text(sp.song_cur + 1, v[0]); f[0] = (float)sp.song_cur / 15.0f;
@@ -520,6 +535,10 @@ static void draw_seq_page(void)
 /* hold SEQ: the 16 white keys as steps, the held step's values beside them */
 static void draw_seq_layer(void)
 {
+    if (mn.sub == SQP_DRUM) {
+        draw_drum_layer();
+        return;
+    }
     static const uint8_t WK[16] = PLAT_WHITE_KEYS;
     sq_bank_t *b = cur_bank();
     char t[48], u[8];
@@ -788,6 +807,10 @@ static void seq_encoders(void)
         if (e[3]) { sp.ms_shape = sp.ms_shape + (e[3] > 0 ? 1 : -1); sp.ms_shape = sp.ms_shape < 0 ? 0 : sp.ms_shape > 9 ? 9 : sp.ms_shape; ms_shape_apply(); }
         if (e[4]) { int v = sqs.ms_rate + (e[4] > 0 ? 1 : -1); sqs.ms_rate = (uint8_t)(v < 0 ? 0 : v > 6 ? 6 : v); }
         if (e[5]) { int v = sqs.ms_smooth[sp.ms_lane] + (int)e[5]; sqs.ms_smooth[sp.ms_lane] = (uint8_t)(v < 0 ? 0 : v > 100 ? 100 : v); ms_apply(); }
+        return;
+    }
+    if (mn.sub == SQP_DRUM) {                 /* the DRUM page: SELECT is its step (drumpages.c) */
+        drum_encoders(e);
         return;
     }
     if (e[0]) {                               /* SELECT: the sequencer's pages (update 39) */
@@ -1062,6 +1085,8 @@ static int seq_layer_keys(uint32_t keys, uint32_t prev)
     int w;
     if (!sp.layer)
         return 0;
+    if (mn.sub == SQP_DRUM)
+        return drum_layer_keys(keys, prev);
     for (w = 0; w < 16; w++) {
         uint32_t bit = 1u << WK[w];
         int i = sp.layer_page * 16 + w;
@@ -1090,6 +1115,10 @@ static void seq_layer_encoders(void)
 {
     sq_bank_t *b = cur_bank();
     int k;
+    if (mn.sub == SQP_DRUM) {
+        drum_layer_encoders();
+        return;
+    }
     for (k = 0; k < 4; k++) {
         int32_t e = plat_enc(EN_K1 + k);
         sq_step_t *s;

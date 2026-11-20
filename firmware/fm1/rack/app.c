@@ -57,6 +57,7 @@ static uint32_t in_btn;                       /* the buttons held this frame (th
 #include "ui_defs.h"
 #include "play.c"
 #include "seq.c"
+#include "drumrun.c"                         /* the drum sequencer (drum track, step 2) */
 
 static const char *module_name(int id)
 {
@@ -148,6 +149,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         midi_in();
     sq_block(n);                              /* the sequencer's and MSEQ's (seq.c; update 59: before pl_block moves
                                                  pl_now on, so its window is this block, not the next) */
+    dr_audio(n);                              /* the drums, on the sequencer's PLAY (drumrun.c) */
     pl_block(n);                              /* the arp's steps and the strums falling due */
     rc_render(lr, n, 8300000.0f);
     click_render(lr, n, 8300000.0f);          /* the click track and the count-in (seq.c, update 40) */
@@ -572,6 +574,7 @@ static void scope(int32_t w, int32_t h, uint16_t c)
 
 #include "frame.c"
 #include "seqpages.c"
+#include "drumpages.c"                       /* the DRUM page (drum track, step 2) */
 
 #define HOME_WY 184u                          /* HOME's bottom strip (the scope until update 38) */
 /* HOME's bottom strip (update 39: the scope is gone, as Josh asked): the tabs of what plays the keys besides the
@@ -1327,6 +1330,7 @@ void app_init(void)
     jam_defaults();                           /* JAM's settings are not kept across a power-up (update 28) */
     jam_init();
     sq_init();
+    dr_init();
     users_load();
     if (set.preset >= NPRESETS && !us.used[set.preset - NPRESETS])
         set.preset = 0;
@@ -1389,6 +1393,29 @@ int app_expect(const char *what, int *got)
     }
     if (same(what, "page") || same(what, "sub")) {   /* the menu's page (menus.c PG_*: 0 HOME, 8 AMP, 16 FILTER) and its page within */
         *got = same(what, "page") ? mn.page : mn.sub;
+        return 1;
+    }
+    if (same(what, "drum_run") || same(what, "drum_hits") || same(what, "drum_mute") || same(what, "drum_lane") || same(what, "drum_cursor") ||
+        same(what, "drum_cur") || same(what, "drum_snd") || same(what, "drum_on") || same(what, "drum_any") ||
+        same(what, "drum_force") || same(what, "drum_ratchet") || same(what, "drum_chance")) {   /* the drum track (sim_drum.txt) */
+        *got = same(what, "drum_run") ? dr.run : same(what, "drum_hits") ? (int)dr.hits : same(what, "drum_mute") ? dr.mute :
+               same(what, "drum_lane") ? dp.lane : same(what, "drum_cursor") ? dp.step : same(what, "drum_cur") ? dr.cur :
+               same(what, "drum_snd") ? rk_drum_status(0) : same(what, "drum_any") ? dr_any() :
+               same(what, "drum_force") ? (int)DRS_FORCE(dr_pat[dp.lane][dp.step]) : same(what, "drum_ratchet") ? DRS_RATCH(dr_pat[dp.lane][dp.step]) :
+               same(what, "drum_chance") ? (int)DR_CHANCE[DRS_CHANCE(dr_pat[dp.lane][dp.step])] : 0;
+        if (same(what, "drum_on")) {          /* steps on, all lanes */
+            int l, i;
+            for (l = 0; l < DR_LANES; l++)
+                for (i = 0; i < DR_STEPS; i++)
+                    *got += (dr_pat[l][i] & DRS_ON) != 0;
+        }
+        return 1;
+    }
+    if (what[0] == 'd' && what[1] == 'r' && what[2] == 'u' && what[3] == 'm' && what[4] == '_' && what[5] == 'c' && what[6] == 'n' && what[7] == 't' && what[8] >= '0' && what[8] <= '9') {
+        int n = 0, i = 8;                     /* drum_cntN: step N (from 0) of the lane on the page: 1 when on */
+        while (what[i] >= '0' && what[i] <= '9')
+            n = n * 10 + what[i++] - '0';
+        *got = n < DR_STEPS ? (dr_pat[dp.lane][n] & DRS_ON) != 0 : -1;
         return 1;
     }
     if (same(what, "seq_cursor")) {           /* the sequencer's step cursor (0 is the first step) */

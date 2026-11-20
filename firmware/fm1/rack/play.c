@@ -40,6 +40,7 @@ enum { PLE_KEY_ON = 16, PLE_KEY_OFF, PLE_ZONE, PLE_RESET, PLE_ARP_CLEAR, PLE_LAY
 static void sq_note_in(int raw, const uint8_t *notes, int n);
 static void sq_note_out(int raw);
 static void sq_clock_tick(void);
+static void dr_clock_tick(void);          /* the drum sequencer's (drumrun.c) */
 static void sq_reset_counts(void);
 static void ms_apply(void);
 #define CI(i) ((int)(set.sel[i] + 0.5f))
@@ -1225,6 +1226,7 @@ static void pl_clock_tick(void)
     if ((int32_t)(at - pl_now) < 0) at = pl_now;
     pl_tick_at = at;
     sq_clock_tick();
+    dr_clock_tick();
     if (GI(G_CLOCK) == 1 && st.on && st_style()) {   /* STYLE on MIDI clock: a step every 6 ticks (8: triplets) */
         if (!st.running) { st.running = 1; st.step = 0; st.ticks = 0; }
         if (st.ticks++ % (st_style()->div == 3 ? 8u : 6u) == 0u)

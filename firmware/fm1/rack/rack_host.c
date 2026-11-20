@@ -13,6 +13,7 @@
  *   8. the knob layer (update 18): the curve maths, and MACRO TEST's eight K1 targets (presets_macrotest.h).
  *   10. the filter's SWEEP (update 26): darker down, brighter up, the matrix's LFO on the cutoff still moves it.
  *   12. the drum voices (step 1 of the drum track, drum_check.c): bit-identical models, hits, cores, IF BUSY.
+ *   13. the drum sequencer (step 2, drumseq_check.c): hits on the steps at the tempo and the clock, MIDI out per lane, ratchet, nudge, chance, mute, idle.
  *   11. JAM's moves (update 28, jam.c): each changes its parameters while on and gives back exactly the preset's own values
  *       (HOLD and LATCH, and jam_clear), moves stack, the clocked ones follow the tempo, the velocity scales them.
  * Build and run: sh build_host.sh */
@@ -24,6 +25,8 @@
 #include "clouds_check.c"
 #include "fx_core2_check.c"
 #include "drum_check.c"
+#include "drumseq.c"
+#include "drumseq_check.c"
 #include "jam.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
@@ -192,6 +195,11 @@ int main(int argc, char **argv)
     }
     if (argc == 2 && !strcmp(argv[1], "--drums")) {   /* section 12 alone */
         drum_checks(argv[0], &fails);
+        printf(fails ? "%d FAILED\n" : "all passed\n", fails);
+        return fails != 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--dseq")) {    /* section 13 alone */
+        dseq_checks(&fails);
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);
         return fails != 0;
     }
@@ -610,6 +618,7 @@ int main(int argc, char **argv)
             fails++;
     }
     drum_checks(argv[0], &fails);   /* 12 (FM1 Phase 2 step 1: the drum voices) */
+    dseq_checks(&fails);            /* 13 (step 2: the drum sequencer) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }
