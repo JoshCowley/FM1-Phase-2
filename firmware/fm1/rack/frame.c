@@ -28,7 +28,15 @@ static void status_strip(void)
         cat(t, plat_cpu2_on() ? "2C " : plat_cpu2_gave_up() ? "1C* " : "1C ");
         cat(t, MODE_NAME[rc_patch.mode < 5 ? rc_patch.mode : 0]);
     }
-    cv_text(36, 0, &FONT_T, t, rc_heavy ? K_WARN : rc_shed_count ? K_GOLD : K_DIM);
+    if (jam_v[JV_ON] > 0.5f && !rc_heavy && !rc_shed_count) {   /* JAM (update 28): a gold tag where the voice mode is, brighter while a move is on */
+        int m, on = 0;
+        for (m = 0; m < JAM_NM; m++)
+            on |= jam_m[m].lvl > 0.0f;
+        cv_rect(35, 0, 29, 9, on ? K_GOLD : mix565(K_GOLD, K_BG, 90));
+        cv_text(39, 0, &FONT_T, "JAM", K_BG);
+    } else {
+        cv_text(36, 0, &FONT_T, t, rc_heavy ? K_WARN : rc_shed_count ? K_GOLD : K_DIM);
+    }
     cv_text(92, 0, &FONT_T, "CPU", cpu > 85u ? K_WARN : K_DIM);
     cv_rect(110, 4, 22, 2, K_FAINT);
     cv_rect(110, 4, (int32_t)(cpu > 100u ? 22u : cpu * 22u / 100u), 2, cpu > 85u ? K_WARN : cpu > 70u ? K_GOLD : K_OK);

@@ -23,10 +23,11 @@
  * home pick it while learning). On a module, AMP, LFO or OSC page, turning a parameter's knob links that macro to it
  * in the matrix (the first free row, or the row it already has) and the turn sets the amount. Tap HOME to finish. */
 #include "ui_defs.h"
+#include "jampage.c"
 static void entry_name(int e, char *t);
 
 enum { PG_HOME, PG_RACK, PG_SRC, PG_SHP, PG_MODA, PG_MODB, PG_FX1, PG_FX2, PG_AMP, PG_LFO, PG_MATRIX, PG_SEL, PG_GLO,
-       PG_ARP, PG_OSC, PG_SEQ, PG_MSEQ, PG_FLT };
+       PG_ARP, PG_OSC, PG_SEQ, PG_MSEQ, PG_FLT, PG_JAM };
 static int is_seq_page(int pg);               /* the sequencer's pages (seqpages.c) */
 static void seq_encoders(void);
 static void seq_delete(void);
@@ -56,6 +57,8 @@ static struct {
     float chord_mem;                          /* the chord type two taps on SEL turned off (what they turn back on) */
     uint32_t fx_at, fx_arm, fx_tap;           /* FX down (held: FX on/off armed), armed since, first tap of two */
     int fx_long;
+    uint32_t fx_dt;                           /* (update 28) FX tapped (a page), let go: a second tap within 0.3 s is JAM on / off */
+    int fx_pg, fx_sub, fx_second;             /* the page before that tap; this press came within 0.3 s of it */
     uint32_t glo_at, glo_tap;                 /* GLO down (held: DAYLIGHT on or off, update 55); let go, a 2nd tap may come */
     int glo_long, glo_n, glo_pg, glo_sub;     /* (update 56) its taps; the page before the first (two taps: back to it) */
     int mtab, hrow[4];                        /* the matrix hub's table (ALGORITHM): ROUTES ENV EDIT OSC; each one's row */                       /* LEARN on; the macro it links (0-3: M1-M4) */
@@ -83,7 +86,7 @@ static const ui_mod_t *ui_mod(int id)
 
 static int page_slot(int pg) { return pg >= PG_SRC && pg <= PG_FX2 ? pg - PG_SRC : pg == PG_AMP || pg == PG_OSC ? RS_AMP : pg == PG_LFO ? RS_LFO : pg == PG_FLT ? RS_GLO : -1; }
 static int pofs(int pg) { return pg == PG_OSC ? OSC_P0 : pg == PG_FLT ? FLT_P0 : 0; }   /* the page's first parameter in its slot */
-static int is_fixed(int pg) { return pg >= PG_SEL && pg <= PG_ARP; }
+static int is_fixed(int pg) { return (pg >= PG_SEL && pg <= PG_ARP) || pg == PG_JAM; }
 /* SEL's pages 3-5 (update 38: the MIDI controller pages, STYLE, LAYER MIDI CH, CHORD + ARP, moved from ARP) show
  * ARP's settings 3-5: the page whose values a fixed page shows */
 #define SEL_OWN 2                             /* SEL's own pages; ARP keeps 2 */
@@ -103,8 +106,8 @@ static int rhy_pi(int pg, int sub, int k)
         return -1;
     return A_R0 + g * 6 + (sub == RHY_PG ? 0 : 3) + k - 1;
 }
-static float *page_vals(int pg) { return pg == PG_GLO ? set.glo : pg == PG_SEL ? set.sel : pg == PG_ARP ? set.arp : 0; }
-static uint16_t fixed_colour(int pg) { return pg == PG_GLO ? K_GLO : pg == PG_SEL ? K_CHD : K_ARP; }
+static float *page_vals(int pg) { return pg == PG_GLO ? set.glo : pg == PG_SEL ? set.sel : pg == PG_ARP ? set.arp : pg == PG_JAM ? jam_v : 0; }
+static uint16_t fixed_colour(int pg) { return pg == PG_GLO ? K_GLO : pg == PG_SEL ? K_CHD : pg == PG_JAM ? K_FX : K_ARP; }
 static const ui_mod_t *page_mod(int pg)
 {
     if (pg == PG_GLO)
@@ -113,6 +116,8 @@ static const ui_mod_t *page_mod(int pg)
         return &UI_SEL;
     if (pg == PG_ARP)
         return &UI_ARP;
+    if (pg == PG_JAM)
+        return &UI_JAM;
     if (pg == PG_OSC)
         return &UI_OSC;
     if (pg == PG_AMP)
@@ -192,7 +197,7 @@ static void fmt(const ui_param_t *p, float v, char *t)
     if (p->t == UT_LIST) {
         if (i < p->lo) i = p->lo;
         if (i > p->hi) i = p->hi;
-        cat(t, UI_OPT[p->opt + i]);
+        cat(t, p->opt >= JAM_OPT_BASE ? JAM_OPT[p->opt - JAM_OPT_BASE + i] : UI_OPT[p->opt + i]);
     } else if (p->t == UT_INT) {
         int_text(i, t);
     } else if (p->t == UT_BIP) {
@@ -996,14 +1001,14 @@ static void draw_param_page(int pg)
                                          "RHYTHM", "RHYTHM CHANCE"},
                           *const AT[] = {"ARPEGGIATOR", "HOLD + TURING"};
         int ic = pg == PG_GLO ? (mn.sub == 3 ? IC_MIDI : mn.sub == 4 ? IC_OUT : IC_GLOBAL) : pg == PG_SEL ? (mn.sub ? IC_SCALE : IC_CHORD) : IC_ARP;
-        header(pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_GLO ? GT[mn.sub % 8] : pg == PG_SEL ? ST[mn.sub % 8] : AT[mn.sub & 1],
-               ic, npages(pg), mn.sub);
+        header(pg == PG_JAM ? "JAM" : pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_JAM ? JAM_PAGE[mn.sub % 7] : pg == PG_GLO ? GT[mn.sub % 8] : pg == PG_SEL ? ST[mn.sub % 8] : AT[mn.sub & 1],
+               pg == PG_JAM ? IC_KNOB : ic, npages(pg), mn.sub);
         page_well(pg);
         if (pg == PG_GLO && mn.sub == 5)
             system_cells(c);
         else
             fixed_controls(pg);
-        help(pg == PG_GLO && mn.sub == 5 ? "SELECT: PAGE   (MEASURED LIVE)" : rhy_pi(pg, mn.sub, 0) >= 0 ? "K1: GENERATOR   K2-K4: ITS VALUES" : pg == PG_ARP ? "SELECT: PAGE   K1-K4: VALUES"
+        help(pg == PG_GLO && mn.sub == 5 ? "SELECT: PAGE   (MEASURED LIVE)" : rhy_pi(pg, mn.sub, 0) >= 0 ? "K1: GENERATOR   K2-K4: ITS VALUES" : pg == PG_JAM ? "SELECT: PAGE   K1-K4: VALUES   FX FX: ON/OFF" : pg == PG_ARP ? "SELECT: PAGE   K1-K4: VALUES"
              : "SELECT: PAGE   K1-K4: VALUES");
         return;
     }
@@ -1407,6 +1412,35 @@ static void display_set(int day)
     ui.redraw = 1;
     settings_touch();
 }
+/* JAM on or off (update 28: the JAM page's ON, and a quick double tap on FX): every move ends, the keys held as moves stop being
+ * moves, the sound is the preset's own again */
+static void jam_end_all(void)
+{
+    ui.jkeys = 0;
+    if (!rc_push(PLE_JAM, 255, 0.0f, 0.0f))
+        ui.jam_owed |= 1u;                    /* (sent again, input()) */
+}
+static void jam_set_on(int on)
+{
+    char t[24] = "SPLIT KEY ";
+    jam_v[JV_ON] = on ? 1.0f : 0.0f;
+    jam_end_all();
+    if (on)
+        int_text((int32_t)(jam_v[JV_SPLIT] + 0.5f), t + 10);
+    app_say(on ? "JAM ON" : "JAM OFF", on ? t : "SOUND RESTORED");
+    ui.redraw = 1;
+}
+static void jam_changed(int pi, float old, float v)
+{
+    if (pi == JV_ON) {
+        if ((old > 0.5f) != (v > 0.5f)) {
+            jam_end_all();
+            ui.redraw = 1;
+        }
+    } else if (pi == JV_SPLIT || (pi >= JV_MV0 && (pi - JV_MV0) % 2 == 1)) {
+        jam_end_all();                        /* the keys' moves, or a move's HOLD / LATCH, changed: nothing is left on */
+    }
+}
 static void fixed_changed(int pg, int pi, float old, float v)
 {
     if (pg == PG_GLO) {
@@ -1424,6 +1458,8 @@ static void fixed_changed(int pg, int pi, float old, float v)
         } else if (pi >= G_LOW) {
             master_apply();
         }
+    } else if (pg == PG_JAM) {
+        jam_changed(pi, old, v);
     } else if (pg == PG_ARP && (pi == A_HOLD || (pi >= A_STYLE && pi <= A_CLEN) || (pi == A_MODE && ((old < 0.5f) != (v < 0.5f))))) {
         rc_push(PLE_ARP_CLEAR, 0, 0.0f, 0.0f);   /* the arp on or off, HOLD or a STYLE setting changed: start again
                                                   * from the keys held now (the layers' notes end first) */
@@ -1793,7 +1829,7 @@ static int menu_input(uint32_t press, uint32_t btn)
         }
         cp.oct_both = oc;
     }
-    static const uint8_t ENV_CYC[] = {PG_AMP, PG_FLT, PG_SHP}, LFO_CYC[] = {PG_MODA, PG_MODB, PG_LFO, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2};
+    static const uint8_t ENV_CYC[] = {PG_AMP, PG_FLT, PG_SHP}, LFO_CYC[] = {PG_MODA, PG_MODB, PG_LFO, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2, PG_JAM};
     static const uint8_t SRC_CYC[] = {PG_SRC, PG_OSC}, ARP_CYC[] = {PG_ARP}, SEL_CYC[] = {PG_SEL}, GLO_CYC[] = {PG_GLO};
     int32_t e;
     int k, both = (btn >> B_EDIT & 1u) && (btn >> B_SEL & 1u);
@@ -1854,19 +1890,31 @@ static int menu_input(uint32_t press, uint32_t btn)
                 mn.fx_tap = ms_stamp();
             }
         } else {
+            mn.fx_second = mn.fx_dt && plat_ms() - mn.fx_dt < EDIT_DOUBLE_MS;
+            mn.fx_dt = 0;
             mn.fx_at = ms_stamp();
             mn.fx_long = 0;
         }
     }
     if (mn.fx_at && (btn >> B_FX & 1u) && !mn.fx_long && plat_ms() - mn.fx_at >= HOLD_MS) {
         mn.fx_long = 1;
+        mn.fx_second = 0;
         mn.fx_arm = ms_stamp();
         app_say("FX ON/OFF", "TAP FX 1, TWO TAPS FX 2");
     }
     if (mn.fx_at && !(btn >> B_FX & 1u)) {
-        if (!mn.fx_long)
-            page_button(FX_CYC, 2);
-        else
+        if (!mn.fx_long && mn.fx_second) {    /* (update 28) a quick double tap: JAM on or off, back on the page the first tap left */
+            mn.fx_second = 0;
+            go(mn.fx_pg);
+            mn.sub = mn.fx_sub;
+            ui.clear = 1;
+            jam_set_on(jam_v[JV_ON] < 0.5f);
+        } else if (!mn.fx_long) {
+            mn.fx_pg = mn.page;
+            mn.fx_sub = mn.sub;
+            page_button(FX_CYC, 3);
+            mn.fx_dt = ms_stamp();            /* let go: a second tap may still come */
+        } else
             mn.fx_arm = ms_stamp();       /* the wait for the taps starts when it's let go */
         mn.fx_at = 0;
     }

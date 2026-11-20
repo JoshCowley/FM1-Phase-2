@@ -1,0 +1,268 @@
+# sim_jam (update 28): JAM mode. A quick double tap on FX turns it on and off from any page (the page you were on stays), the keys from the
+# SPLIT up are moves, the keys below still play notes, each move shows its name when its key fires, HOLD ends with the key, LATCH
+# on a second press; leaving JAM, a preset change and a new split all end the moves and give the sound back (the offset sent to the engine
+# 0 again); FX's other gestures are as they were (one tap FX 1, then FX 2, then the JAM page; hold FX and tap: FX 1, two taps FX 2).
+# (The numbers: jam_lvlN is move N's level x 100, jam_sweep the offset on the filter's SWEEP x 100; 0 means exactly the preset's own.)
+listen
+wait 500
+turn PRESET 1
+wait 700
+expect page 0
+expect jam_on 0
+# the keys are notes with JAM off, key 20 (a high key) too
+peakreset
+key 20 down 100
+wait 400
+expect peak_db_min -50
+key 20 up
+wait 600
+expect jam_moves 0
+# a quick double tap on FX, on HOME: JAM on, the page stays, the toast, the indicator
+tap FX
+wait 100
+tap FX
+wait 500
+expect jam_on 1
+expect page 0
+said JAM ON
+shot jam_on_home.png
+# below the split the keys still play (key 3), above it they do not (key 20 is TAPE STOP's and makes no note of its own)
+peakreset
+key 3 down 100
+wait 400
+expect peak_db_min -50
+expect jam_moves 0
+key 3 up
+wait 1500
+expect gates_on 0
+key 20 down 100
+wait 300
+said TAPE STOP
+expect jam_moves 1
+expect gates_on 0
+shot jam_tape_stop.png
+key 20 up
+wait 2500
+expect jam_moves 0
+# each key its own move: the name when it fires (HOLD)
+key 15 down 100
+wait 250
+said GRAIN DELAY
+key 15 up
+wait 1500
+key 16 down 100
+wait 250
+said STUTTER 1/8
+key 16 up
+wait 800
+key 17 down 100
+wait 250
+said STUTTER 1/16
+key 17 up
+wait 800
+key 18 down 100
+wait 250
+said STUTTER 1/32
+key 18 up
+wait 800
+key 19 down 100
+wait 250
+said REVERSE SCRUB
+key 19 up
+wait 1500
+key 21 down 100
+wait 250
+said WASH
+key 21 up
+wait 2500
+key 22 down 100
+wait 250
+said FREEZE PAD
+key 22 up
+wait 2500
+key 23 down 100
+wait 250
+said GLITCH
+key 23 up
+wait 800
+key 24 down 100
+wait 250
+said FILTER DIVE
+key 24 up
+wait 1500
+key 25 down 100
+wait 250
+said FILTER RISE
+key 25 up
+wait 1500
+key 26 down 100
+wait 250
+said CRUSH
+key 26 up
+wait 1500
+expect jam_moves 0
+# HOLD: FILTER DIVE closes the filter while the key is down (the SWEEP offset goes well below 0), and gives it back exactly when it is up
+key 24 down 100
+wait 1800
+expect jam_sweep <-40
+shot jam_dive.png
+key 24 up
+wait 100
+expect jam_sweep <0
+wait 2500
+expect jam_sweep 0
+expect jam_moves 0
+# stacking: DIVE and WASH together
+key 24 down 100
+key 21 down 100
+wait 1800
+expect jam_moves 2
+key 21 up
+key 24 up
+wait 3000
+expect jam_moves 0
+expect jam_sweep 0
+# the stutters follow the tempo: the level gate (jam_level_off) closes and opens while 1/16 is held
+key 17 down 120
+wait 1000
+expect jam_moves 1
+key 17 up
+wait 1500
+expect jam_level_off 0
+# the JAM page in the FX menu: FX taps go FX 1, FX 2, then JAM (WARM PAD: three, four, then the JAM pages)
+tap FX
+wait 500
+expect page 6
+tap FX
+wait 500
+tap FX
+wait 500
+tap FX
+wait 500
+expect page 7
+tap FX
+wait 500
+tap FX
+wait 500
+tap FX
+wait 500
+tap FX
+wait 500
+expect page 18
+shot jam_page0.png
+# SELECT turns its seven pages; page 4 (WASH + FREEZE): K2 is WASH's key: LATCH
+turn SELECT 4
+wait 300
+expect sub 4
+turn K2 1
+wait 300
+shot jam_page4.png
+# a quick double tap on FX on the JAM page: JAM off, back on the page before the first tap (JAM page, same sub)
+tap FX
+wait 100
+tap FX
+wait 500
+expect jam_on 0
+expect page 18
+expect sub 4
+said JAM OFF
+tap FX
+wait 100
+tap FX
+wait 500
+expect jam_on 1
+expect page 18
+# LATCH: WASH stays on after the key is up, a second press ends it
+key 21 down 100
+wait 200
+said LATCH ON
+key 21 up
+wait 1500
+expect jam_moves 1
+expect jam_lvl6 >40
+key 21 down 100
+wait 200
+said LATCH OFF
+key 21 up
+wait 3500
+expect jam_moves 0
+# leaving JAM with a move held: it ends at once and the keys are notes again; the preset's own sound
+key 24 down 100
+wait 1500
+expect jam_sweep <-40
+tap FX
+wait 100
+tap FX
+wait 500
+expect jam_on 0
+expect jam_moves 0
+expect jam_sweep 0
+key 24 up
+wait 300
+# a latched move and a preset change: the move ends, JAM stays on
+tap FX
+wait 100
+tap FX
+wait 500
+expect jam_on 1
+key 21 down 100
+wait 100
+key 21 up
+wait 1500
+expect jam_moves 1
+turn PRESET 1
+wait 1500
+expect jam_moves 0
+expect jam_sweep 0
+expect jam_on 1
+# a new split (page 0: K2): the moves end, key 15 is a note now
+turn SELECT -4
+wait 300
+expect sub 0
+key 24 down 100
+wait 800
+expect jam_moves 1
+turn K2 6
+wait 300
+expect jam_moves 0
+key 24 up
+wait 300
+peakreset
+key 17 down 100
+wait 400
+expect peak_db_min -50
+expect jam_moves 0
+key 17 up
+wait 800
+# a quick double tap from a deep page returns to it: ENV's AMP page
+tap ENV
+wait 500
+expect page 8
+tap FX
+wait 100
+tap FX
+wait 500
+expect page 8
+expect jam_on 0
+tap FX
+wait 100
+tap FX
+wait 500
+expect jam_on 1
+expect page 8
+# FX's other gestures: a tap (not two) opens FX 1 and the hold-and-tap FX on/off as before
+tap HOME
+wait 400
+tap FX
+wait 600
+expect jam_on 1
+press FX
+wait 800
+release FX
+wait 200
+tap FX
+wait 500
+said FX 1
+tap FX
+wait 600
+expect page 6

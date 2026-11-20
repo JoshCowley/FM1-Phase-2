@@ -11,7 +11,7 @@
  * the chorus, the reverb, the delay and, where it is loaded, Clouds.
  * A move ends exactly: its level snaps to 0 below 0.01, all the offsets are then 0 and the engine drops the layer
  * (the preset's sound again, sample for sample). HOLD: on while the key is down. LATCH: a press turns it on, the next off.
- * Amount (0-100 %) and the key's velocity scale a move. Clocked moves (the stutters, GLITCH, FILTER RISE) count 16ths
+ * Amount (0-100 %, 0 to 1 here) and the key's velocity scale a move. Clocked moves (the stutters, GLITCH, FILTER RISE) count 16ths
  * from the press, at the tempo or the MIDI clock's (the caller passes the frames in a 16th). */
 #include <stdint.h>
 
@@ -22,7 +22,7 @@ void rk_clear_jam(void);
 #define JAM_NM 12                             /* moves */
 #define JAM_NT 32                             /* targets */
 /* the settings the JAM page edits (floats: the page's own machinery): ON, SPLIT (the first key of the moves), then
- * each move's AMOUNT (0-100) and LATCH (0 HOLD, 1 LATCH) */
+ * each move's AMOUNT (0-1) and LATCH (0 HOLD, 1 LATCH) */
 enum { JV_ON, JV_SPLIT, JV_MV0, JV_N = JV_MV0 + 2 * JAM_NM };
 #define JV_AMT(m) (JV_MV0 + 2 * (m))
 #define JV_LAT(m) (JV_MV0 + 2 * (m) + 1)
@@ -66,7 +66,7 @@ static void jam_defaults(void)
         jam_v[m] = 0.0f;
     jam_v[JV_SPLIT] = 15.0f;                  /* 12 keys of 27 for the moves: the upper 12 */
     for (m = 0; m < JAM_NM; m++)
-        jam_v[JV_AMT(m)] = m == 6 || m == 7 ? 70.0f : 80.0f;
+        jam_v[JV_AMT(m)] = m == 6 || m == 7 ? 0.7f : 0.8f;
 }
 static void jam_init(void)                    /* once: the engine's table */
 {
@@ -86,6 +86,8 @@ static void jam_clear(void)                   /* every move ends now: the preset
         jam_m[m].on = 0;
     }
     jam_gcell = -1;
+    for (m = 0; m < JAM_NT; m++)
+        jam_off[m] = 0.0f;
     rk_clear_jam();
     jam_live = 0;
 }
@@ -215,7 +217,7 @@ static void jam_block(float dt, float f16, float n)
         if (s->lvl <= 0.0f)
             continue;
         v = 0.4f + 0.6f * (float)s->vel * (1.0f / 255.0f);
-        a = jam_v[JV_AMT(m)] * 0.01f * v;
+        a = jam_v[JV_AMT(m)] * v;
         jam_mv(m, s->lvl * a, s->lvl, s->age);
     }
     rk_set_jam_offsets(jam_off);

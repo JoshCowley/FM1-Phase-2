@@ -32,7 +32,8 @@ enum { VO_CLOSE, VO_LEAD, VO_OPEN, VO_INV1, VO_INV2, VO_OCT };
 enum { AM_OFF, AM_UP, AM_DOWN, AM_UPDN, AM_DNUP, AM_RANDOM, AM_ORDER, AM_CHORD, AM_REPEAT, AM_UP8, AM_CONV, AM_DIVG,
        AM_PINKY, AM_THUMB, AM_TURING };
 /* rack_core's queue: the play events (rc_do hands them to pl_event) */
-enum { PLE_KEY_ON = 16, PLE_KEY_OFF, PLE_ZONE, PLE_RESET, PLE_ARP_CLEAR, PLE_LAYER };   /* (ARP_CLEAR: STYLE starts afresh too) */
+enum { PLE_KEY_ON = 16, PLE_KEY_OFF, PLE_ZONE, PLE_RESET, PLE_ARP_CLEAR, PLE_LAYER, PLE_JAM };   /* (ARP_CLEAR: STYLE starts afresh too; PLE_JAM: a JAM move's key, a = the move (255: all end), x = 1 down / 0 up, y = velocity) */
+#include "jam.c"
 
 #define GI(i) ((int)(set.glo[i] + 0.5f))
 /* the sequencer's (seq.c, after this file) */
@@ -671,6 +672,7 @@ static void pl_reset(int all)                 /* the engine was reset (a preset 
             pl_raw[i].active = pl_raw[i].sus = 0;
     }
     st.hbass = -1;
+    jam_clear();                              /* JAM's moves end with the preset (or the panic) */
     if (all) {
         st.on = 0;
         st.running = 0;
@@ -1258,6 +1260,13 @@ static void pl_watchdog(void)
     pl_wd_fired++;
     rk_all_off();
 }
+/* frames in a 16th: the internal tempo's, or the MIDI clock's six ticks (as step_frames) */
+static float jam_f16(void)
+{
+    if (GI(G_CLOCK) == 1 && pa.tick_frames > 0.0f)
+        return (ck.lock ? ck.per : pa.tick_frames) * 6.0f;
+    return 15.0f / tempo_bpm() * PL_HZ;
+}
 static void pl_block(uint32_t n)
 {
     uint32_t end = pl_now + n;
@@ -1265,6 +1274,7 @@ static void pl_block(uint32_t n)
     if (rc_audio.pause_req)
         return;
     pl_watchdog();
+    jam_block((float)n / PL_HZ, jam_f16(), (float)n);   /* JAM's moves: the offsets for this block */
     if (AI(A_MODE) != AM_OFF && pa.count && GI(G_CLOCK) != 1) {
         float d = step_frames();
         if (!pa.running || (int32_t)(pa.next_at - pl_now) < -(int32_t)d) {
@@ -1352,6 +1362,11 @@ static void pl_event(int type, int a, float x, float y)
         style_refresh(1);
         break;
     case PLE_LAYER: lay_cut(a, (int)x); break;   /* a layer switched off: its notes end now */
+    case PLE_JAM:
+        if (a == 255) jam_clear();
+        else if (x > 0.5f) jam_press(a, (int)(y * 127.0f + 0.5f));
+        else jam_release(a);
+        break;
     case RCE_ALL_OFF: pl_reset(1); break;
     }
 }

@@ -680,9 +680,25 @@ static void vis_display(uint16_t c)
     }
 }
 
+static void vis_jam(uint16_t c)               /* JAM: the twelve moves, each its level now; the amount a tick, a gold dot where it latches */
+{
+    int i;
+    for (i = 0; i < JAM_NM; i++) {
+        int32_t x = 6 + i * 18, h = (int32_t)(jam_level(i) * 30.0f + 0.5f), ah = (int32_t)(jam_v[JV_AMT(i)] * 30.0f + 0.5f);
+        uint16_t col = jam_v[JV_ON] > 0.5f ? c : K_DIM;
+        cv_rect(x, 6, 14, 30, mix565(K_FAINT, K_WELL, 100));
+        if (h > 0)
+            cv_rect(x, 36 - h, 14, h, col);
+        cv_rect(x, 36 - ah, 14, 1, K_FG);
+        if (jam_v[JV_LAT(i)] > 0.5f)
+            cv_rect(x + 5, 38, 4, 2, K_GOLD);
+    }
+}
 static void vis_fixed(int pg, int sub, uint16_t c)
 {
-    if (pg == PG_SEL && sub == 5) {           /* FEEL (update 43): a chord's notes, strummed and humanised */
+    if (pg == PG_JAM) {
+        vis_jam(c);
+    } else if (pg == PG_SEL && sub == 5) {           /* FEEL (update 43): a chord's notes, strummed and humanised */
         vis_feel(c);
     } else if (pg == PG_SEL && sub >= 6) {    /* RHYTHM (update 48): the three generators as rings */
         vis_rhythm(c, sub);

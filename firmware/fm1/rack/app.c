@@ -211,6 +211,9 @@ static struct {
     int redraw, clear;
     uint32_t zkeys;                           /* the keys held as SEL's zone keys */
     uint32_t pkeys;                           /* the keys sounding (not the layer's steps) */
+    uint32_t jkeys;                           /* the keys held as JAM's moves (update 28) */
+    uint32_t jowed;                           /* ...a move's key-up the queue refused (sent again) */
+    uint8_t jam_owed;                         /* bit 0: JAM's "all moves end" the queue refused */
 } ui;
 static int cur_entry;                         /* the preset playing: < NPRESETS a factory one, else user slot - NPRESETS */
 
@@ -838,7 +841,7 @@ static uint32_t page_leds(void)
     case PG_SRC: case PG_OSC: return 1u << B_EDIT;
     case PG_SHP: case PG_AMP: case PG_FLT: return 1u << B_ENV;
     case PG_MODA: case PG_MODB: case PG_LFO: return 1u << B_LFO;
-    case PG_FX1: case PG_FX2: return 1u << B_FX;
+    case PG_FX1: case PG_FX2: case PG_JAM: return 1u << B_FX;
     case PG_ARP: return 1u << B_ARP;
     case PG_MATRIX: return 1u << B_LFO;
     case PG_SEL: return 1u << B_SEL;
@@ -972,6 +975,13 @@ static int key_push(int type, int k, float x)
 #endif
     return rc_push(type, type == PLE_ZONE ? k : PL_RAW_KEY + k, x, 0.0f);
 }
+/* JAM: the keys from the split up play the moves, in order, round again if there are more keys than moves */
+static int jam_key(uint32_t k) { return jam_v[JV_ON] > 0.5f && (int)k >= (int)(jam_v[JV_SPLIT] + 0.5f); }
+static int jam_move_of(uint32_t k)
+{
+    int d = (int)k - (int)(jam_v[JV_SPLIT] + 0.5f);
+    return (d < 0 ? 0 : d) % JAM_NM;
+}
 static void input(void)
 {
     uint32_t keys, btn = plat_buttons(), press = btn & ~ui.btn, k;
@@ -1003,6 +1013,12 @@ static void input(void)
     touch_poll();
     keys = touch_keys();
     seq_layer_keys(keys, ui.keys);            /* holding SEQ: the white keys are steps (seqpages.c) */
+    if (ui.jam_owed & 1u && rc_push(PLE_JAM, 255, 0.0f, 0.0f))   /* JAM: the same for "every move ends" and a move's key-up */
+        ui.jam_owed &= (uint8_t)~1u;
+    if (ui.jowed)
+        for (k = 0; k < NKEYS; k++)
+            if ((ui.jowed >> k & 1u) && ((keys >> k & 1u) || rc_push(PLE_JAM, jam_move_of(k), 0.0f, 0.0f)))
+                ui.jowed &= ~(1u << k);
     if (key_owed | key_owed_z)                /* a key-up the queue refused (full): sent again until it takes it */
         for (k = 0; k < NKEYS; k++) {
             uint32_t bit = 1u << k;
@@ -1022,6 +1038,12 @@ static void input(void)
             if (k < 7u && (zone_on() || zone_bass())) {        /* SEL > ZONE: the lowest keys change the chord */
                 ui.zkeys |= bit;
                 rc_push(PLE_ZONE, (int)k, 1.0f, 0.0f);
+            } else if (jam_key(k)) {              /* JAM (update 28): the keys above the split are moves, not notes */
+                int m = jam_move_of(k);
+                const char *how = jam_v[JV_LAT(m)] > 0.5f ? (jam_active(m) && (jam_m[m].on & 2u) ? "LATCH OFF" : "LATCH ON") : "HOLD";
+                ui.jkeys |= bit;
+                rc_push(PLE_JAM, m, 1.0f, (float)v / 127.0f);
+                app_say(JAM_NAME[m], how);
             } else {
                 rc_push(PLE_KEY_ON, PL_RAW_KEY + (int)k, (float)note, (float)v / 127.0f);
             }
@@ -1031,6 +1053,10 @@ static void input(void)
                 ui.zkeys &= ~bit;
                 if (!key_push(PLE_ZONE, (int)k, 0.0f))
                     key_owed_z |= bit;
+            } else if (ui.jkeys & bit) {
+                ui.jkeys &= ~bit;
+                if (!rc_push(PLE_JAM, jam_move_of(k), 0.0f, 0.0f))
+                    ui.jowed |= bit;
             } else if (!key_push(PLE_KEY_OFF, (int)k, 0.0f)) {
                 key_owed |= bit;
             }
@@ -1298,6 +1324,8 @@ void app_init(void)
         if (!(set.arp[i] >= (float)UP_ARP[i].lo && set.arp[i] <= (float)UP_ARP[i].hi)) set.arp[i] = UP_ARP[i].def;
     set.glo[G_VOICES] = (float)set.voices;
     rc_ext = pl_event;
+    jam_defaults();                           /* JAM's settings are not kept across a power-up (update 28) */
+    jam_init();
     sq_init();
     users_load();
     if (set.preset >= NPRESETS && !us.used[set.preset - NPRESETS])
@@ -1323,6 +1351,32 @@ int app_expect(const char *what, int *got)
     if (same(what, "flt_sweep") || same(what, "flt_cutoff")) {   /* the filter's SWEEP / CUTOFF x 100 (update 26, sim_sweep.txt) */
         float v = rk_get_param(RS_GLO, same(what, "flt_sweep") ? FLT_SWEEP : FLT_P0 + 1) * 100.0f;
         *got = (int)(v < 0.0f ? v - 0.5f : v + 0.5f);
+        return 1;
+    }
+    if (same(what, "jam_on")) {               /* JAM (update 28, sim_jam.txt): on, the moves running, a move's level x 100, the offset sent for the SWEEP x 100 */
+        *got = jam_v[JV_ON] > 0.5f;
+        return 1;
+    }
+    if (same(what, "jam_moves")) {
+        int m, n = 0;
+        for (m = 0; m < JAM_NM; m++)
+            n += jam_m[m].lvl > 0.0f;
+        *got = n;
+        return 1;
+    }
+    if (what[0] == 'j' && what[1] == 'a' && what[2] == 'm' && what[3] == '_' && what[4] == 'l' && what[5] == 'v' && what[6] == 'l') {
+        int n = 0, i = 7;                     /* jam_lvlN: move N's level x 100 (N from 0) */
+        while (what[i] >= '0' && what[i] <= '9')
+            n = n * 10 + what[i++] - '0';
+        *got = n < JAM_NM ? (int)(jam_m[n].lvl * 100.0f + 0.5f) : -1;
+        return 1;
+    }
+    if (same(what, "jam_sweep")) {
+        *got = (int)(jam_off[T_SWEEP] * 100.0f + (jam_off[T_SWEEP] < 0.0f ? -0.5f : 0.5f));
+        return 1;
+    }
+    if (same(what, "jam_level_off")) {        /* the VOICES' LEVEL offset x 100 (the stutters' gate) */
+        *got = (int)(jam_off[T_LEVEL] * 100.0f + (jam_off[T_LEVEL] < 0.0f ? -0.5f : 0.5f));
         return 1;
     }
     if (same(what, "entry")) {                /* the preset playing: 0-45 factory, 46 and on user slots */
