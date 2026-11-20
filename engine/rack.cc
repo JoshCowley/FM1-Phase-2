@@ -997,11 +997,26 @@ EXPORT void set_voices(int n) {
   nvoices_ = n;
 }
 
+// mono: the keys held, oldest first, so letting go of the newest goes back to the one held before it
+#define MONO_STACK 16
+static float mono_note_[MONO_STACK], mono_vel_[MONO_STACK]; static int mono_n_ = 0;
+static void mono_drop(float note) {
+  int j = 0;
+  for (int i = 0; i < mono_n_; ++i) if (fabsf(mono_note_[i] - note) >= 0.01f) { mono_note_[j] = mono_note_[i]; mono_vel_[j] = mono_vel_[i]; ++j; }
+  mono_n_ = j;
+}
+static void mono_push(float note, float vel) {
+  mono_drop(note);
+  if (mono_n_ == MONO_STACK) { for (int i = 1; i < MONO_STACK; ++i) { mono_note_[i - 1] = mono_note_[i]; mono_vel_[i - 1] = mono_vel_[i]; } --mono_n_; }
+  mono_note_[mono_n_] = note; mono_vel_[mono_n_] = vel; ++mono_n_;
+}
+
 EXPORT void note_on(float note, float vel) {
   any_gate_ = true;
   int nv = shrink_to_ ? shrink_to_ : nvoices_;
   if (nv == 1) {
     VoiceState& v = vs_[0];
+    mono_push(note, vel);
     bool legato = v.gate && legato_;
     v.note = note; v.vel = vel; v.gate = true; v.active = true;   // one voice: the attack goes on from where it is
     if (!legato) { v.retrig = true; v.stage = 1; v.rnd = randf() * 2.0f - 1.0f; }
@@ -1027,11 +1042,24 @@ EXPORT void note_on(float note, float vel) {
 EXPORT void reset_clock() { clk_reset(); }
 
 EXPORT void note_off(float note) {
+  int nv = shrink_to_ ? shrink_to_ : nvoices_;
+  if (nv == 1 && mono_n_ > 0) {   // mono: let go of the note playing and a key still held takes over (the last one pressed)
+    bool was_top = fabsf(mono_note_[mono_n_ - 1] - note) < 0.01f;
+    mono_drop(note);
+    VoiceState& v = vs_[0];
+    if (was_top && mono_n_ > 0 && v.gate && fabsf(v.note - note) < 0.01f) {
+      v.note = mono_note_[mono_n_ - 1];
+      if (!legato_) { v.vel = mono_vel_[mono_n_ - 1]; v.retrig = true; v.stage = 1; v.rnd = randf() * 2.0f - 1.0f; }
+      v.age = ++age_counter_;
+      return;   // the gate stays on: the held note plays (gliding there if GLIDE is up)
+    }
+    if (mono_n_ > 0 && !was_top) return;   // a held key underneath let go: the note playing goes on
+  }
   for (int i = 0; i < MAXV; ++i) if (vs_[i].gate && fabsf(vs_[i].note - note) < 0.01f) { vs_[i].gate = false; if (vs_[i].stage != 7) vs_[i].stage = 4; }
   any_gate_ = false;
   for (int i = 0; i < nvoices_; ++i) if (vs_[i].gate) any_gate_ = true;
 }
-EXPORT void all_off() { for (int i = 0; i < MAXV; ++i) { vs_[i].gate = false; if (vs_[i].stage) vs_[i].stage = 4; } any_gate_ = false; }
+EXPORT void all_off() { mono_n_ = 0; for (int i = 0; i < MAXV; ++i) { vs_[i].gate = false; if (vs_[i].stage) vs_[i].stage = 4; } any_gate_ = false; }
 
 static void master_reset();
 EXPORT void init() {
