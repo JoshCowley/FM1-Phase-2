@@ -19,10 +19,14 @@ void rk_set_macro(int i, float v) { set_macro(i, v); }
 void rk_set_macro_glide(int i, float v) { set_macro_glide(i, v); }
 void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve) { set_macro_target(k, idx, slot, param, depth, start, end, curve); }
 void rk_clear_macro_targets(void) { clear_macro_targets(); }
+void rk_set_jam_table(const uint8_t *pairs, int n) { set_jam_table(pairs, n); }
+void rk_set_jam_offsets(const float *o) { set_jam_offsets(o); }
+void rk_clear_jam(void) { clear_jam(); }
 int rk_get_macro_target(int k, int idx, int *out) { return get_macro_target(k, idx, out); }
 float rk_macro_curve(float k, int start, int end, int curve) { return macro_curve(k, start, end, curve); }
 #ifdef TEST
 float rk_eff_param(int slot, int param) { return eff_param(slot, param); }
+float rk_eff_param_nojam(int slot, int param) { return eff_param_nojam(slot, param); }
 #endif
 void rk_set_master(float v) { set_master(v); }
 void rk_set_master_fx(float lo, float mid, float hi, float comp) { set_master_fx(lo, mid, hi, comp); }

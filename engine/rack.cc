@@ -153,6 +153,7 @@ static MTgt mt_[4 * MK_N];
 static float mo_[4 * MK_N];          // each target's offset now (parameter span fractions; a row target: amount)
 static float rowoff_[NROUTE];        // the sum of the row targets, per row
 static uint8_t mdirty_;              // knobs whose offsets are out of date
+static void jam_routed_bits();       // JAM mode's layer (below): its targets' bits
 static void routed_rebuild() {
   memset(routed_, 0, sizeof(routed_));
   for (int i = 0; i < NROUTE; ++i) {
@@ -163,6 +164,7 @@ static void routed_rebuild() {
     const MTgt& t = mt_[j];
     if (t.depth && t.slot >= -1 && t.slot < NSLOT && t.param < 32) routed_[t.slot + 1] |= 1u << t.param;
   }
+  jam_routed_bits();
 }
 // the response of a target to the knob at k (0..1): 0 linear, 1 slow start, 2 fast start, 3 step (at start), 4 smooth
 static float macro_curve_(float k, int start, int end, int curve) {
@@ -547,6 +549,48 @@ static float source_value(int s, const VoiceState* v) {
   }
 }
 
+// JAM mode (FM1 Phase 2, 20 Nov 2026): a layer of offsets on top of the preset, like the knob layer's: the player's moves
+// (jam.c) set one offset per target each block; never written into the preset's own values, so all zero is the preset
+// exactly (jam_on_ false: nothing here runs). A target is a pair in the firmware's flash (jt_): a slot (255: the voice's
+// pitch, -1) or, from 30 up, a module id (the FX slot that holds it), and a parameter. Offsets add to the modulation
+// sum, in parameter span fractions (the pitch: octaves), before the parameter's own range clamps them.
+static const int JN_MAX = 32;
+static const uint8_t* jt_ = 0;
+static int jn_ = 0;
+static float jo_[JN_MAX];
+static bool jam_on_ = false;
+static inline bool jam_hit(int i, int slot, int param) {
+  int s = jt_[2 * i];
+  if (jt_[2 * i + 1] != param) return false;
+  if (s == 255) return slot == -1;
+  if (s >= 30) return (slot == S_FX1 || slot == S_FX2) && mod_id_[slot] == s;
+  return s == slot;
+}
+static float jam_sum(int slot, int param) {
+  float m = 0.0f;
+  for (int i = 0; i < jn_; ++i) if (jo_[i] != 0.0f && jam_hit(i, slot, param)) m += jo_[i];
+  return m;
+}
+static void jam_routed_bits() {
+  if (!jam_on_) return;
+  for (int i = 0; i < jn_; ++i) {
+    if (jo_[i] == 0.0f) continue;
+    int s = jt_[2 * i], p = jt_[2 * i + 1];
+    if (p >= 32) continue;
+    if (s == 255) routed_[0] |= 1u << p;
+    else if (s >= 30) { for (int f = S_FX1; f <= S_FX2; ++f) if (mod_id_[f] == s) routed_[f + 1] |= 1u << p; }
+    else if (s < NSLOT) routed_[s + 1] |= 1u << p;
+  }
+}
+EXPORT void set_jam_table(const uint8_t* pairs, int n) { jt_ = pairs; jn_ = n < 0 ? 0 : n > JN_MAX ? JN_MAX : n; memset(jo_, 0, sizeof(jo_)); jam_on_ = false; routed_rebuild(); }
+// all the offsets at once (once a block while a move is on or has just ended); all zero: the layer is off again
+EXPORT void set_jam_offsets(const float* o) {
+  bool any = false;
+  for (int i = 0; i < jn_; ++i) { jo_[i] = o[i]; if (o[i] != 0.0f) any = true; }
+  if (any || jam_on_) { jam_on_ = any; routed_rebuild(); }
+}
+EXPORT void clear_jam() { memset(jo_, 0, sizeof(jo_)); if (jam_on_) { jam_on_ = false; routed_rebuild(); } }
+
 static float mod_sum(int slot, int param, const VoiceState* v) {
   if (slot >= -1 && slot < NSLOT && param >= 0 && param < 32 && !(routed_[slot + 1] >> param & 1u)) return 0.0f;
   float m = 0.0f;
@@ -559,6 +603,7 @@ static float mod_sum(int slot, int param, const VoiceState* v) {
   }
   for (int j = 0; j < 4 * MK_N; ++j)
     if (mt_[j].slot == slot && mt_[j].param == param && mt_[j].depth) m += mo_[j];
+  if (jam_on_) m += jam_sum(slot, param);
   return m;
 }
 
@@ -636,6 +681,7 @@ EXPORT int get_macro_target(int k, int idx, int* out) {
 EXPORT float macro_curve(float k, int start, int end, int curve) { return macro_curve_(k, start, end, curve); }
 #ifdef TEST
 EXPORT float eff_param(int slot, int param) { macro_update(); return P(slot, param, 0); }   // a parameter as the voices hear it (host checks)
+EXPORT float eff_param_nojam(int slot, int param) { bool j = jam_on_; jam_on_ = false; macro_update(); float v = P(slot, param, 0); jam_on_ = j; return v; }   // the same without JAM's layer: what the preset alone gives at this moment
 #endif
 // the offsets of the knobs that moved: at most 32 evaluations, once per block, only while a knob is moving
 static void macro_update() {
@@ -1105,6 +1151,7 @@ EXPORT void init() {
   for (int k = 0; k < 2; ++k) { peaks_lfo_[k].Init(); peaks_env_[k].Init(); tides_[k].Init(); tap_period_[k] = 0.5f; }
   for (int i = 0; i < NROUTE; ++i) routes_[i].src = SR_NONE;
   memset(mt_, 0, sizeof(mt_)); memset(mo_, 0, sizeof(mo_)); memset(rowoff_, 0, sizeof(rowoff_)); mdirty_ = 0;
+  memset(jo_, 0, sizeof(jo_)); jam_on_ = false;   // (JAM's layer: the moves end with the preset)
   routed_rebuild();
 #ifndef RACK_LITE
   marbles_rng_.Init(0x2357bd1);

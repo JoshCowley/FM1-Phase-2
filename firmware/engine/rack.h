@@ -33,10 +33,14 @@ void set_macro(int i, float v);
 void set_macro_glide(int i, float v);   // the same, reached over a few ms
 void set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve);   // knob k's target idx (0-7): a parameter (slot -1..8) or, slot 9, a row's depth; depth, start, end in percent; curve 0-4
 void clear_macro_targets();
+void set_jam_table(const uint8_t* pairs, int n);
+void set_jam_offsets(const float* o);
+void clear_jam();
 int get_macro_target(int k, int idx, int* out);   // out[0] slot, [1] param, [2] start, [3] end, [4] curve; returns the depth (0: none)
 float macro_curve(float k, int start, int end, int curve);
 #ifdef TEST
-float eff_param(int slot, int param);   // a parameter as the voices hear it (host checks only)
+float eff_param(int slot, int param);
+float eff_param_nojam(int slot, int param);   // a parameter as the voices hear it (host checks only)
 #endif
 void set_master(float v);
 void set_master_fx(float low_db, float mid_db, float high_db, float comp);

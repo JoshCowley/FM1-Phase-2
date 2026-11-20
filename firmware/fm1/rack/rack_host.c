@@ -12,6 +12,8 @@
  *   7. CLOUDS on the second core (update 9, RACK_FX_CORE2): the same sound as one core, a block late (fx_core2_check.c).
  *   8. the knob layer (update 18): the curve maths, and MACRO TEST's eight K1 targets (presets_macrotest.h).
  *   10. the filter's SWEEP (update 26): darker down, brighter up, the matrix's LFO on the cutoff still moves it.
+ *   11. JAM's moves (update 28, jam.c): each changes its parameters while on and gives back exactly the preset's own values
+ *       (HOLD and LATCH, and jam_clear), moves stack, the clocked ones follow the tempo, the velocity scales them.
  * Build and run: sh build_host.sh */
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,11 +22,13 @@
 #include "rack_core.c"
 #include "clouds_check.c"
 #include "fx_core2_check.c"
+#include "jam.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
 #include "presets_full.h"
 #include "presets_macrotest.h"
 float rk_eff_param(int slot, int param);
+float rk_eff_param_nojam(int slot, int param);
 
 static void run_full(const full_op_t *o, int n)
 {
@@ -486,6 +490,110 @@ int main(int argc, char **argv)
         }
         printf("10 filter SWEEP: darker down, brighter up, an open filter transparent, the matrix still moves the cutoff: %d wrong\n", bad10);
         if (bad10)
+            fails++;
+    }
+    /* 11: JAM's moves (update 28). Three presets (chorus + reverb, Clouds + reverb, a delay): each of the 12 moves changes at least one
+     * of the 32 targets while on, and, once let go (HOLD), pressed again (LATCH) or cleared, every target is exactly the preset's own
+     * value again (the targets as the voices hear them: rk_eff_param; the pitch, which has no such reader, is not in it). Two moves
+     * together add up; the stutters' gate follows the tempo (twice the tempo, twice the cycles; 1/8 half, 1/32 double a 1/16's);
+     * the velocity scales a move. A block is 1 ms (48 frames at 48 kHz); a 16th at 120 bpm is 6000 frames */
+    {
+        int bad11 = 0, pi, mvi, nchk = 0;
+        const char *PN11[3] = {"WARM PAD", "TIDE PAD", 0};
+        int pk11[3] = {-1, -1, -1}, j, t;
+        float base[JAM_NT], cur[JAM_NT];
+#define J11_TARGETS(out) do { for (t = 0; t < JAM_NT; t++) { int s_ = JAM_TAB[2 * t], p_ = JAM_TAB[2 * t + 1], sl_ = s_ == 255 ? -1 : s_ >= 30 ? (rc_patch.mod[4] == s_ ? 4 : rc_patch.mod[5] == s_ ? 5 : -1) : s_; \
+            (out)[t] = sl_ < 0 ? 0.0f : rk_eff_param(sl_, p_); } } while (0)
+#define J11_BASE(out) do { for (t = 0; t < JAM_NT; t++) { int s_ = JAM_TAB[2 * t], p_ = JAM_TAB[2 * t + 1], sl_ = s_ == 255 ? -1 : s_ >= 30 ? (rc_patch.mod[4] == s_ ? 4 : rc_patch.mod[5] == s_ ? 5 : -1) : s_; \
+            (out)[t] = sl_ < 0 ? 0.0f : rk_eff_param_nojam(sl_, p_); } } while (0)
+#define J11_RUN(nb, f16) do { for (j = 0; j < (nb); j++) { jam_block(0.001f, (f16), 48.0f); rk_render(48); } } while (0)
+        for (k = 0; k < NPRESETS; k++) {
+            int a, d = 0;
+            for (a = 0; a < 2; a++) if (!strcmp(PRESETS[k].name, PN11[a])) pk11[a] = k;
+            if (pk11[2] < 0) {   /* the first preset with a delay */
+                rk_seed(0x21u); rc_pause(); rc_load(k); rc_resume();
+                d = rc_patch.mod[4] == 31 || rc_patch.mod[5] == 31;
+                if (d) pk11[2] = k;
+            }
+        }
+        for (pi = 0; pi < 3; pi++) {
+            if (pk11[pi] < 0) { bad11++; printf("11 preset %d not found\n", pi); continue; }
+            for (mvi = 0; mvi < JAM_NM; mvi++) {
+                int latch, moved, ex = 0;
+                for (latch = 0; latch < 3; latch++) {   /* 0 HOLD, 1 LATCH, 2 cleared while on */
+                    float mx = 0.0f;
+                    rk_seed(0x21u); rc_pause(); rc_load(pk11[pi]); rc_resume();
+                    rc_note_on(60, 0.8f); rc_note_on(64, 0.8f); rc_note_on(67, 0.8f);
+                    for (j = 0; j < 200; j++) rk_render(48);
+                    jam_defaults(); jam_init(); jam_clear();
+                    jam_v[JV_LAT(mvi)] = latch == 1 ? 1.0f : 0.0f;
+                    J11_TARGETS(cur); J11_BASE(base);
+                    jam_press(mvi, 100);
+                    for (j = 0; j < 2000; j++) {
+                        jam_block(0.001f, 6000.0f, 48.0f); rk_render(48);
+                        J11_TARGETS(cur); J11_BASE(base);
+                        for (t = 0; t < JAM_NT; t++) if (fabsf(cur[t] - base[t]) > mx) mx = fabsf(cur[t] - base[t]);
+                    }
+                    moved = mx > 1e-4f;
+                    if (latch == 0) jam_release(mvi);
+                    else if (latch == 1) { jam_release(mvi); J11_RUN(1000, 6000.0f); J11_TARGETS(cur); J11_BASE(base); mx = 0; for (t = 0; t < JAM_NT; t++) if (fabsf(cur[t] - base[t]) > mx) mx = fabsf(cur[t] - base[t]); if (!(mx > 1e-4f) && mvi != 1 && mvi != 2 && mvi != 3 && mvi != 8) { bad11++; printf("11 %s %s: LATCH let go of the key, the move ended\n", PRESETS[pk11[pi]].name, JAM_NAME[mvi]); } jam_press(mvi, 100); }
+                    else jam_clear();
+                    J11_RUN(5000, 6000.0f);
+                    J11_TARGETS(cur); J11_BASE(base);
+                    for (t = 0; t < JAM_NT; t++) if (cur[t] != base[t]) { ex++; if (ex < 3) printf("11 %s %s (%s): target %d is %g, was %g\n", PRESETS[pk11[pi]].name, JAM_NAME[mvi], latch == 0 ? "hold" : latch == 1 ? "latch" : "clear", t, cur[t], base[t]); }
+                    if (!moved) { bad11++; printf("11 %s %s (%s): nothing changed while on\n", PRESETS[pk11[pi]].name, JAM_NAME[mvi], latch == 0 ? "hold" : latch == 1 ? "latch" : "clear"); }
+                    nchk++;
+                }
+                if (ex) bad11++;
+            }
+        }
+        {   /* stacking and velocity: WASH (6) and FILTER DIVE (9) on the SWEEP, WARM PAD */
+            float d6, d9, d69, dlo, dhi, b0;
+            (void)b0;
+            rk_seed(0x21u); rc_pause(); rc_load(pk11[0]); rc_resume();
+            rc_note_on(60, 0.8f);
+            jam_defaults(); jam_init(); jam_clear();
+            J11_TARGETS(cur); J11_BASE(base); b0 = 0;
+            jam_press(6, 100); J11_RUN(5000, 6000.0f); J11_TARGETS(cur); J11_BASE(base); d6 = cur[T_SWEEP] - base[T_SWEEP]; jam_release(6); J11_RUN(5000, 6000.0f);
+            jam_press(9, 100); J11_RUN(5000, 6000.0f); J11_TARGETS(cur); J11_BASE(base); d9 = cur[T_SWEEP] - base[T_SWEEP]; jam_release(9); J11_RUN(5000, 6000.0f);
+            jam_press(6, 100); jam_press(9, 100); J11_RUN(5000, 6000.0f); J11_TARGETS(cur); J11_BASE(base); d69 = cur[T_SWEEP] - base[T_SWEEP];
+            jam_release(6); jam_release(9); J11_RUN(5000, 6000.0f);
+            jam_press(6, 20); J11_RUN(5000, 6000.0f); J11_TARGETS(cur); J11_BASE(base); dlo = cur[T_SWEEP] - base[T_SWEEP]; jam_release(6); J11_RUN(5000, 6000.0f);
+            jam_press(6, 127); J11_RUN(5000, 6000.0f); J11_TARGETS(cur); J11_BASE(base); dhi = cur[T_SWEEP] - base[T_SWEEP]; jam_release(6); J11_RUN(5000, 6000.0f);
+            J11_TARGETS(cur); J11_BASE(base);
+            printf("11 stack: SWEEP offset WASH %.3f + DIVE %.3f = %.3f, together %.3f; velocity 20: %.3f, 127: %.3f\n", d6, d9, d6 + d9, d69, dlo, dhi);
+            if (fabsf(d69 - (d6 + d9)) > 1e-3f || !(d6 < -0.05f) || !(d9 < -0.3f)) { bad11++; printf("11 stacking fails\n"); }
+            if (!(dlo > dhi + 0.02f) || !(dlo < -0.01f)) { bad11++; printf("11 velocity does not scale the move\n"); }
+            if (cur[T_SWEEP] != base[T_SWEEP]) { bad11++; printf("11 the SWEEP did not come back\n"); }
+        }
+        {   /* clocked: the stutters' LEVEL gate at 120, 60 and 240 bpm, 1/8, 1/16, 1/32 */
+            static const int MV[3] = {1, 2, 3};
+            float f16s[3] = {6000.0f, 12000.0f, 3000.0f};
+            int cyc[3][3], a, b;
+            for (a = 0; a < 3; a++)
+                for (b = 0; b < 3; b++) {
+                    int closed = 0, prev = 0, n = 0;
+                    rk_seed(0x21u); rc_pause(); rc_load(pk11[0]); rc_resume();
+                    rc_note_on(60, 0.8f);
+                    jam_defaults(); jam_init(); jam_clear();
+                    J11_TARGETS(cur); J11_BASE(base);
+                    jam_press(MV[a], 127);
+                    for (j = 0; j < 4000; j++) {
+                        jam_block(0.001f, f16s[b], 48.0f); rk_render(48);
+                        J11_TARGETS(cur); J11_BASE(base);
+                        closed = cur[T_LEVEL] < base[T_LEVEL] - 0.2f;
+                        if (j > 100 && closed && !prev) n++;
+                        prev = closed;
+                    }
+                    jam_clear();
+                    cyc[a][b] = n;
+                }
+            printf("11 stutter gate cycles in 4 s: 1/16 at 120 bpm %d, at 60 bpm %d, at 240 bpm %d; 1/8 at 120 bpm %d; 1/32 at 120 bpm %d\n", cyc[1][0], cyc[1][1], cyc[1][2], cyc[0][0], cyc[2][0]);
+            if (!(cyc[1][0] >= 28 && cyc[1][0] <= 33) || !(cyc[1][1] >= 14 && cyc[1][1] <= 17) || !(cyc[1][2] >= 56 && cyc[1][2] <= 66) ||
+                !(cyc[0][0] >= 14 && cyc[0][0] <= 17) || !(cyc[2][0] >= 56 && cyc[2][0] <= 66)) { bad11++; printf("11 the stutters do not follow the tempo\n"); }
+        }
+        printf("11 JAM: %d runs of 12 moves x 3 presets x (hold, latch, clear): each changes its targets, each gives back the preset's own values exactly; stacking, velocity, tempo: %d wrong\n", nchk, bad11);
+        if (bad11)
             fails++;
     }
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
