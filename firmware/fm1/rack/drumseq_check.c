@@ -14,7 +14,7 @@
 #include <math.h>
 
 #define DQ_MAX 4096
-static struct { uint32_t blk; int lane; int force_lv; } dq_hit[DQ_MAX];
+static struct { uint32_t blk; int lane; int force_lv; int voice, model; float note, p1, p2, decay, level, pan, send; } dq_hit[DQ_MAX];
 static int dq_n;
 static struct { uint32_t blk; int ch, note, vel; } dq_mid[DQ_MAX];
 static int dq_nm, dq_runs[8], dq_nrun;
@@ -23,19 +23,20 @@ static int dq_lane_of(float note, float decay)
 {
     int l;
     for (l = 0; l < DR_LANES; l++)
-        if ((int)note == DR_KIT909[l].pitch && fabsf(decay - (float)DR_KIT909[l].decay_cs * 0.01f) < 1e-4f)
+        if ((int)note == dr_kit[l].pitch && fabsf(decay - (float)dr_kit[l].decay_cs * 0.01f) < 1e-4f)
             return l;
     return -1;
 }
 static void dq_hit_hook(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send)
 {
-    (void)model; (void)p1; (void)p2; (void)pan; (void)send;
     if (dq_n < DQ_MAX) {
+        dq_hit[dq_n].voice = voice; dq_hit[dq_n].model = model; dq_hit[dq_n].note = note; dq_hit[dq_n].p1 = p1; dq_hit[dq_n].p2 = p2;
+        dq_hit[dq_n].decay = decay; dq_hit[dq_n].level = level; dq_hit[dq_n].pan = pan; dq_hit[dq_n].send = send;
         int l = dq_lane_of(note, decay);
         dq_hit[dq_n].blk = dq_now;
         dq_hit[dq_n].lane = l;
         dq_hit[dq_n].force_lv = (int)(level * 1000.0f + 0.5f);
-        if (l < 0 || voice != DR_KIT909[l].voice) dq_hit[dq_n].lane = -1;
+        if (l < 0 || voice != DR_VOICE[l]) dq_hit[dq_n].lane = -1;
         dq_n++;
     }
 }
@@ -52,6 +53,7 @@ static void dq_reset(void)
     dq_n = dq_nm = dq_nrun = 0;
     dr_hook_hit = dq_hit_hook; dr_hook_midi = dq_midi_hook; dr_hook_run = dq_run_hook;
     dr_hz = 44100.0f;
+    dr_load_kit(0);
     dr.run = 0; dr.mute = 0; dr.ring = 0; dr.nq = 0; dr.cur = -1; dr.hits = 0;
 }
 /* play nsteps 16ths from frame 0, in blocks of nb frames; ticks: the MIDI clock's way */
@@ -264,9 +266,87 @@ static void dseq_checks(int *fails)
         printf("13e editing: a step on is NORM x1 100%% on the grid; force, ratchet, chance, nudge clamp at their ends (ACC, 4, 12%%, +3 and GHOST, 1, 100%%, -4); the beat has 5/2/7/1/2/2 steps; clear: %s\n", ok ? "ok" : "FAIL");
         bad += !ok;
     }
+    /* 13f (step 3): the live kit is what sounds: every value of a lane reaches its hit, the four factory kits load whole, a lane's voice is fixed */
+    {
+        float d = 60.0f / 120.0f / 4.0f * 44100.0f;
+        int ok = 1, k;
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[2][0] = DRS_MK(1u, DF_HARD, 1, 5, 0);
+        dr_kit[2].model = 7; dr_kit[2].pitch = 81; dr_kit[2].p1 = 33; dr_kit[2].p2 = 77; dr_kit[2].decay_cs = 120; dr_kit[2].level = 70; dr_kit[2].pan = -30; dr_kit[2].send = 40;
+        dq_play(2, d, 48, 0);
+        ok = dq_n == 1 && dq_hit[0].voice == 2 && dq_hit[0].model == 7 && dq_hit[0].note == 81.0f && fabsf(dq_hit[0].p1 - 0.33f) < 1e-5f &&
+             fabsf(dq_hit[0].p2 - 0.77f) < 1e-5f && fabsf(dq_hit[0].decay - 1.2f) < 1e-5f && fabsf(dq_hit[0].level - 1.05f * 0.7f) < 1e-5f &&
+             fabsf(dq_hit[0].pan + 0.3f) < 1e-5f && fabsf(dq_hit[0].send - 0.4f) < 1e-5f;
+        printf("13f the lane's live values reach its hit: model, pitch, TONE, COLOUR, DECAY, LEVEL x force, PAN, SEND: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+        ok = 1;
+        for (k = 0; k < DR_NKIT; k++) {
+            dr_load_kit(k);
+            for (l = 0; l < DR_LANES; l++)
+                if (memcmp(&dr_kit[l], &DR_KITS[k][l], sizeof dr_kit[l])) ok = 0;
+            if (dr_kit_ix != k) ok = 0;
+        }
+        ok = ok && DR_VOICE[0] == 0 && DR_VOICE[1] == 1 && DR_VOICE[2] == 2 && DR_VOICE[3] == 2 && DR_VOICE[4] == 3 && DR_VOICE[5] == 3;
+        printf("13f the four kits (909 ISH, 808 ISH, LO-FI, SPARSE) load whole; the hats share voice 2, the clap and perc voice 3: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+        /* the audition: sound only (no MIDI, no hit counted), once; not while playing */
+        dq_reset();
+        dr_aud = 3;
+        dq_now = 0;
+        { int l2 = dr_aud - 1; dr_aud = 0; if (!dr.run) dr_sound(l2, DF_NORM); }
+        ok = dq_n == 1 && dq_nm == 0 && dr.hits == 0;
+        printf("13f a lane heard from a page: its sound once, no MIDI note, not counted as a hit: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+    }
     memset(dr_pat, 0, sizeof dr_pat);
     dr_hook_hit = 0; dr_hook_midi = 0; dr_hook_run = 0;
     printf("13 drum sequencer: hits on the steps at the tempo and the clock, MIDI out per lane, ratchet, nudge, chance, mute, idle, editing: %d wrong\n", bad);
+    if (bad)
+        *fails += 1;
+}
+
+/* 12g (step 3): the factory kits through the engine: every lane of every kit sounds (finite, not silent), is dry-clean and ends on its own;
+ * the kits differ from each other (their energy, lane by lane) */
+void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
+static void dkit_checks(int *fails)
+{
+    int k, l, i, bad = 0, nbad = 0, same = 0;
+    static float E[DR_NKIT][DR_LANES];
+    for (k = 0; k < DR_NKIT; k++)
+        for (l = 0; l < DR_LANES; l++) {
+            const dr_snd_t *s = &DR_KITS[k][l];
+            float pk = 0, en = 0;
+            int active_after, ranges = s->model < DR_NMODEL && s->pitch >= 12 && s->pitch <= 96 && s->p1 <= 100 && s->p2 <= 100 && s->decay_cs >= 2 &&
+                                       s->level <= 150 && s->send <= 100 && s->pan >= -100 && s->pan <= 100;
+            rk_seed(0x21u);
+            rk_set_worker(0, 0);
+            cl_patch(0, 0, 0);
+            rk_all_off();
+            rk_drum_hit(DR_VOICE[l], s->model, (float)s->pitch, (float)s->p1 * 0.01f, (float)s->p2 * 0.01f, (float)s->decay_cs * 0.01f, 1.0f, 0.0f, 0.0f);
+            for (i = 0; i < 1800; i++) {
+                int j;
+                rk_render(48);
+                for (j = 0; j < 48; j++) {
+                    float v = rk_out_l()[j];
+                    if (!(v == v) || fabsf(v) > 1e6f) { nbad++; continue; }
+                    if (fabsf(v) > pk) pk = fabsf(v);
+                    en += v * v;
+                }
+            }
+            active_after = rk_drum_status(0);
+            E[k][l] = en;
+            if (!ranges || !(pk > 0.02f) || active_after != 0) { bad++; printf("12g %s %s: %s\n", DR_KNAME[k], DR_LNAME[l], !ranges ? "a value out of range" : active_after ? "does not end" : "silent"); }
+        }
+    for (k = 1; k < DR_NKIT; k++) {
+        int diff = 0;
+        for (l = 0; l < DR_LANES; l++)
+            if (fabsf(E[k][l] - E[0][l]) > 0.02f * E[0][l]) diff++;
+        if (diff < 4) { bad++; same++; printf("12g kit %s is too like %s: only %d lanes differ in energy\n", DR_KNAME[k], DR_KNAME[0], diff); }
+    }
+    rk_drum_off();
+    if (nbad) bad++;
+    printf("12g the four factory kits through the engine: 24 lanes sound, no NaN, each ends on its own within 1.8 s, the other three differ from 909 ISH in at least 4 lanes: %d wrong\n", bad);
     if (bad)
         *fails += 1;
 }

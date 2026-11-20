@@ -1,12 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0
 // FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
-/* The DRUM page (drum track, step 2): the SEQ button's seventh page, after SONG. 6 lanes x 16 steps (drumseq.c), the
+/* The drum pages (drum track, steps 2-3): the SEQ button's seventh page on, after SONG: DRUM, LANE SOUND, LANE MIX.
+ * DRUM: 6 lanes x 16 steps (drumseq.c), the
  * cursor, the playhead, force as brightness, ratchet ticks, chance as dots, M for a muted lane.
  * K1 LANE, K2 FORCE, K3 RATCHET, K4 CHANCE (on the cursor's step: turning one on a step that is off turns it on);
  * SELECT moves the step, EDIT turns it on / off, ALGORITHM right mutes the lane, left clears it (with SEL held: the
  * 909 ISH beat, when the grid is empty). HOLD SEQ: the 16 white keys are the lane's steps (tap: on / off; held + K1-K4
  * force, ratchet, chance, nudge; SELECT: lane). Included by app.c after seqpages.c. */
-static struct { int lane, step; } dp = {0, 0};
+static struct { int8_t lane, step; uint8_t pop; uint32_t pop_at; } dp = {0, 0, 0, 0};
+enum { DPOP_NONE, DPOP_MODEL, DPOP_KIT };     /* the list showing over the picture while its knob turns */
+static void dp_pop(int kind) { dp.pop = (uint8_t)kind; dp.pop_at = plat_ms(); ui.redraw = 1; }
+static void drum_tick(void)                   /* the main loop's: a list goes when its knob has rested */
+{
+    if (dp.pop && plat_ms() - dp.pop_at > 1500u) {
+        dp.pop = DPOP_NONE;
+        ui.redraw = 1;
+    }
+}
+static int drum_lane_step(int d) { int v = dp.lane + (d > 0 ? 1 : -1); return v < 0 ? 0 : v >= DR_LANES ? DR_LANES - 1 : v; }
 
 static void pic_drum(void)
 {
@@ -47,18 +58,131 @@ static void pic_drum(void)
                 cv_rect(x, y + 21, 9, 2, SQ_PLAY);
         }
     }
+    if (!dr_any()) {                           /* an empty grid says how to fill it */
+        static const char H[] = "SEL+ALGO: LOAD BEAT";
+        int32_t w = text_w(&FONT_XS, H) + 14;
+        rrect(114 - w / 2, 56, w, 20, K_CELL, 4);
+        cv_text_acc(121 - w / 2, 59, &FONT_XS, H, K_FG);
+    }
+}
+static const uint16_t DR_LCOL[DR_LANES] = {RGB(214, 112, 92), RGB(224, 194, 112), RGB(112, 194, 142), RGB(102, 152, 204), RGB(204, 92, 134), RGB(152, 122, 212)};
+static void dr_tabs(void)                      /* the six lanes as tabs along the top of the area: the lane's own colour on the one in use */
+{
+    int l;
+    for (l = 0; l < DR_LANES; l++) {
+        int32_t x = 2 + l * 37;
+        int sel = l == dp.lane;
+        rrect(x, 2, 35, 15, sel ? DR_LCOL[l] : K_CELL, 3);
+        cv_text(x + 17 - text_w(&FONT_XS, DR_LNAME[l]) / 2, 3, &FONT_XS, DR_LNAME[l], sel ? K_BG : K_DIM);
+    }
+}
+static void dr_pts_text(int v, char *t) { int_text(v / 10, t); cat(t, "."); int_text(v % 10, t + (v >= 100 ? 3 : 2)); }
+static void dr_pop_list(const char *title, int n, int sel, const char *const *names, const uint8_t *pts)   /* a list over the picture, the choice lit */
+{
+    int i;
+    char t[12];
+    rrect(10, 6, 208, 20 + n * 13 + 4, K_BG, 5);
+    rrect(11, 7, 206, 20 + n * 13 + 2, K_CELL, 4);
+    cv_text_acc(18, 8, &FONT_XS, title, K_FG);
+    for (i = 0; i < n; i++) {
+        int32_t y = 24 + i * 13;
+        if (i == sel)
+            rrect(14, y, 200, 13, mix565(K_SEQC, K_CELL, 100), 2);
+        cv_text(20, y, &FONT_XS, names[i], i == sel ? K_FG : K_DIM);
+        if (pts) {
+            t[0] = 0;
+            dr_pts_text(pts[i], t);
+            cv_text(208 - text_w(&FONT_XS, t), y, &FONT_XS, t, i == sel ? K_FG : K_DIM);
+        }
+    }
+}
+static void pic_dsound(void)                   /* LANE SOUND: the lane's tabs, the voice's decay, its model and cost */
+{
+    const dr_snd_t *k = &dr_kit[dp.lane];
+    char t[24];
+    int32_t x, py = 0;
+    float a = 1.0f, r = fm_exp2f(-9.9658f * (1.6f / 216.0f) / ((float)k->decay_cs * 0.01f));
+    dr_tabs();
+    rrect(2, 22, 224, 98, K_BG, 4);
+    for (x = 0; x < 216; x++, a *= r) {
+        int32_t y = 112 - (int32_t)(a * 82.0f);
+        if (x)
+            { cv_line(x + 5, py, x + 6, y, DR_LCOL[dp.lane]); cv_line(x + 5, py + 1, x + 6, y + 1, DR_LCOL[dp.lane]); }
+        py = y;
+    }
+    cv_text(8, 104, &FONT_XS, "1.6 S ACROSS", K_DIM);
+    cv_text(8, 126, &FONT_XS, DR_MNAME[k->model], K_FG);
+    t[0] = 0;
+    cat(t, "~");
+    dr_pts_text(DR_MCPU[k->model], t + 1);
+    cat(t, " POINTS OF A CORE");
+    cv_text(220 - text_w(&FONT_XS, t), 126, &FONT_XS, t, K_DIM);
+    if (dp.pop == DPOP_MODEL)
+        dr_pop_list("DRUM MODEL (CPU PTS)", DR_NMODEL, k->model, DR_MNAME, DR_MCPU);
+    else if (dp.pop == DPOP_KIT)
+        dr_pop_list("DRUM KIT", DR_NKIT, dr_kit_ix, DR_KNAME, 0);
+}
+static void pic_dmix(void)                     /* LANE MIX: six faders: the level bar, the pan dot, the send bar */
+{
+    int l;
+    for (l = 0; l < DR_LANES; l++) {
+        const dr_snd_t *k = &dr_kit[l];
+        int32_t x = 3 + l * 37, h = (int32_t)k->level * 84 / 150;
+        rrect(x, 4, 33, 96, K_BG, 4);
+        if (l == dp.lane) {
+            cv_rect(x, 4, 33, 1, K_FG); cv_rect(x, 99, 33, 1, K_FG); cv_rect(x, 4, 1, 96, K_FG); cv_rect(x + 32, 4, 1, 96, K_FG);
+        }
+        rrect(x + 6, 95 - h, 21, h + 1, DR_LCOL[l], 2);
+        cv_text(x + 17 - text_w(&FONT_XS, DR_LNAME[l]) / 2, 103, &FONT_XS, DR_LNAME[l], l == dp.lane ? K_FG : K_DIM);
+        cv_rect(x + 3, 120, 27, 1, K_DIM);                          /* PAN: a dot on a line */
+        rrect(x + 3 + ((int32_t)k->pan + 100) * 22 / 200, 117, 5, 7, DR_LCOL[l], 2);
+        cv_rect(x + 3, 133, 27, 3, K_CELL);                          /* SEND: a bar in the FX's blue */
+        cv_rect(x + 3, 133, (int32_t)k->send * 27 / 100, 3, KNOB_C[3]);
+    }
+    cv_text(3, 140, &FONT_XS, "LEVEL BAR   PAN DOT   SEND TO FX", K_DIM);
 }
 /* the header's text, the four dials and the help line (draw_seq_page) */
 static void drum_header_text(char *t, const char *state)
 {
     t[0] = 0;
+    if (mn.sub == SQP_DSOUND || mn.sub == SQP_DMIX) {
+        cat(t, DR_LNAME[dp.lane]);
+        cat(t, " ");
+        cat(t, state);
+        return;
+    }
     cat(t, "A ");
     cat(t, state);
-    cat(t, "  909 ISH");
+    cat(t, "  ");
+    cat(t, DR_KNAME[dr_kit_ix]);
+}
+static void dr_pan_text(int p, char *t)
+{
+    t[0] = 0;
+    if (!p) { cat(t, "C"); return; }
+    cat(t, p < 0 ? "L" : "R");
+    int_text(p < 0 ? -p : p, t + 1);
 }
 static void drum_dials(const char **l, char v[4][16], float *f)
 {
     uint16_t s = dr_pat[dp.lane][dp.step];
+    const dr_snd_t *k = &dr_kit[dp.lane];
+    if (mn.sub == SQP_DSOUND) {
+        l[0] = "MODEL"; l[1] = DR_P1[k->model]; l[2] = DR_P2[k->model]; l[3] = "PITCH";
+        cat(v[0], DR_MSHORT[k->model]); f[0] = (float)k->model / (float)(DR_NMODEL - 1);
+        int_text(k->p1, v[1]); f[1] = (float)k->p1 / 100.0f;
+        int_text(k->p2, v[2]); f[2] = (float)k->p2 / 100.0f;
+        note_name(k->pitch, v[3]); f[3] = (float)(k->pitch - 12) / 84.0f;
+        return;
+    }
+    if (mn.sub == SQP_DMIX) {
+        l[0] = "DECAY"; l[1] = "LEVEL"; l[2] = "PAN"; l[3] = "SEND";
+        int_text(k->decay_cs, v[0]); f[0] = (float)k->decay_cs / 255.0f;
+        int_text(k->level, v[1]); f[1] = (float)k->level / 150.0f;
+        dr_pan_text(k->pan, v[2]); f[2] = (float)(k->pan + 100) / 200.0f;
+        int_text(k->send, v[3]); f[3] = (float)k->send / 100.0f;
+        return;
+    }
     l[0] = "LANE"; l[1] = "FORCE"; l[2] = "RATCHET"; l[3] = "CHANCE";
     cat(v[0], DR_LNAME[dp.lane]); f[0] = (float)dp.lane / 5.0f;
     if (s & DRS_ON) {
@@ -77,9 +201,60 @@ static void drum_step_toast(void)
     int_text(dp.step + 1, t);
     drum_say(DR_LNAME[dp.lane], t);
 }
+static void drum_hear(void) { if (!dr.run) dr_aud = (uint8_t)(dp.lane + 1); }   /* turning a lane's sound: it sounds (stopped) */
+static int dp_nudge(uint8_t *v, int d, int lo, int hi)
+{
+    int n = dr_clamp((int)*v + d, lo, hi), ch = n != (int)*v;
+    *v = (uint8_t)n;
+    return ch;
+}
+static void drum_enc_sound(const int32_t *e)   /* LANE SOUND: SELECT lane, K1 / ALGO model (SEL + ALGO: kit), K2 K3 the two knobs, K4 pitch */
+{
+    dr_snd_t *k = &dr_kit[dp.lane];
+    int ch = 0, m = e[1] ? (int)e[1] : (int)e[2];
+    if (e[0]) { dp.lane = (int8_t)drum_lane_step((int)e[0]); ui.redraw = 1; }
+    if (e[1] && (in_btn >> B_SEL & 1u)) {          /* SEL held + ALGO: the next kit (it replaces the lanes' sounds) */
+        int n = (dr_kit_ix + (e[1] > 0 ? 1 : DR_NKIT - 1)) % DR_NKIT;
+        dr_load_kit(n);
+        mn.sel_long = 1;
+        mn.sel_n = 0;
+        dp_pop(DPOP_KIT);
+        drum_say(DR_KNAME[n], "KIT LOADED");
+        drum_hear();
+        return;
+    }
+    if (m) {
+        int n = dr_clamp(k->model + (m > 0 ? 1 : -1), 0, DR_NMODEL - 1);
+        ch |= n != k->model;
+        k->model = (uint8_t)n;
+        dp_pop(DPOP_MODEL);
+    }
+    if (e[3]) ch |= dp_nudge(&k->p1, (int)e[3], 0, 100);
+    if (e[4]) ch |= dp_nudge(&k->p2, (int)e[4], 0, 100);
+    if (e[5]) ch |= dp_nudge(&k->pitch, (int)e[5], 12, 96);
+    if (ch) { drum_hear(); ui.redraw = 1; }
+}
+static void drum_enc_mix(const int32_t *e)     /* LANE MIX: SELECT lane, K1 DECAY, K2 LEVEL, K3 PAN, K4 SEND */
+{
+    dr_snd_t *k = &dr_kit[dp.lane];
+    int ch = 0;
+    if (e[0]) { dp.lane = (int8_t)drum_lane_step((int)e[0]); ui.redraw = 1; }
+    if (e[2]) ch |= dp_nudge(&k->decay_cs, (int)e[2] * 2, 2, 255);
+    if (e[3]) ch |= dp_nudge(&k->level, (int)e[3], 0, 150);
+    if (e[4]) { int n = dr_clamp(k->pan + (int)e[4] * 2, -100, 100); ch |= n != k->pan; k->pan = (int8_t)n; }
+    if (e[5]) ch |= dp_nudge(&k->send, (int)e[5], 0, 100);
+    if (ch) { drum_hear(); ui.redraw = 1; }
+}
+static const char *drum_help(void)
+{
+    return mn.sub == SQP_DSOUND ? "SELECT: LANE  ALGO: MODEL  SEL+ALGO: KIT" : mn.sub == SQP_DMIX ? "SELECT: LANE  K4: HOW MUCH GOES TO FX" :
+           "SEL: STEP  EDIT: ON/OFF  ALGO RIGHT: MUTE";
+}
 static void drum_encoders(const int32_t *e)   /* e: SELECT, ALGO, K1-K4 */
 {
     int d;
+    if (mn.sub == SQP_DSOUND) { drum_enc_sound(e); return; }
+    if (mn.sub == SQP_DMIX) { drum_enc_mix(e); return; }
     if (e[0]) dp.step = (int)(((dp.step + e[0]) % DR_STEPS + DR_STEPS) % DR_STEPS);
     if (e[2]) { d = dp.lane + (e[2] > 0 ? 1 : -1); dp.lane = d < 0 ? 0 : d >= DR_LANES ? DR_LANES - 1 : d; }
     if (e[3]) dr_adjust(dp.lane, dp.step, 0, e[3] > 0 ? 1 : -1);
@@ -189,3 +364,22 @@ static void draw_drum_layer(void)
     (void)u;
     help("TAP: ON / OFF   SELECT: LANE");
 }
+#ifdef APP_HOST_EXPECT
+/* the simulator's expect (sim_drumsound.txt and the drum sims): the live kit's values for the lane on the page, the list showing */
+static int drum_expect(const char *what, int *got)
+{
+    const dr_snd_t *k = &dr_kit[dp.lane];
+    if (same(what, "drum_model")) *got = k->model;
+    else if (same(what, "drum_p1")) *got = k->p1;
+    else if (same(what, "drum_p2")) *got = k->p2;
+    else if (same(what, "drum_pitch")) *got = k->pitch;
+    else if (same(what, "drum_decay")) *got = k->decay_cs;
+    else if (same(what, "drum_level")) *got = k->level;
+    else if (same(what, "drum_pan")) *got = k->pan;
+    else if (same(what, "drum_send")) *got = k->send;
+    else if (same(what, "drum_kit")) *got = dr_kit_ix;
+    else if (same(what, "drum_pop")) *got = dp.pop;
+    else return 0;
+    return 1;
+}
+#endif

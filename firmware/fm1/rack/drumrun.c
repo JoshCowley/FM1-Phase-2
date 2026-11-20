@@ -25,6 +25,7 @@ static void dr_init(void)
     dr_hook_midi = dr_midi_out;
     dr_hook_run = dr_run_out;
     dr_hz = PL_HZ;
+    dr_load_kit(0);
 }
 static float dr_step_frames(void)             /* a 16th: the MIDI clock's 6 ticks, or the tempo's */
 {
@@ -37,6 +38,12 @@ static void dr_audio(uint32_t n)
 {
     if (rc_audio.pause_req)
         return;
+    if (dr_aud) {                             /* a page asked to hear a lane (it is turning the lane's sound): sound only, once */
+        int l = dr_aud - 1;
+        dr_aud = 0;
+        if (!dr.run && l < DR_LANES)
+            dr_sound(l, DF_NORM);
+    }
     if (sq.run && !dr.run)
         dr_start(pl_now);
     else if (!sq.run && dr.run)

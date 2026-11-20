@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 // FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
-/* The drum sequencer (drum track, step 2). Included by app.c (through drumrun.c) and by rack_host.c: no libm, no app
+/* The drum sequencer (drum track, steps 2-3). Included by app.c (through drumrun.c) and by rack_host.c: no libm, no app
  * globals. The sounds and the MIDI notes go out through three hooks the caller sets (the firmware: rk_drum_hit, a
  * MIDI note on the lane's channel, rk_drum_run; the host check: recorders), so the same code is what runs and what the
  * check measures.
@@ -10,7 +10,7 @@
  * 1/16 a step, at the tempo or the MIDI clock's (6 ticks), starting with the sequencer's PLAY and stopping with it.
  * A hit is struck at the block that holds its frame (1 ms; the voices render a block later). Static RAM: the pattern
  * 192 B, the hits waiting 192 B, the state about 60 B.
- * The kit (the sounds) is in flash: 909 ISH. */
+ * The kit (the sounds): four factory kits in flash, the live one (and its edits) in RAM. */
 #include <stdint.h>
 
 #define DR_LANES 6
@@ -30,17 +30,39 @@ static const uint8_t DR_VEL[5] = {25, 50, 80, 105, 127};          /* MIDI veloci
 static const char *const DR_FORCE[5] = {"GHOST", "SOFT", "NORM", "HARD", "ACC"};
 static const char *const DR_LNAME[DR_LANES] = {"KICK", "SNARE", "C HAT", "O HAT", "CLAP", "PERC"};
 
-/* the kit: a lane's voice (the hats share one, the clap and the perc one), model (engine/rack.cc DM_*), pitch (a MIDI
- * note), the two parameters, DECAY (10 ms), LEVEL, PAN, SEND (percent) and the General MIDI note it sends */
-typedef struct { uint8_t voice, model, pitch, p1, p2, decay_cs, level, send; int8_t pan; uint8_t gm; } dr_lane_t;
-static const dr_lane_t DR_KIT909[DR_LANES] = {   /* 909 ISH */
-    {0, 0, 36, 50, 50, 45, 100, 5, 0, 36},    /* KICK:   the kick model */
-    {1, 1, 50, 50, 60, 25, 90, 25, 0, 38},    /* SNARE:  the snare model */
-    {2, 6, 70, 50, 50, 6, 55, 10, 15, 42},    /* C HAT:  clocked noise (the cheap hat) */
-    {2, 6, 70, 50, 50, 35, 55, 10, 15, 46},   /* O HAT:  the same voice, a long decay: a closed hat cuts it */
-    {3, 5, 62, 50, 50, 20, 80, 35, -10, 39},  /* CLAP:   filtered noise */
-    {3, 0, 55, 40, 50, 25, 75, 15, -20, 45},  /* PERC:   the kick model high: a low tom */
+/* the kit: a lane's model (engine/rack.cc DM_*), pitch (a MIDI note), the two parameters (0-100), DECAY (10 ms), LEVEL (percent),
+ * SEND (percent to the FX) and PAN (-100..100). The voice is the lane's (the hats share one, the clap and the perc one) and
+ * the General MIDI note it sends is the lane's. Four factory kits are in flash; the live kit (dr_kit) is in RAM, whatever was
+ * loaded and edited, and is what SAVE keeps. */
+typedef struct { uint8_t model, pitch, p1, p2, decay_cs, level, send; int8_t pan; } dr_snd_t;
+static const uint8_t DR_VOICE[DR_LANES] = {0, 1, 2, 2, 3, 3};
+static const uint8_t DR_GM[DR_LANES] = {36, 38, 42, 46, 39, 45};
+#define DR_NKIT 4
+static const char *const DR_KNAME[DR_NKIT] = {"909 ISH", "808 ISH", "LO-FI", "SPARSE"};
+/* models: KICK SNARE CYMBAL STRUCK DRUM STRUCK BELL FILTERED NOISE CLOCKED NOISE PARTICLE NOISE TWIN PEAKS (rack.cc DM_*) */
+#define DR_NMODEL 9
+static const char *const DR_MNAME[DR_NMODEL] = {"KICK", "SNARE", "CYMBAL", "STRUCK DRUM", "STRUCK BELL", "FILTERED NOISE", "CLOCKED NOISE", "PARTICLE NOISE", "TWIN PEAKS"};
+static const char *const DR_MSHORT[DR_NMODEL] = {"KICK", "SNARE", "CYMBL", "DRUM", "BELL", "FNOISE", "CLOCK", "PARTCL", "TWIN"};
+static const uint8_t DR_MCPU[DR_NMODEL] = {61, 78, 80, 60, 65, 49, 32, 40, 36};   /* points of a core x 10 (the 13 Nov bench: design.md 2.1) */
+static const char *const DR_P1[DR_NMODEL] = {"BODY", "TONE", "FILTER", "BALANCE", "BALANCE", "FILTER", "RATE", "DENSITY", "Q"};   /* what the two knobs do, by model (read from Braids' renderers) */
+static const char *const DR_P2[DR_NMODEL] = {"CLICK", "SNAPPY", "METAL", "BRIGHT", "SPREAD", "COLOUR", "COLOUR", "SPREAD", "SPLIT"};
+static const dr_snd_t DR_KITS[DR_NKIT][DR_LANES] = {
+    {   /* 909 ISH: the kick model, the snare, the cheap hat (clocked noise), filtered-noise clap, a high kick for a low tom */
+        {0, 36, 50, 50, 45, 100, 5, 0}, {1, 50, 50, 60, 25, 90, 25, 0}, {6, 70, 50, 50, 6, 55, 10, 15},
+        {6, 70, 50, 50, 35, 55, 10, 15}, {5, 62, 50, 50, 20, 80, 35, -10}, {0, 55, 40, 50, 25, 75, 15, -20}},
+    {   /* 808 ISH: a long low kick, a soft snare, short hats, a loose clap, a struck-drum tom */
+        {0, 33, 70, 30, 90, 105, 5, 0}, {1, 47, 40, 40, 30, 85, 30, 0}, {6, 74, 60, 40, 5, 50, 10, 20},
+        {6, 74, 60, 40, 30, 50, 10, 20}, {5, 58, 40, 55, 28, 85, 40, -10}, {3, 50, 40, 30, 40, 80, 20, -25}},
+    {   /* LO-FI: short kick, noise snare and hats (clocked, twin peaks), bell, a lot of FX */
+        {0, 40, 35, 70, 25, 95, 30, 0}, {5, 60, 60, 40, 18, 85, 40, 0}, {6, 79, 80, 40, 5, 50, 30, 20},
+        {8, 72, 50, 50, 22, 50, 30, 20}, {5, 56, 65, 70, 15, 75, 45, -15}, {4, 72, 40, 50, 60, 65, 45, -25}},
+    {   /* SPARSE: a deep kick, a dry struck-drum rim, a quiet hat, a cymbal for the open hat, a ringing bell */
+        {0, 34, 60, 40, 70, 100, 15, 0}, {3, 55, 55, 55, 12, 80, 15, 0}, {6, 70, 50, 50, 4, 40, 15, 20},
+        {2, 70, 50, 50, 50, 40, 25, 20}, {5, 62, 50, 50, 15, 65, 30, -10}, {4, 79, 30, 40, 80, 60, 40, -20}},
 };
+static dr_snd_t dr_kit[DR_LANES];               /* the live kit */
+static uint8_t dr_kit_ix;                       /* the factory kit loaded last */
+static void dr_load_kit(int k) { memcpy(dr_kit, DR_KITS[k], sizeof dr_kit); dr_kit_ix = (uint8_t)k; }
 #define DR_CH 9                               /* MIDI channel 10 (from 0) */
 #define DR_GATE_MS 30
 
@@ -56,6 +78,7 @@ static volatile struct {
     uint32_t hits;                            /* struck since the start (the checks') */
     float frac;
 } dr = {0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0.0f};
+static volatile uint8_t dr_aud;               /* the pages ask for a lane to sound (lane + 1), when stopped: the interrupt does it */
 static uint32_t dr_flash[DR_LANES];           /* when each lane last struck (the screen's: a lit tile) */
 static float dr_hz = 44100.0f;                /* frames a second */
 static uint32_t dr_off_at[DR_LANES];          /* the frame each lane's MIDI note ends */
@@ -79,20 +102,25 @@ static int dr_any(void)                       /* 1 when any step is on */
     return 0;
 }
 
+/* the sound of a hit (the lane's voice with the live kit's values) */
+static void dr_sound(int lane, int force)
+{
+    const dr_snd_t *k = &dr_kit[lane];
+    float lv = (float)DR_VEL[force > 4 ? 4 : force] / 100.0f * (float)k->level * 0.01f;
+    if (dr_hook_hit)
+        dr_hook_hit(DR_VOICE[lane], k->model, (float)k->pitch, (float)k->p1 * 0.01f, (float)k->p2 * 0.01f, (float)k->decay_cs * 0.01f,
+                    lv, (float)k->pan * 0.01f, (float)k->send * 0.01f);
+}
 /* a hit: the voice, and the lane's MIDI note on its channel (an earlier note of the lane ends first) */
 static void dr_fire(int lane, int force, uint32_t at)
 {
-    const dr_lane_t *k = &DR_KIT909[lane];
-    float lv = (float)DR_VEL[force > 4 ? 4 : force] / 100.0f * (float)k->level * 0.01f;
     dr.hits++;
     dr_flash[lane] = at;
-    if (dr_hook_hit)
-        dr_hook_hit(k->voice, k->model, (float)k->pitch, (float)k->p1 * 0.01f, (float)k->p2 * 0.01f, (float)k->decay_cs * 0.01f,
-                    lv, (float)k->pan * 0.01f, (float)k->send * 0.01f);
+    dr_sound(lane, force);
     if (dr_hook_midi) {
         if (dr.ring >> lane & 1u)
-            dr_hook_midi(DR_CH, k->gm, 0);
-        dr_hook_midi(DR_CH, k->gm, DR_VEL[force > 4 ? 4 : force]);
+            dr_hook_midi(DR_CH, DR_GM[lane], 0);
+        dr_hook_midi(DR_CH, DR_GM[lane], DR_VEL[force > 4 ? 4 : force]);
         dr.ring |= (uint8_t)(1u << lane);
         dr_off_at[lane] = at + (uint32_t)(dr_hz * (float)DR_GATE_MS * 0.001f);
     }
@@ -116,7 +144,7 @@ static void dr_due(uint32_t end)
         if ((dr.ring >> l & 1u) && (int32_t)(dr_off_at[l] - end) < 0) {
             dr.ring &= (uint8_t)~(1u << l);
             if (dr_hook_midi)
-                dr_hook_midi(DR_CH, DR_KIT909[l].gm, 0);
+                dr_hook_midi(DR_CH, DR_GM[l], 0);
         }
 }
 /* the step i, whose frame is tg and which lasts d frames: each lane's step is struck (or its ratchets queued) */
@@ -167,7 +195,7 @@ static void dr_stop(void)
     dr.nq = 0;
     for (l = 0; l < DR_LANES; l++)
         if (dr.ring >> l & 1u && dr_hook_midi)
-            dr_hook_midi(DR_CH, DR_KIT909[l].gm, 0);
+            dr_hook_midi(DR_CH, DR_GM[l], 0);
     dr.ring = 0;
     if (dr_hook_run)
         dr_hook_run(0);

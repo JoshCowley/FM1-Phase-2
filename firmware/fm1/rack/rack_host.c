@@ -198,6 +198,10 @@ int main(int argc, char **argv)
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);
         return fails != 0;
     }
+    if (argc == 2 && !strcmp(argv[1], "--dkit")) {    /* 12g alone */
+        dkit_checks(&fails);
+        return fails != 0;
+    }
     if (argc == 2 && !strcmp(argv[1], "--dseq")) {    /* section 13 alone */
         dseq_checks(&fails);
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);
@@ -618,6 +622,7 @@ int main(int argc, char **argv)
             fails++;
     }
     drum_checks(argv[0], &fails);   /* 12 (FM1 Phase 2 step 1: the drum voices) */
+    dkit_checks(&fails);            /* 12g (step 3: the factory kits through the engine) */
     dseq_checks(&fails);            /* 13 (step 2: the drum sequencer) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;

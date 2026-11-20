@@ -1418,6 +1418,8 @@ int app_expect(const char *what, int *got)
         *got = n < DR_STEPS ? (dr_pat[dp.lane][n] & DRS_ON) != 0 : -1;
         return 1;
     }
+    if (drum_expect(what, got))
+        return 1;
     if (same(what, "seq_cursor")) {           /* the sequencer's step cursor (0 is the first step) */
         *got = sq_cursor;
         return 1;
