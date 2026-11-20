@@ -1308,6 +1308,17 @@ int app_expect(const char *what, int *got)
         *got = rk_fm1_status(9);
         return 1;
     }
+    if (same(what, "seq_cursor")) {           /* the sequencer's step cursor (0 is the first step) */
+        *got = sq_cursor;
+        return 1;
+    }
+    if (what[0] == 's' && what[1] == 'e' && what[2] == 'q' && what[3] == '_' && what[4] == 'c' && what[5] == 'n' && what[6] == 't' && what[7] >= '0' && what[7] <= '9') {
+        int n = 0, i = 7;                     /* seq_cntN: how many notes step N (from 0) of the bank playing holds */
+        while (what[i] >= '0' && what[i] <= '9')
+            n = n * 10 + what[i++] - '0';
+        *got = n < SQ_STEPS ? sqb[sq.bank].s[n].cnt : -1;
+        return 1;
+    }
     return 0;
 }
 /* sim: "ghost NOTE" starts a voice behind the play layer's back (a note-on whose off was lost); "dropoffs 1|0" */

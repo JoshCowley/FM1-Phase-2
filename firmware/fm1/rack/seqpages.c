@@ -54,7 +54,17 @@ static void band(int b)                       /* draw the next things in the 228
     cv_y0 = 0;
     cv_y1 = AB;
 }
-static uint16_t lvl_col(int lvl, uint16_t c) { static const uint8_t A[5] = {70, 130, 200, 245, 255}; return mix565(c, K_WELL, A[lvl > 4 ? 2 : lvl]); }
+/* the sequencer's colours (update 56, after Josh: "more contrasting colours in the sequencer"): each state a step (or a
+ * note) can be in has its own, and the ones that sit side by side differ in brightness, not only in tint, so they tell
+ * apart on the small screen. A step on is the rose (on the beat, with a notch); off, a clear grey (3:1 on the black); past the pattern's end a
+ * dark one; the cursor white, a frame and a lifted tile; the playhead an ember orange, never the rose or white. */
+#define SQ_PLAY RGB(226, 98, 50)             /* the playhead */
+#define SQ_OFF_BEAT GREY(120)                 /* a step with no notes, on the beat */
+#define SQ_OFF GREY(94)                       /* ... and off it */
+#define SQ_PAST GREY(30)                      /* past the pattern's end */
+#define SQ_GRID GREY(60)                      /* the dots behind the pictures */
+#define SQ_EDGE GREY(110)                     /* an outline: an empty song row, a bank not played */
+static uint16_t lvl_col(int lvl, uint16_t c) { static const uint16_t A[5] = {150, 180, 205, 232, 256}; return mix565(c, K_WELL, A[lvl > 4 ? 2 : lvl]); }
 static float sq_pos(void)                     /* where the playhead is, in steps */
 {
     if (!sq.run || sq.cur < 0)
@@ -116,7 +126,7 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
                 if (lh >= 6) {
                     char nm[6];
                     note_name(p, nm);
-                    cv_text(RX + 1, y0 + lh / 2 - 6, &FONT_T, nm, K_FAINT);
+                    cv_text(RX + 1, y0 + lh / 2 - 6, &FONT_T, nm, GREY(150));
                 }
             }
         }
@@ -127,7 +137,7 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
             if (start + j >= a && start + j <= z) {
                 int32_t x = RX + (int32_t)((float)j * sw), r;
                 for (r = 2; r < AH - 2; r++)
-                    vf_span(x, r, (int32_t)sw, K_GOLD, 40u);
+                    vf_span(x, r, (int32_t)sw, K_GOLD, 60u);
                 vf_span(x, 2, (int32_t)sw, K_GOLD, 220u);
                 vf_span(x, AH - 3, (int32_t)sw, K_GOLD, 220u);
             }
@@ -135,8 +145,13 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
     for (j = 0; j <= 16; j++) {
         int si = start + j;
         int32_t x = RX + (int32_t)((float)j * sw);
-        if (si % 4 == 0) cv_rect(x, 3, 1, AH - 6, si % 16 == 0 ? GREY(41) : GREY(23));
-        if (si >= L && j < 16) cv_rect(x, 2, (int32_t)sw, AH - 4, GREY(6));
+        if (si % 4 == 0) cv_rect(x, 3, 1, AH - 6, si % 16 == 0 ? GREY(130) : GREY(94));
+        if (si >= L && j < 16) cv_rect(x, 2, (int32_t)sw, AH - 4, SQ_PAST);
+    }
+    if (sq_cursor >= start && sq_cursor < start + 16 && sq_cursor < L) {   /* the cursor's column, always lit */
+        int32_t x = RX + (int32_t)((float)(sq_cursor - start) * sw), r;
+        for (r = 2; r < AH - 2; r++)
+            vf_span(x, r, (int32_t)sw, K_FG, 34u);
     }
     for (j = 0; j < 16; j++) {
         int si = start + j;
@@ -171,7 +186,7 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
                 else if (art == 3) { cv_line(ax, ay, ax + 4, ay + 2, K_FG); cv_line(ax + 4, ay + 2, ax, ay + 4, K_FG); }   /* accent > */
                 else { cv_line(ax, ay + 3, ax + 2, ay - 1, K_FG); cv_line(ax + 2, ay - 1, ax + 4, ay + 3, K_FG); }   /* marcato: a tepee */
             }
-            if (s->ratchet > 1) { int k; for (k = 1; k < s->ratchet; k++) cv_rect(x0 + k * (int32_t)sw / s->ratchet, y - 2, 1, 4, K_BG); }
+            if (s->ratchet > 1) { int k; for (k = 1; k < s->ratchet; k++) cv_rect(x0 + k * (int32_t)sw / s->ratchet, t0 + 1, 1, nh - 2 > 2 ? nh - 2 : 2, dyn == 0 ? col : K_BG); }
             if (s->flags & 1u) cv_rect(x0 + w - 1, y - 1, 3, 2, K_FG);
             if (sel) {
                 cv_rect(x0 - 2, y - 4, w + 4, 1, K_FG); cv_rect(x0 - 2, y + 3, w + 4, 1, K_FG);
@@ -181,12 +196,12 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
             }
         }
         if (si == sq_cursor && sp.note_ix < 0 && (plat_ms() / 300u) & 1u) {
-            cv_rect(x0, 2, (int32_t)sw, 1, K_DIM); cv_rect(x0, AH - 3, (int32_t)sw, 1, K_DIM);
+            cv_rect(x0, 2, (int32_t)sw, 2, K_FG); cv_rect(x0, AH - 4, (int32_t)sw, 2, K_FG);
         }
     }
     if (pos >= (float)start && pos < (float)(start + 16)) {
         int32_t px = RX + (int32_t)((pos - (float)start) * sw);
-        cv_rect(px, 2, 1, AH - 4, K_SEQC);
+        cv_rect(px - 1, 2, 1, AH - 4, K_BG); cv_rect(px, 2, 2, AH - 4, SQ_PLAY); cv_rect(px + 2, 2, 1, AH - 4, K_BG);   /* (a black edge each side) */
     }
     t[0] = 0;
     int_text(start + 1, t);
@@ -199,7 +214,7 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
         int_text(L, u);
         cat(t, u);
     }
-    cv_text(222 - text_w(&FONT_T, t), 1, &FONT_T, t, K_DIM);
+    cv_text(222 - text_w(&FONT_T, t), 1, &FONT_T, t, K_FG);
 }
 static void pic_steps(int spice)              /* PATTERN, SPICE, GEN: the 64 steps as tiles, 4 rows of 16 */
 {
@@ -209,20 +224,22 @@ static void pic_steps(int spice)              /* PATTERN, SPICE, GEN: the 64 ste
         const sq_step_t *s = &b->s[i];
         int32_t x = 4 + (i % 16) * 14 - (i % 16) / 4 * 0, y = 3 + (i / 16) * 37;
         int used = i < b->len, beat = i % 4 == 0;
-        uint16_t col = !used ? GREY(6) : s->cnt ? (beat ? K_SEQC : mix565(K_SEQC, K_WELL, 150)) : (beat ? GREY(29) : GREY(19));
+        uint16_t col = !used ? SQ_PAST : s->cnt ? K_SEQC : (beat ? SQ_OFF_BEAT : SQ_OFF);
         if (used && s->cnt && flash_on(i)) col = mix565(K_FG, col, 120);
+        if (used && i == sq_cursor) col = mix565(K_FG, col, 190);   /* the cursor's tile lifted */
         rrect(x, y, 12, 34, col, 2);
+        if (used && s->cnt && beat) cv_rect(x + 3, y + 2, 6, 2, K_BG);   /* a step on the beat: a notch at its top */
         if (used && s->cnt && s->chance < 100)
-            cv_rect(x, y + 34 - (100 - s->chance) * 34 / 100, 12, (100 - s->chance) * 34 / 100, mix565(K_SEQC, K_BG, 50));
+            cv_rect(x, y + 34 - (100 - s->chance) * 34 / 100, 12, (100 - s->chance) * 34 / 100, mix565(K_SEQC, K_BG, 135));   /* (chance: the part that may not play) */
         if (used && ((s->flags >> 1) & 3u))
             cv_text(x + 2, y - 1, &FONT_T, ((s->flags >> 1) & 3u) == 1u ? "F" : "x", K_GOLD);
         if (spice && used && s->cnt && b->spice) {
             float sp2 = (float)b->spice * 0.01f;
-            if (hash01(b->dice, (uint32_t)i * 4u) < sp2 * 0.3f) cv_rect(x + 5, y + 15, 3, 3, K_WARN);
-            else if (hash01(b->dice, (uint32_t)i * 4u + 1u) < sp2 * 0.25f) cv_text(x + 3, y + 11, &FONT_T, hash01(b->dice, (uint32_t)i * 4u + 2u) < 0.5f ? "-" : "+", K_GOLD);
+            if (hash01(b->dice, (uint32_t)i * 4u) < sp2 * 0.3f) { cv_rect(x + 3, y + 13, 6, 6, K_BG); cv_rect(x + 4, y + 14, 4, 4, K_WARN); }   /* a rest: a red mark in black */
+            else if (hash01(b->dice, (uint32_t)i * 4u + 1u) < sp2 * 0.25f) cv_text(x + 3, y + 11, &FONT_T, hash01(b->dice, (uint32_t)i * 4u + 2u) < 0.5f ? "-" : "+", K_BG);
         }
         if (i == sq_cursor) { cv_rect(x - 1, y - 1, 14, 1, K_FG); cv_rect(x - 1, y + 34, 14, 1, K_FG); cv_rect(x - 1, y - 1, 1, 36, K_FG); cv_rect(x + 12, y - 1, 1, 36, K_FG); }
-        if (i == pc) cv_rect(x, y + 35, 12, 1, K_SEQC);
+        if (i == pc) cv_rect(x - 1, y + 35, 14, 2, SQ_PLAY);   /* the playhead: a bar under the tile */
     }
 }
 static void pic_gen(void)
@@ -232,7 +249,7 @@ static void pic_gen(void)
     if (t0 > NGEN - 8) t0 = NGEN - 8;
     for (i = 0; i < 8; i++) {
         int k = t0 + i, on = k == sp.gen_tool;
-        if (on) { rrect(4, 4 + i * 18, 84, 16, GREY(34), 3); cv_rect(4, 4 + i * 18, 2, 16, K_SEQC); }
+        if (on) { rrect(4, 4 + i * 18, 84, 16, GREY(96), 3); cv_rect(4, 4 + i * 18, 2, 16, K_SEQC); }
         cv_text(10, 4 + i * 18, &FONT_XS, GEN_TOOLS[k], on ? K_FG : K_DIM);
     }
     if (sp.gen_tool == 0) {                   /* EUCLID: the ring of the pattern it will make */
@@ -244,7 +261,7 @@ static void pic_gen(void)
             float a = (float)j / (float)L * TAU - 1.5708f;
             int32_t x = 156 + (int32_t)(fm_cosf(a) * 56.0f), y = AH / 2 + (int32_t)(fm_sinf(a) * 56.0f);
             if (hit) rrect(x - 3, y - 3, 7, 7, K_SEQC, 3);
-            else cv_rect(x - 1, y - 1, 3, 3, K_FAINT);
+            else cv_rect(x - 1, y - 1, 3, 3, GREY(112));
         }
         int_text(k, t);
         cat(t, "/");
@@ -265,19 +282,19 @@ static void pic_banks(void)
         int cur = b == sq.bank, q = b == sq.queue && (plat_ms() / 250u) & 1u, lo = 127, hi = 0;
         char t[4] = "A";
         sq_bank_t *bk = &sqb[b];
-        rrect(x, 4, 25, AH - 8, cur ? mix565(K_SEQC, K_BG, 40) : GREY(19), 4);
-        if (cur || q) { uint16_t e = cur ? K_SEQC : K_FG; cv_rect(x, 4, 25, 1, e); cv_rect(x, AH - 5, 25, 1, e); cv_rect(x, 4, 1, AH - 8, e); cv_rect(x + 24, 4, 1, AH - 8, e); }
+        rrect(x, 4, 25, AH - 8, cur ? mix565(K_SEQC, K_BG, 135) : GREY(40), 4);
+        { uint16_t e = cur ? K_SEQC : q ? K_FG : SQ_EDGE; cv_rect(x, 4, 25, 1, e); cv_rect(x, AH - 5, 25, 1, e); cv_rect(x, 4, 1, AH - 8, e); cv_rect(x + 24, 4, 1, AH - 8, e); }
         for (i = 0; i < bk->len; i++)
             for (j = 0; j < bk->s[i].cnt; j++) { if (bk->s[i].n[j] < lo) lo = bk->s[i].n[j]; if (bk->s[i].n[j] > hi) hi = bk->s[i].n[j]; }
         if (hi < lo + 6) hi = lo + 6;
         for (i = 0; i < bk->len; i++)
             for (j = 0; j < bk->s[i].cnt; j++)
-                cv_rect(x + 3 + i * 19 / bk->len, AH - 24 - (bk->s[i].n[j] - lo) * (AH - 44) / (hi - lo), 2, 2, cur ? K_SEQC : mix565(K_SEQC, K_BG, 140));
-        if (cur && sq.run && sq.cur >= 0) cv_rect(x + 3 + sq.cur * 19 / bk->len, 16, 1, AH - 36, mix565(K_SEQC, K_BG, 180));
+                cv_rect(x + 3 + i * 19 / bk->len, AH - 24 - (bk->s[i].n[j] - lo) * (AH - 44) / (hi - lo), 2, 2, cur ? K_SEQC : mix565(K_SEQC, K_BG, 215));
+        if (cur && sq.run && sq.cur >= 0) { int32_t px = x + 3 + sq.cur * 19 / bk->len; cv_rect(px - 1, 16, 1, AH - 36, K_BG); cv_rect(px, 16, 2, AH - 36, SQ_PLAY); cv_rect(px + 2, 16, 1, AH - 36, K_BG); }
         t[0] = (char)('A' + b);
-        cv_text(x + 13 - text_w(&FONT_XS, t) / 2, AH - 22, &FONT_XS, t, cur ? K_SEQC : K_DIM);
-        if (sq_bank_empty(b)) cv_text(x + 11, 5, &FONT_T, ".", K_DIM);
-        else { char u[4]; int_text(bk->len, u); cv_text(x + 13 - text_w(&FONT_T, u) / 2, 5, &FONT_T, u, K_DIM); }
+        cv_text(x + 13 - text_w(&FONT_XS, t) / 2, AH - 22, &FONT_XS, t, cur ? K_FG : K_DIM);
+        if (sq_bank_empty(b)) cv_text(x + 11, 5, &FONT_T, ".", K_FG);
+        else { char u[4]; int_text(bk->len, u); cv_text(x + 13 - text_w(&FONT_T, u) / 2, 5, &FONT_T, u, K_FG); }
     }
 }
 static void pic_song(void)
@@ -291,13 +308,14 @@ static void pic_song(void)
     int_text(sq.njam, u);
     cat(t, u);
     cat(t, " PASSES   ALGO LEFT: JAM TO SONG");
-    cv_text(4, 0, &FONT_T, t, K_DIM);
+    cv_text(4, 0, &FONT_T, t, K_FG);
     for (r = 0; r < 16; r++) {
         int32_t w = (int32_t)((float)(sqs.bank[r] >= 0 ? sqs.rep[r] : 1) * 220.0f / (float)tot);
         int on = sq.song_on && r == sq.song_row;
-        uint16_t c = sqs.bank[r] < 0 ? GREY(11) : on ? mix565(K_SEQC, K_BG, 190) : mix565(K_SEQC, K_BG, 60);
+        uint16_t c = sqs.bank[r] < 0 ? K_BG : on ? K_SEQC : mix565(K_SEQC, K_BG, 135);
         if (w < 2) w = 2;
-        rrect(x, 16, w - 1, AH - 40, c, 2);
+        rrect(x, 16, w - 1, AH - 40, sqs.bank[r] < 0 ? SQ_EDGE : c, 2);   /* an empty row: an outline */
+        if (sqs.bank[r] < 0 && w > 4) rrect(x + 1, 17, w - 3, AH - 42, K_BG, 1);
         if (sqs.bank[r] >= 0 && w > 9) {
             char bn[2] = "A";
             bn[0] = (char)('A' + sqs.bank[r]);
@@ -309,34 +327,34 @@ static void pic_song(void)
                 cv_text(x + w / 2 - text_w(&FONT_T, u) / 2, AH / 2 + 8, &FONT_T, u, K_GOLD);
             }
         }
-        if (r == sp.song_cur) { cv_rect(x, 14, w - 1, 1, K_FG); cv_rect(x, AH - 23, w - 1, 1, K_FG); }
+        if (r == sp.song_cur) { cv_rect(x, 13, w - 1, 2, K_FG); cv_rect(x, AH - 23, w - 1, 2, K_FG); }
         x += w;
     }
-    if (empty) cv_text(10, AH - 18, &FONT_T, "EMPTY: K2 GIVES A ROW A BANK", K_DIM);
+    if (empty) cv_text(10, AH - 18, &FONT_T, "EMPTY: K2 GIVES A ROW A BANK", K_FG);
 }
 static void pic_mseq(void)
 {
     int i, l, row = 0;
     float sw = 220.0f / 16.0f;
-    cv_rect(4, 50, 220, 1, K_FAINT);
+    cv_rect(4, 50, 220, 1, GREY(130));
     for (i = 0; i < 16; i++) {
         int v = sqs.ms[sp.ms_lane][i];
         int32_t x = 4 + (int32_t)((float)i * sw), h = v * 44 / 100;
-        uint16_t c = i == ms_cur ? K_LFO : mix565(K_LFO, K_WELL, 110);
+        uint16_t c = i == ms_cur ? K_LFO : mix565(K_LFO, K_WELL, 165);
         if (h > 0) cv_rect(x + 1, 50 - h, (int32_t)sw - 2, h, c);
         else if (h < 0) cv_rect(x + 1, 51, (int32_t)sw - 2, -h, c);
         else cv_rect(x + 1, 50, (int32_t)sw - 2, 1, c);
-        if (i == sp.ms_cur && (plat_ms() / 300u) & 1u) { cv_rect(x, 2, (int32_t)sw, 1, K_FG); cv_rect(x, 97, (int32_t)sw, 1, K_FG); }
-        if (i == ms_cur) cv_rect(x + 1, 99, (int32_t)sw - 2, 2, K_FG);
+        if (i == sp.ms_cur && (plat_ms() / 300u) & 1u) { cv_rect(x, 2, (int32_t)sw, 2, K_FG); cv_rect(x, 96, (int32_t)sw, 2, K_FG); }
+        if (i == ms_cur) cv_rect(x + 1, 99, (int32_t)sw - 2, 3, SQ_PLAY);
     }
     for (l = 0; l < 4; l++) {
         char t[2] = "1";
         if (l == sp.ms_lane) continue;
         t[0] = (char)('1' + l);
-        cv_text(4, 104 + row * 15, &FONT_T, t, K_DIM);
+        cv_text(4, 104 + row * 15, &FONT_T, t, K_FG);
         for (i = 0; i < 16; i++) {
             int v = sqs.ms[l][i] < 0 ? -sqs.ms[l][i] : sqs.ms[l][i];
-            cv_rect(14 + i * 13, 108 + row * 15, 12, 8, mix565(K_LFO, K_WELL, (uint32_t)(30 + v * 2) * (i == ms_cur ? 1u : 1u)));
+            cv_rect(14 + i * 13, 108 + row * 15, 12, 8, mix565(K_LFO, K_WELL, (uint32_t)(135 + v * 121 / 100)));
         }
         row++;
     }
@@ -351,7 +369,7 @@ static void seq_area(void)
         rrect(0, 0, 228, AH, K_WELL, 4);
         for (x = 12; x < 228; x += 12)
             for (y = 6; y < AH; y += 6)
-                cv_pset(x, y, K_GRID);
+                cv_pset(x, y, SQ_GRID);
         if (mn.page == PG_MSEQ) pic_mseq();
         else switch (mn.sub) {
             case SQP_NOTES: pic_roll(); break;
@@ -524,20 +542,20 @@ static void draw_seq_layer(void)
             int i = sp.layer_page * 16 + r * 4 + w;
             int32_t x = 6 + w * 37;
             const sq_step_t *s = &b->s[i];
-            uint16_t col = i >= b->len ? GREY(9) : s->cnt ? (i % 4 == 0 ? K_SEQC : mix565(K_SEQC, K_BG, 150)) : GREY(19);
+            uint16_t col = i >= b->len ? SQ_PAST : s->cnt ? K_SEQC : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
             if (i < b->len && s->cnt && flash_on(i)) col = mix565(K_FG, col, 110);
             rrect(x, 1, 34, 33, col, 4);
-            if (i == sp.held) { cv_rect(x, 1, 34, 1, K_FG); cv_rect(x, 33, 34, 1, K_FG); cv_rect(x, 1, 1, 33, K_FG); cv_rect(x + 33, 1, 1, 33, K_FG); }
-            if (i == pc) cv_rect(x + 2, 31, 30, 2, K_FG);
+            if (i == sp.held) { cv_rect(x, 1, 34, 2, K_FG); cv_rect(x, 32, 34, 2, K_FG); cv_rect(x, 1, 2, 33, K_FG); cv_rect(x + 32, 1, 2, 33, K_FG); }
+            if (i == pc) { cv_rect(x + 2, 30, 30, 1, K_BG); cv_rect(x + 2, 31, 30, 2, SQ_PLAY); }
             int_text(i + 1, t);
-            cv_text(x + 17 - text_w(&FONT_XS, t) / 2, 3, &FONT_XS, t, s->cnt && i % 4 == 0 ? K_BG : K_FG);
+            cv_text(x + 17 - text_w(&FONT_XS, t) / 2, 3, &FONT_XS, t, s->cnt ? K_BG : K_FG);
             if (s->cnt) {
                 if (s->cnt >= 3) chord_name(s->n, s->cnt, t);
                 else note_name(s->n[0], t);
                 while (text_w_acc(&FONT_T, t) > 32 && t[1]) { int k = 0; while (t[k]) k++; t[k - 1] = 0; }
-                cv_text_acc(x + 17 - text_w_acc(&FONT_T, t) / 2, 19, &FONT_T, t, i % 4 == 0 ? K_BG : K_FG);
+                cv_text_acc(x + 17 - text_w_acc(&FONT_T, t) / 2, 19, &FONT_T, t, K_BG);
             }
-            if (s->ratchet > 1) { int k; for (k = 0; k < s->ratchet; k++) cv_rect(x + 3 + k * 4, 29, 2, 2, K_FG); }
+            if (s->ratchet > 1) { int k; for (k = 0; k < s->ratchet; k++) cv_rect(x + 3 + k * 4, 28, 2, 2, K_BG); }
         }
         if (r == 0 || r == 1 || r == 2 || r == 3) {   /* the held step's values, one a row */
             static const char *const LB[4] = {"K1 NOTE", "K2 DYNAMICS", "K3 RATCHET", "K4 NUDGE"};
@@ -915,7 +933,8 @@ static void seq_delete(void)
         for (i = a; i <= z && i < b->len; i++)
             b->s[i].cnt = 0;
         sp.lasso = 0;
-        sp.note_ix = -1;
+        sq_cursor = (z + 1) % b->len;         /* on to the step after the lasso (wraps, as entry does) */
+        sp.note_ix = b->s[sq_cursor].cnt ? 0 : -1;
         t[0] = 0;
         int_text(z - a + 1, t);
         cat(t, z > a ? " STEPS CLEARED" : " STEP CLEARED");
@@ -924,7 +943,8 @@ static void seq_delete(void)
         int k, j = sp.note_ix;
         for (k = j; k < s->cnt - 1; k++) { s->n[k] = s->n[k + 1]; s->len[k] = s->len[k + 1]; s->lvl[k] = s->lvl[k + 1]; }
         s->cnt--;
-        sp.note_ix = s->cnt ? (j < s->cnt ? j : s->cnt - 1) : -1;
+        sq_cursor = (sq_cursor + 1) % b->len;   /* on to the next step (wraps at the pattern's end, as entry does) */
+        sp.note_ix = b->s[sq_cursor].cnt ? 0 : -1;
         app_say("NOTE", "DELETED");
     } else {
         app_say("NOTHING PICKED", "K1 PICKS A NOTE");
