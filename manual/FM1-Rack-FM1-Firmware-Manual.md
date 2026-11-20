@@ -94,7 +94,7 @@ Each page button opens its first page. **Tap it again to turn through that page'
 | **EDIT** | the source (Plaits or Braids) | OSC, the second oscillator and mixer | **Hold: UNDO** the last change; hold again to go further back (up to 16). With SEL: LEARN. On the sequencer's NOTES: **delete** (section 11) |
 | **ENV** | AMP (envelopes, voice mode) | the FILTER, then the shaper (Rings or empty) | **Hold ENV and turn K1, on any page: the filter's SWEEP** (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned) |
 | **LFO** | MOD A | MOD B, the LFOs, MSEQ, the MATRIX | **Two taps: the MATRIX** |
-| **FX** | FX 1 | FX 2 | **Hold, let go, then one tap: FX 1 off or on; two taps: FX 2** (section 10) |
+| **FX** | FX 1 | FX 2, then JAM | **Two quick taps: JAM on or off, from any page** (update 28, section 10). **Hold, let go, then one tap: FX 1 off or on; two taps: FX 2** (section 10) |
 | **ARP** | the arpeggiator | HOLD + TURING | **Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on** (section 10) |
 | **SEL** | scale and chord | (SELECT turns its pages: KEYS + STRUM, then the MIDI controller pages STYLE, LAYER MIDI CH, CHORD + ARP, then FEEL, RHYTHM and RHYTHM CHANCE) | **Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on** (section 10). **Hold SEL and EDIT together (half a second): LEARN on or off** (section 8) |
 | **GLO** | GLOBAL settings | its next page | **Two taps (or hold): DAYLIGHT on or off** (for the sun) |
@@ -556,6 +556,7 @@ These gestures change things without opening a menu:
 
 - **Two quick taps on SEL**: chords off (single notes) or back on; **three taps**: the chords' send off or on.
 - **Two quick taps on ARP**: the arpeggio on the FM-1 off or on; **three taps**: its send off or on. (See *Chords and arpeggio: on the FM-1, and sent*, above.)
+- **Two quick taps on FX**: JAM on or off, from any page (see *JAM: moves on the keys*, below). The first tap opens FX 1 as always, the second, within 0.3 s, takes you back to the page you were on.
 - **Hold FX, let go, then tap FX**: after the hold the message says **TAP FX 1, TWO TAPS FX 2**. Within 2 seconds:
     - one tap turns FX 1 off or on;
     - two quick taps turn FX 2 off or on;
@@ -564,6 +565,39 @@ These gestures change things without opening a menu:
 A switched-off effect shows **OFF** on its HOME tile and costs no processor time. Its settings stay, and when you turn it back on it starts clean, with no old echoes. Loading a preset turns both effects on again; this on/off isn't saved with a preset. UNDO puts back the chord and arpeggio switches, as it does a knob turn.
 
 ![HOME with FX 2 switched off](../web/manual/img/fm1-fxoff.png)
+
+### JAM: moves on the keys (update 28)
+
+JAM turns the upper keys into **moves**: each key throws the sound into a grain echo, a stutter, a glitch, a wash, a filter dive and so on, for as long as you hold it (or until you press it again). The keys below the split keep playing notes, so you play a chord or a line with your left hand and throw the sound about with your right.
+
+**In and out.** Tap **FX twice, quickly** (within 0.3 s), from any page: the message says **JAM ON** and a gold **JAM** tag sits in the top strip, where the voice mode was (it is brighter while a move is sounding). Two quick taps again: **JAM OFF, SOUND RESTORED**. You stay on the page you were on (the first tap of the two opens FX 1 for a moment, as a single tap always does, and the second takes you back). JAM is also the third page of the FX button, after FX 1 and FX 2: tap FX until it comes up, or SELECT through its seven pages. The other FX gestures are as they were: one tap FX 1, tap again for FX 2, hold-let go-tap for the effects' on and off.
+
+**The split.** The keyboard has 27 keys. By default the **lower 15 play notes** and the **upper 12 (G#4 to G5) are the twelve moves**, in the order of the table below, left to right. Change the split on the JAM page (**SPLIT KEY**, 1 to 26: the first key that is a move; keys count from 0 at the lowest F). A split higher than 15 leaves the last moves without a key; a lower one, with more than twelve keys above it, goes round again. The octave buttons still move the notes, not the moves. Notes that come in over MIDI are not touched. With SEL's chord ZONE on, its seven lowest keys stay the zone keys. A move key is never a note, and does not start the arpeggiator, a chord or STYLE.
+
+**The moves.** Each key shows the move's name when it is pressed (and HOLD, LATCH ON or LATCH OFF). A move changes only the sound's existing parameters, as an offset on top of the preset's own values (like the knob layer), and ignores a module the preset does not have:
+
+| Key | Move | What it does |
+| --- | --- | --- |
+| 1 | **GRAIN DELAY** | The sound thrown back in smeared, pitched echoes: with Clouds, BLEND, FEEDBACK, DENSITY and an octave of PITCH up; with a delay, its FEEDBACK, MIX and WOW up; the chorus and the reverb swell, the LFOs speed up |
+| 2 | **STUTTER 1/8** | The voices and the chorus, delay and reverb wet chopped on the beat: open half of each eighth, silent the other half (the gate's edges are about 10 ms, so no clicks). With Clouds, a frozen slice of short grains plays through the gaps |
+| 3 | **STUTTER 1/16** | The same at sixteenths |
+| 4 | **STUTTER 1/32** | The same at thirty-seconds |
+| 5 | **REVERSE SCRUB** | With Clouds: FREEZE on, SPEED reverse (about 1.1x real time), a wide WINDOW, BLEND up: the buffer read backwards. Without Clouds there is no reverse; the reverb swells and the filter opens under it over two beats |
+| 6 | **TAPE STOP** | The pitch falls toward two octaves down, over a second or so, the filter closes a little, the LFOs and Clouds' speed slow, the delay's WOW swings; let go and it springs back in 0.15 s |
+| 7 | **WASH** | The reverb's MIX, SIZE, SHIMMER and DAMP swell (about 0.6 s), the filter softens, the delay and chorus join; with Clouds, REVERB and FEEDBACK up |
+| 8 | **FREEZE PAD** | With Clouds: FREEZE on, WINDOW and JITTER wide, BLEND up: the sound held and smeared. Without it: the reverb and delay feedback pushed up for a long smear (the held sound itself cannot be frozen without Clouds) |
+| 9 | **GLITCH** | Every sixteenth a new random draw: a pitch jump (an octave, a fifth or a fourth, up or down), a drop-out, a crushed bit, a filter jump; with Clouds, a new POSITION and SIZE too |
+| 10 | **FILTER DIVE** | The cutoff falls about four and a half octaves over about a second, the RESONANCE and DRIVE rise |
+| 11 | **FILTER RISE** | From nearly closed, the cutoff opens over twelve sixteenths to a little brighter than the sound's own, with a resonant peak on the way; let go and it returns in 0.15 s |
+| 12 | **CRUSH** | Braids' BITS and RATE drop (down to 4 bits and 16 kHz at full amount and a hard press) and the filter's DRIVE rises |
+
+The **stutters, GLITCH and FILTER RISE are clocked**: they count sixteenths from the moment you press, at the tempo (GLOBAL), or at the MIDI clock's when GLOBAL's CLOCK is set to MIDI. What a move can do depends on the preset: **the modules a move names are the ones the preset has.** Of the 46 factory presets, 45 have a reverb, 27 a chorus, 16 a delay and one (TIDE PAD) Clouds, so on most presets GRAIN DELAY and FREEZE PAD are chorus and reverb swells, and REVERSE SCRUB and the grain parts of the stutters need Clouds (load it into an FX slot with ALGORITHM on the FX page to hear them). The voices' level, the filter (and its SWEEP), the pitch, Braids' BITS and RATE are in every preset.
+
+**HOLD or LATCH.** Each move has its own switch (the **KEY** knob on its page): **HOLD** (the default) is on while the key is down; **LATCH** turns it on with one press and off with the next, so you can leave a wash running and play on. Each move also has an **AMOUNT** (0 to 100 %, default 80, WASH and FREEZE PAD 70), and your **velocity** scales it (a gentle press is about 40 % of a hard one). **Moves stack**: hold several at once and their offsets add.
+
+**Letting go.** A move glides in and out at a speed of its own (the stutters in 8 ms, the filter dive over about half a second, TAPE STOP's fall over a second or so, a wash out over 0.6 s). When it has gone, **every parameter is exactly the sound's own again**, not nearly. Turning JAM off, **loading another preset**, changing the SPLIT KEY or a move's HOLD or LATCH switch ends every move at once (a latched move included); loading a preset leaves JAM on. Nothing JAM does is written into the preset: a knob you turn meanwhile, SAVE, the matrix and the knob layer see the preset's own values.
+
+**The JAM page.** Page 1: **JAM** (ON or OFF) and **SPLIT KEY**. Pages 2 to 7: two moves to a page, each its **AMOUNT** and its **KEY** (HOLD or LATCH), named in the header (GRAIN + STUT 8, STUT 16 + 32, SCRUB + TAPE, WASH + FREEZE, GLITCH + DIVE, RISE + CRUSH). The picture shows the twelve moves, each as a bar that rises while it is on, a tick at its amount, and a gold dot under a latched one. UNDO takes back a JAM setting like any other. **JAM's settings are not kept across a power-up** (JAM starts off, SPLIT KEY 15, the default amounts). It was tested on a computer and not yet heard on an FM-1.
 
 ### GLOBAL
 

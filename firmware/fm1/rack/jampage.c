@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: MPL-2.0 */
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
 /* FM1 Rack firmware: JAM's page (update 28), part of app.c (menus.c includes it): the settings of jam.c on a fixed page
  * of their own (as SEL, ARP, GLO: the values live in jam_v, not in the patch, and are not kept across a power-up).
  * Seven pages: JAM (ON, SPLIT), then two moves to a page, each its AMOUNT and its key (HOLD or LATCH). */
