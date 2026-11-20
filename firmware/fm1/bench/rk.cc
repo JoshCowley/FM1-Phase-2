@@ -40,4 +40,13 @@ void rk_fx_core2_voices(int on) { set_fx_core2_voices(on); }
 int rk_shed_helps(void) { return shed_helps(); }
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl) { core_stats(job, wait, inl); }
 void rk_core_stats_reset(void) { core_stats_reset(); }
+void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send) { drum_hit(voice, model, note, p1, p2, decay, level, pan, send); }
+void rk_drum_run(int on) { drum_run(on); }
+void rk_drum_busy(int mode) { drum_busy(mode); }
+void rk_drum_off(void) { drum_off(); }
+int rk_drum_status(int what) { return drum_status(what); }
+#ifdef RACK_HOST_CHECKS
+int rk_drum_identity(int model, int blocks, uint32_t seed) { return drum_identity(model, blocks, seed); }
+int rk_drum_sizes(int what) { return drum_sizes(what); }
+#endif
 }

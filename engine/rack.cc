@@ -25,6 +25,10 @@
 #include "plaits/dsp/voice.h"
 #endif
 #include "braids/macro_oscillator.h"
+#if defined(RACK_DRUMS) && defined(RACK_FM1)
+#include "rack_drum_osc.h"   // FM1 Phase 2 step 1: Braids' drum models without the delay lines (make_drum_osc.py writes it)
+#define HAVE_DRUMS 1
+#endif
 #ifdef RACK_WITH_GRAIN
 #include "grain.h"   // GRAIN (FM1 Phase 2): the Bento-style granular source. SHELVED: only with -DRACK_WITH_GRAIN (off by default)
 #endif
@@ -229,6 +233,43 @@ static warps::Modulator warps_[MAXV];
 #endif
 #endif
 static Svf svf_[MAXV], svf2_[MAXV];
+#ifdef HAVE_DRUMS
+// ---- DRUMS (FM1 Phase 2 step 1). Four drum voices, each a trimmed Braids oscillator (braids_drum::DrumOscillator, about 0.5 KB: no delay
+// lines) struck by rk_drum_hit with its model, pitch, two parameters, decay, level, pan and send. They are not the synth's voices: no
+// envelope, filter or matrix, only the oscillator, an amplitude decay (a one-pole fall, T60 = the hit's DECAY: Braids' hat and cymbal do
+// not decay by themselves) and the mix. Everything (voices, mix buffers) is in the arena, carved when the patch is laid out; nothing is
+// static but a pointer and a few flags, and with no voice sounding the whole thing costs one comparison a block.
+// The mix: each hit's level is split by SEND into a wet part, added to the signal before the effects, and a dry part, added after them.
+// Rendered by whichever core has the job (the second core's: Clouds' job, or the voices' job; the first when neither is out) into
+// out[w]; the first core adds out[r], the block before's, so the drums arrive one block (1 ms) after the hit whichever core renders them.
+#define DR_N 4
+enum { DM_KICK, DM_SNARE, DM_CYMBAL, DM_STRUCK_DRUM, DM_STRUCK_BELL, DM_FILTERED_NOISE, DM_CLOCKED_NOISE, DM_PARTICLE_NOISE, DM_TWIN_PEAKS, DM_N };
+static const int DM_SHAPE[DM_N] = {
+  braids::MACRO_OSC_SHAPE_KICK - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD, braids::MACRO_OSC_SHAPE_SNARE - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD,
+  braids::MACRO_OSC_SHAPE_CYMBAL - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD, braids::MACRO_OSC_SHAPE_STRUCK_DRUM - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD,
+  braids::MACRO_OSC_SHAPE_STRUCK_BELL - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD, braids::MACRO_OSC_SHAPE_FILTERED_NOISE - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD,
+  braids::MACRO_OSC_SHAPE_CLOCKED_NOISE - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD, braids::MACRO_OSC_SHAPE_PARTICLE_NOISE - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD,
+  braids::MACRO_OSC_SHAPE_TWIN_PEAKS_NOISE - braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD };
+struct DrumVoice {
+  braids_drum::DrumOscillator osc;
+  float env, dec;               // the amplitude: 1 at the hit, times dec each frame
+  float gl, gr, wl, wr;         // the hit's dry and wet gains, left and right
+  int16_t pitch, p1, p2;
+  uint8_t shape, active;
+};
+struct DrumBus {
+  DrumVoice v[DR_N];
+  float out[2][4][BLOCK];       // [buffer][dry left, dry right, wet left, wet right]
+};
+static DrumBus* drum_ = nullptr;
+static uint8_t drum_w_ = 0, drum_r_ = 1;            // the buffer this block's render writes; the one the block before wrote (read now)
+static uint8_t drum_ok_[2] = {0, 0};                // out[i] holds a rendered block
+static uint8_t drum_pending_ = 0, drum_in_job_ = 0; // a voice sounds this block; the job (not the first core) renders it
+static uint8_t drum_run_ = 0, drum_busy_ = 1;       // the firmware's pattern is playing; IF BUSY: 0 NONE, 1 CLOUD (Clouds eases), 2 VOICES (the overload guard's)
+static uint32_t drum_blk_job_ = 0, drum_blk_inl_ = 0;
+static float drum_dens_seen_ = 0.0f;                // the DENSITY the last Clouds block was given (the host check reads it)
+#define DRUM_CLOUDS_CEIL 0.9f   // IF BUSY = CLOUD: Clouds' DENSITY is held at this while the drums run
+#endif
 static int nvoices_ = 2;
 static int shrink_to_ = 0;   // fewer voices asked for while some still fade out (set_voices): the count they go to
 static int last_voice_ = 0;
@@ -320,6 +361,9 @@ static int cl_vn_ = 0;            // the voice count the job works with (a snaps
 static int cl_voff_opt_ = 1;      // run-time switch (the benchmark): 0 keeps every voice on the first core
 static uint32_t cl_wait_avg_ = 0, cl_blk_avg_ = 0, cl_wait_now_ = 0;   // ticks, smoothed over 16 blocks: the first core's wait at the join, and the whole block
 static void cl_pipe_decide();
+#ifdef HAVE_DRUMS
+static void drums_render();
+#endif
 #ifndef RACK_FX_CORE2_V1
 #define RACK_FX_CORE2_V1 4        // the first core keeps this many voices; the ones above go to the second core's job (update 10)
 #endif
@@ -842,6 +886,9 @@ static size_t carve(const int* eff, int nv, bool commit) {
     if (id == M_DELAY) { uint8_t* a = take(fit_dlen_ * 2); uint8_t* b = take(fit_dlen_ * 2); if (commit) { delay_l_ = (int16_t*)a; delay_r_ = (int16_t*)b; dlen_ = fit_dlen_; delay_max_ = fit_dlen_ - 128; } }
     if (id == M_CHORUS) { uint8_t* a = take(8192); uint8_t* b = take(8192); if (commit) { chorus_l_ = (int16_t*)a; chorus_r_ = (int16_t*)b; } }
   }
+#ifdef HAVE_DRUMS
+  if (commit) drum_ = nullptr;
+#endif
   if (nv > 0) {
 #ifndef RACK_NO_PLAITS
     if (eff[S_SRC] == M_PLAITS) { uint8_t* a = take(nv * sizeof(plaits::Voice)); uint8_t* b = take(nv * 16384); if (commit) { plaits_ = (plaits::Voice*)a; plaits_buf_ = (char (*)[16384])b; } }
@@ -853,6 +900,9 @@ static size_t carve(const int* eff, int nv, bool commit) {
 #endif
 #ifndef RACK_LITE
     if (eff[S_SRC] == M_ELEMENTS) { uint8_t* a = take(nv * sizeof(elements::Part)); uint8_t* b = take(nv * 65536); if (commit) { elements_ = (elements::Part*)a; elements_rev_ = (uint16_t (*)[32768])b; } }
+#endif
+#ifdef HAVE_DRUMS
+    { uint8_t* a = take(sizeof(DrumBus)); if (commit) drum_ = (DrumBus*)a; }   // (the drums' voices and buffers: always, so a preset's voices never depend on them)
 #endif
     if (eff[S_SHP] == M_RINGS) { int nr = RINGS_SHARED ? 1 : nv;   // shared: one Rings for all the voices
                                  uint8_t* a = take(nr * sizeof(rings::Part)); uint8_t* b = fit_rings_rev_ ? take(nr * 65536) : nullptr; if (commit) { rings_ = (rings::Part*)a; rings_rev_ = (uint16_t (*)[32768])b; } }
@@ -892,6 +942,10 @@ static void fm1_layout() {
   grain_filled_ = false;
 #endif
   nalloc_ = nv;
+#ifdef HAVE_DRUMS
+  drum_ok_[0] = drum_ok_[1] = 0; drum_pending_ = drum_in_job_ = 0;
+  if (drum_) { new (drum_) DrumBus(); for (int i = 0; i < DR_N; ++i) { drum_->v[i].osc.Init(); drum_->v[i].active = 0; } }
+#endif
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
 #ifndef RACK_NO_PLAITS
     if (eff[S_SRC] == M_PLAITS) new (&plaits_[i]) plaits::Voice();
@@ -2104,6 +2158,40 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
 #endif
     for (int n = 0; n < BLOCK; ++n) { shim_fb_ = (fr[n].l + fr[n].r) * 0.5f; wl_out[n] = fr[n].l; wr_out[n] = fr[n].r; }
 }
+#ifdef HAVE_DRUMS
+// render this block's drums into out[drum_w_] (the job's, or the first core's when no job is out). Idle voices (below -80 dB) are skipped.
+static void drums_render() {
+  DrumBus& d = *drum_;
+  float (*o)[BLOCK] = d.out[drum_w_];
+  memset(o, 0, sizeof(d.out[0]));
+  for (int i = 0; i < DR_N; ++i) {
+    DrumVoice& v = d.v[i];
+    if (!v.active) continue;
+    int16_t buf[BLOCK]; uint8_t sync[BLOCK]; memset(sync, 0, sizeof(sync));
+    // as MacroOscillator::RenderDigital drives the digital oscillator: its parameters, pitch and shape each call, 24 frames at most
+    for (int h = 0; h < BLOCK; h += 24) {
+      v.osc.set_parameters(v.p1, v.p2);
+      v.osc.set_pitch(v.pitch);
+      v.osc.set_shape((braids::DigitalOscillatorShape)v.shape);
+      v.osc.Render(sync + h, buf + h, BLOCK - h < 24 ? BLOCK - h : 24);
+    }
+    float e = v.env;
+    for (int n = 0; n < BLOCK; ++n) {
+      float x = buf[n] * (1.0f / 32768.0f) * e;
+      e *= v.dec;
+      o[0][n] += x * v.gl; o[1][n] += x * v.gr; o[2][n] += x * v.wl; o[3][n] += x * v.wr;
+    }
+    v.env = e;
+    if (e < 1.0e-4f) v.active = 0;
+  }
+  drum_ok_[drum_w_] = 1;
+}
+static bool drums_any() {
+  if (!drum_) return false;
+  for (int i = 0; i < DR_N; ++i) if (drum_->v[i].active) return true;
+  return false;
+}
+#endif
 #ifdef FXC2
 // ---- Clouds on the second core (RACK_FX_CORE2; see the notes at cl_pipe_). What each core touches:
 //   job (second core, between the hand-over and the join): clouds_ (the processor object, its buffers and Parameters), cl_in32_ (reads), cl_out32_
@@ -2119,6 +2207,9 @@ static void cl_job(uint32_t) {
   // place), cl_in32_, cl_out32_, cl_po_, cl_dn_/cl_up_/cl_dry_/cl_mixs_/cl_tone_*, par_l_/par_r_ (the voices' mix), clouds_
   // The voices first: they draw random numbers (drift), and in the host's deferred stand-in the job then draws them where one core's voices do
   // (after the first core's own voices, before Clouds); the order inside the job costs the first core nothing
+#ifdef HAVE_DRUMS
+  if (drum_in_job_) { drums_render(); ++drum_blk_job_; }   // FM1 Phase 2 step 1: the drums are the second core's (one block late on the first: drum_r_)
+#endif
   if (cl_vjob_) {                                  // the voices above CL_V1, into their own mix (the first core adds it at the join)
     memset(par_l_, 0, sizeof(par_l_)); memset(par_r_, 0, sizeof(par_r_));
     for (int i = CL_V1; i < cl_vn_; ++i) render_voice(i, par_l_, par_r_, 1);
@@ -2174,6 +2265,9 @@ static void cl_fork() {
   if (!cl_primed_) return;
   cl_vn_ = nvoices_;
   cl_vjob_ = cl_voices_ride() ? 1 : 0;
+#ifdef HAVE_DRUMS
+  drum_in_job_ = drum_pending_;                   // the drums ride in this job (it is done on one core or the other, always)
+#endif
   if (par_run_) {
     if (par_sync_) par_sync_();                   // the staged input written, before the second core reads it
     cl_forked_ = par_run_(cl_job, 0) ? 1 : 0;
@@ -2224,7 +2318,12 @@ static void run_fx(int slot, float* l, float* r) {
 #endif
     clouds::Parameters* p = clouds_->mutable_parameters();
     p->position = P(slot, 0, 0); p->size = P(slot, 1, 0); p->pitch = P(slot, 2, 0) * 24.0f;
-    p->density = P(slot, 3, 0); p->texture = P(slot, 4, 0); p->dry_wet = P(slot, 5, 0);
+    p->density = P(slot, 3, 0);
+#ifdef HAVE_DRUMS
+    if (drum_run_ && drum_busy_ == 1 && p->density > DRUM_CLOUDS_CEIL) p->density = DRUM_CLOUDS_CEIL;   // IF BUSY = CLOUD: the drums run, Clouds eases
+    drum_dens_seen_ = p->density;
+#endif
+    p->texture = P(slot, 4, 0); p->dry_wet = P(slot, 5, 0);
     p->stereo_spread = P(slot, 6, 0); p->feedback = P(slot, 7, 0); p->reverb = P(slot, 8, 0);
     int cmode = PI(slot, 9, 0);
 #ifdef RACK_CLOUDS_NO_STRETCH
@@ -2525,6 +2624,9 @@ static void par_job(uint32_t) {
   uint32_t t0 = ticks_ ? ticks_() : 0;
   memset(par_l_, 0, sizeof(par_l_)); memset(par_r_, 0, sizeof(par_r_));
   for (int i = par_from_; i < nvoices_; ++i) render_voice(i, par_l_, par_r_, 1);
+#ifdef HAVE_DRUMS
+  if (drum_in_job_) { drums_render(); ++drum_blk_job_; }   // FM1 Phase 2 step 1
+#endif
   if (ticks_) st_job_ += ticks_() - t0;
 }
 static void early_work();
@@ -2539,16 +2641,27 @@ static void render_voices() {
   float early = 0.0f;
   if (mod_id_[S_SHP] == M_RINGS) early += PI(S_SHP, 0, 0) == 5 ? 2.2f : 1.85f;
   if (rv_early_ >= 0) early += 1.4f;
+#ifdef HAVE_DRUMS
+  if (drum_pending_) early -= 3.0f;   // the drums are the second core's: it carries them as about three voices (the bench settles it), so the first core takes more
+#endif
   int first = (int)floorf((nvoices_ - early) * 0.5f + 0.5f);
   par_from_ = first < 0 ? 0 : first > nvoices_ ? nvoices_ : first;
 #ifdef FXC2
   if (cl_due_) {   // update 9: Clouds' job is the second core's (one job at a time, and the same sum order whether it takes it or not): the first core renders every voice
     early_work();
     for (int i = 0, n1 = cl_vjob_ ? CL_V1 : nvoices_; i < n1; ++i) render_voice(i, blk_l_, blk_r_);   // (update 10: the voices above CL_V1 are the job's)
+#ifdef HAVE_DRUMS
+    if (drum_pending_ && !drum_in_job_) { drums_render(); ++drum_blk_inl_; }   // no job this block (Clouds had nothing staged): the first core
+#endif
     return;
   }
 #endif
+#ifdef HAVE_DRUMS
+  drum_in_job_ = drum_pending_;
+  bool shared = par_run_ && (par_from_ < nvoices_ || drum_pending_) && par_run_(par_job, 0);
+#else
   bool shared = par_run_ && par_from_ < nvoices_ && par_run_(par_job, 0);
+#endif
   early_work();
   for (int i = 0; i < par_from_; ++i) render_voice(i, blk_l_, blk_r_);
   if (shared) {
@@ -2638,10 +2751,17 @@ static void process_block_() {
     }
   rv_early_ = (mod_id_[S_FX1] == M_REVERB) != (mod_id_[S_FX2] == M_REVERB) ? (mod_id_[S_FX1] == M_REVERB ? S_FX1 : S_FX2) : -1;
   if (rv_early_ >= 0 && fx_off_[rv_early_ - S_FX1]) rv_early_ = -1;   // switched off: not run a block behind either
+#ifdef HAVE_DRUMS
+  drum_r_ = drum_w_; drum_w_ ^= 1; drum_ok_[drum_w_] = 0;       // the block before's drums are read now, this block's are written (by a job, or the first core)
+  drum_pending_ = drum_ && drums_any() ? 1 : 0; drum_in_job_ = 0;
+#endif
 #ifdef FXC2
   cl_fork();          // Clouds' job for the signal staged last block: the second core starts now
 #endif
   render_voices();
+#ifdef HAVE_DRUMS
+  if (drum_ok_[drum_r_]) { const float* wl = drum_->out[drum_r_][2]; const float* wr = drum_->out[drum_r_][3]; for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += wl[n]; blk_r_[n] += wr[n]; } }   // the drums' wet part, into the effects
+#endif
   if (mod_id_[S_SHP] == M_RINGS) {   // this block's excitation and strums, for Rings next block
     for (int n = 0; n < BLOCK; ++n) rings_ex_[n] = rings_in_[0][n] + rings_in_[1][n];
     for (int c = 0; c < 2; ++c) { for (int k = 0; k < rings_nqn_[c] && rings_qn_ < 8; ++k) rings_q_[rings_qn_++] = rings_nq_[c][k]; rings_nqn_[c] = 0; }
@@ -2655,6 +2775,9 @@ static void process_block_() {
   run_fx(S_FX2, blk_l_, blk_r_);
 #ifdef FXC2
   if (cl_forked_ || cl_vjob_) cl_join();   // (a job still out at the block's end: Clouds' slot was not reached; none spans a block)
+#endif
+#ifdef HAVE_DRUMS
+  if (drum_ok_[drum_r_]) { const float* dl = drum_->out[drum_r_][0]; const float* dr = drum_->out[drum_r_][1]; for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += dl[n]; blk_r_[n] += dr[n]; } }   // ... and the dry part, after them
 #endif
   for (int n = 0; n < BLOCK; ++n) { blk_l_[n] *= master_ * 0.9f; blk_r_[n] *= master_ * 0.9f; }
   run_master(blk_l_, blk_r_);
@@ -2703,4 +2826,116 @@ EXPORT float* monitor(int slot) {
   return mon_;
 }
 EXPORT float voice_env(int i) { return vs_[i].env; }
+
+// ------------------------------------------------------------------ drums: the C interface (rack.h)
+// A hit: voice 0-3, model (DM_*: KICK, SNARE, CYMBAL, STRUCK DRUM, STRUCK BELL, FILTERED NOISE, CLOCKED NOISE, PARTICLE NOISE, TWIN PEAKS), the
+// note (MIDI number, as a synth voice's), the model's two parameters (0..1), DECAY (seconds to fall 60 dB), LEVEL (the velocity in it), PAN
+// (-1..1) and SEND (0..1: how much goes through the effects). A hit on a sounding voice cuts its tail (the voice is mono). Without drums in the build
+// (or with no room in the arena) these do nothing.
+EXPORT void drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send) {
+#ifdef HAVE_DRUMS
+  if (!drum_ || voice < 0 || voice >= DR_N || model < 0 || model >= DM_N) return;
+  DrumVoice& v = drum_->v[voice];
+  v.shape = (uint8_t)DM_SHAPE[model];
+  v.pitch = (int16_t)clampf((note + 12.0f) * 128.0f, 0.0f, 16383.0f);   // as the synth's Braids voice: tuned for 96 kHz, asked an octave up
+  v.p1 = (int16_t)(clampf(p1, 0.0f, 1.0f) * 32767.0f); v.p2 = (int16_t)(clampf(p2, 0.0f, 1.0f) * 32767.0f);
+  decay = clampf(decay, 0.02f, 4.0f);
+  v.dec = expf(-6.9077553f / (decay * SR));
+  v.env = 1.0f;
+  level = clampf(level, 0.0f, 2.0f); send = clampf(send, 0.0f, 1.0f); pan = clampf(pan, -1.0f, 1.0f);
+  const float pl = pan > 0.0f ? 1.0f - pan : 1.0f, pr = pan < 0.0f ? 1.0f + pan : 1.0f;
+  v.gl = level * (1.0f - send) * pl; v.gr = level * (1.0f - send) * pr; v.wl = level * send * pl; v.wr = level * send * pr;
+  v.osc.set_shape((braids::DigitalOscillatorShape)v.shape);
+  v.osc.Strike();
+  v.active = 1;
+#else
+  (void)voice; (void)model; (void)note; (void)p1; (void)p2; (void)decay; (void)level; (void)pan; (void)send;
+#endif
+}
+// the firmware's pattern is playing (1) or not (0): IF BUSY = CLOUD holds Clouds' DENSITY at 0.9 while it is
+EXPORT void drum_run(int on) {
+#ifdef HAVE_DRUMS
+  drum_run_ = on != 0;
+#else
+  (void)on;
+#endif
+}
+// IF BUSY: 0 NONE, 1 CLOUD (Clouds' DENSITY eases while the drums run), 2 VOICES (the overload guard's own shedding: nothing here)
+EXPORT void drum_busy(int mode) {
+#ifdef HAVE_DRUMS
+  drum_busy_ = (uint8_t)(mode < 0 ? 0 : mode > 2 ? 2 : mode);
+#else
+  (void)mode;
+#endif
+}
+// all the drum voices silent at once
+EXPORT void drum_off() {
+#ifdef HAVE_DRUMS
+  if (drum_) for (int i = 0; i < DR_N; ++i) drum_->v[i].active = 0;
+#endif
+}
+// 0 voices sounding, 1 bytes the drums take of the arena (0: not built in), 2 1 while IF BUSY holds Clouds back, 3 blocks rendered in a job, 4 blocks rendered
+// by the first core, 5 1 when the drums have room in the arena
+EXPORT int drum_status(int what) {
+#ifdef HAVE_DRUMS
+  switch (what) {
+    case 0: { int n = 0; if (drum_) for (int i = 0; i < DR_N; ++i) n += drum_->v[i].active ? 1 : 0; return n; }
+    case 1: return (int)sizeof(DrumBus);
+    case 2: return drum_run_ && drum_busy_ == 1 && (mod_id_[S_FX1] == M_CLOUDS || mod_id_[S_FX2] == M_CLOUDS) && !(fx_off_[mod_id_[S_FX1] == M_CLOUDS ? 0 : 1]) ? 1 : 0;
+    case 3: return (int)drum_blk_job_;
+    case 4: return (int)drum_blk_inl_;
+    case 5: return drum_ ? 1 : 0;
+    case 6: return (int)(drum_dens_seen_ * 1000.0f + 0.5f);   // the DENSITY Clouds was last given, x 1000
+  }
+#else
+  (void)what;
+#endif
+  return 0;
+}
+#if defined(HAVE_DRUMS) && defined(RACK_HOST_CHECKS)
+// rack_host's check 12: the same inputs through the stock braids::MacroOscillator and through the drum copy, sample for sample. Per model, `blocks` engine
+// blocks: pitch and the two parameters change every five blocks (from a fixed generator), a strike every 37. Returns the number of samples that differ
+// (0 = bit-identical); drum_sizes(3) is the loudest sample of the stock output (so that silence cannot pass).
+static int drum_id_peak_ = 0;
+EXPORT int drum_identity(int model, int blocks, uint32_t seed) {
+  static braids::MacroOscillator stock; static braids_drum::DrumOscillator drum;
+  static int16_t A[800 * 48], B[800 * 48];
+  if (model < 0 || model >= DM_N || blocks > 800) return -1;
+  const int macro = DM_SHAPE[model] + braids::MACRO_OSC_SHAPE_TRIPLE_RING_MOD;
+  for (int pass = 0; pass < 2; ++pass) {
+    Random::Seed(seed);
+    memset((void*)&stock, 0, sizeof(stock)); memset((void*)&drum, 0, sizeof(drum));
+    uint32_t g = seed * 2654435761u + 12345u; int16_t pitch = 60 * 128, p1 = 16000, p2 = 16000;
+    if (pass == 0) stock.Init(); else drum.Init();
+    int16_t* out = pass == 0 ? A : B;
+    for (int b = 0; b < blocks; ++b) {
+      if (b % 5 == 0) {
+        g = g * 1664525u + 1013904223u; pitch = (int16_t)((24 + (g >> 24) % 60 + 12) * 128);
+        g = g * 1664525u + 1013904223u; p1 = (int16_t)((g >> 8) & 0x7FFF);
+        g = g * 1664525u + 1013904223u; p2 = (int16_t)((g >> 8) & 0x7FFF);
+      }
+      uint8_t sync[24]; memset(sync, 0, sizeof(sync));
+      for (int h = 0; h < 48; h += 24) {
+        if (pass == 0) {
+          stock.set_shape((braids::MacroOscillatorShape)macro); stock.set_pitch(pitch); stock.set_parameters(p1, p2);
+          if (b % 37 == 0 && h == 0) stock.Strike();
+          stock.Render(sync, out + b * 48 + h, 24);
+        } else {
+          drum.set_parameters(p1, p2); drum.set_pitch(pitch); drum.set_shape((braids::DigitalOscillatorShape)DM_SHAPE[model]);
+          if (b % 37 == 0 && h == 0) drum.Strike();
+          drum.Render(sync, out + b * 48 + h, 24);
+        }
+      }
+    }
+  }
+  int bad = 0, pk = 0;
+  for (int i = 0; i < blocks * 48; ++i) { bad += A[i] != B[i]; int a = A[i] < 0 ? -A[i] : A[i]; if (a > pk) pk = a; }
+  drum_id_peak_ = pk;
+  return bad;
+}
+EXPORT int drum_sizes(int what) {
+  switch (what) { case 0: return (int)sizeof(braids_drum::DrumOscillator); case 1: return (int)sizeof(braids::MacroOscillator); case 2: return (int)sizeof(DrumBus); case 3: return drum_id_peak_; }
+  return 0;
+}
+#endif
 EXPORT float mod_value(int i) { return mod_out_[i]; }

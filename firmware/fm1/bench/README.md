@@ -13,6 +13,14 @@ Rack: it plays no sound and saves nothing. It answers two questions on the board
    Peaks, Grids, the delay, reverb and chorus, 1 to 6 voices, the CLOUDS group (below), and the 16 heaviest of the Phase 2
    factory presets plus the eight earlier ones (the module cases are still built on eight presets of the first set, kept in `tests/bench-base-calls.json`); then, when the second core starts, the 6-voice ones again on two cores (the 2 CORES group: the second core renders half the voices).
 
+**Drum track, step 1 (21 Nov 2026): the DRUMS cases.** The firmware now has four drum voices (engine/rack.cc "DRUMS": Braids' nine drum models in a trimmed oscillator, 472 bytes a voice, built
+by `common/make_drum_osc.py` from the Mutable checkout). 37 new cases (207 in all) measure what they cost. The DRUMS group (one core) and the same in 2 CORES: `CHEAP x3`, `CHEAP x4`, `RICH x3`, `RICH x4`
+(CHEAP: KICK, SNARE, a CLOCKED NOISE hat, and for x4 a FILTERED NOISE clap; RICH: KICK, SNARE, the CYMBAL hat, a STRUCK DRUM perc), each alone (own = minus `BRAIDS x4`: the firmware's P2 INIT, four notes) and with
+Clouds (GRANULR 16 ST, the CLOUDS group's settings) at DENSITY 0.7, 0.9 and 1.0 (`... D.7`, `D.9`, `D1.0`; own = minus the same Clouds case without drums), and `CHEAP x4 D1.0 EASED` and `RICH x4 D1.0 EASED` (the engine's
+IF BUSY = CLOUD guard on: Clouds' DENSITY held at 0.9 while the drums run; in the other cases it is off, so D1.0 is a true 1.0). Every voice of the kit is struck every 10 ms, so all of them sound all the time: the worst
+case, not the average. On two cores the second core renders the drums (in Clouds' job when Clouds is loaded, else the voices' job); each such case gives the block, `C1` and `C2` as before, and `BRAIDS x4` on two cores is
+their reference. CSV name for the run: `fm1-bench-drums1-2026-11-21.csv`. `bench_host` checks that every voice of every kit sounds.
+
 **Update 10: the work around Clouds is the second core's too.** Six new cases (170 in all): in the 2 CORES group `GRAN D0.9 x6` and `CL+DELAY x6` (six voices; the fifth and sixth ride in
 the second core's job when Clouds is in FX 1 with an effect after it: `CL+DELAY x6`, `CL+REV x6`), and `GRAN D0.9 x6 V1` and `CL+REV x6 V1` (the same with the voices kept on the first core, `rk_fx_core2_voices(0)`: update 9's
 arrangement, to see whether the offload helps on the device); in the CLOUDS group the one-core twins `GRAN D0.9 x6` and `CL+DELAY x6`. Read "C1" and "C2" as before; at update 9 C1 was 55.7 / 56.2 / 56.7 % at GRANULR D0.7 / D0.9 / D1.0,

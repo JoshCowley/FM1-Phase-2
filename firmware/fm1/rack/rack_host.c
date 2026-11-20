@@ -12,6 +12,7 @@
  *   7. CLOUDS on the second core (update 9, RACK_FX_CORE2): the same sound as one core, a block late (fx_core2_check.c).
  *   8. the knob layer (update 18): the curve maths, and MACRO TEST's eight K1 targets (presets_macrotest.h).
  *   10. the filter's SWEEP (update 26): darker down, brighter up, the matrix's LFO on the cutoff still moves it.
+ *   12. the drum voices (step 1 of the drum track, drum_check.c): bit-identical models, hits, cores, IF BUSY.
  *   11. JAM's moves (update 28, jam.c): each changes its parameters while on and gives back exactly the preset's own values
  *       (HOLD and LATCH, and jam_clear), moves stack, the clocked ones follow the tempo, the velocity scales them.
  * Build and run: sh build_host.sh */
@@ -22,6 +23,7 @@
 #include "rack_core.c"
 #include "clouds_check.c"
 #include "fx_core2_check.c"
+#include "drum_check.c"
 #include "jam.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
@@ -181,6 +183,17 @@ int main(int argc, char **argv)
         fc_play(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), atoi(argv[7]), o);
         fwrite(o, sizeof(float), 2 * 48 * 1500, stdout);
         return 0;
+    }
+    if (argc == 6 && !strcmp(argv[1], "--drum")) {   /* FM1 Phase 2 step 1: one drum case, its output on stdout (drum_check.c) */
+        static float o[2 * DC_BLK * DC_BLOCKS];
+        dc_play(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), o);
+        fwrite(o, sizeof(float), 2 * DC_BLK * DC_BLOCKS, stdout);
+        return 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--drums")) {   /* section 12 alone */
+        drum_checks(argv[0], &fails);
+        printf(fails ? "%d FAILED\n" : "all passed\n", fails);
+        return fails != 0;
     }
     if (argc == 4 && !strcmp(argv[1], "--play")) {
         play_engine(atoi(argv[2]), atoi(argv[3]), a);
@@ -596,6 +609,7 @@ int main(int argc, char **argv)
         if (bad11)
             fails++;
     }
+    drum_checks(argv[0], &fails);   /* 12 (FM1 Phase 2 step 1: the drum voices) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

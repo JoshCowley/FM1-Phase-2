@@ -44,6 +44,11 @@ void rk_fx_core2_voices(int on);           /* update 10: 0 keeps the voices abov
 int rk_fx_core2_active(void);              /* 1: Clouds runs on the second core in this patch */
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void rk_core_stats_reset(void);
+void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);   /* FM1 Phase 2 step 1: the drum voices */
+void rk_drum_run(int on);
+void rk_drum_busy(int mode);
+void rk_drum_off(void);
+int rk_drum_status(int what);
 /* the second core, when the platform has it (app.c: plat_cpu2_*; bench_host.c: a worker that runs the job at once):
  * the 2 CORES cases hand it half the voices; every other case runs on one core */
 static int (*bench_cpu2_run)(void (*)(uint32_t), uint32_t);
@@ -84,13 +89,14 @@ enum { G_CORE, G_BRAIDS, G_RINGS, G_SHP, G_MOD, G_FX, G_VOICES, G_CLOUDS, G_PRES
 #ifdef RACK_WITH_GRAIN
        G_GRAIN,
 #endif
+       G_DRUMS,
        G_CORES2, NGROUP };
 static const char *const GROUP[NGROUP] = {"CORE", "BRAIDS", "RINGS", "FILTER", "MOD", "FX", "VOICES",
                                            "CLOUDS", "PRESETS",
 #ifdef RACK_WITH_GRAIN
                                            "GRAIN",
 #endif
-                                           "2 CORES"};
+                                           "DRUMS", "2 CORES"};
 static const char *const BRAIDS_MODEL[47] = {"CSAW", "/\\-_", "//-_", "FOLD", "UUUU", "SUB-", "SUB/", "SYN-",
     "SYN/", "//x3", "-_x3", "/\\x3", "SIx3", "RING", "////", "//uu", "TOY*", "ZLPF", "ZPKF", "ZBPF", "ZHPF", "VOSM",
     "VOWL", "VFOF", "HARM", "FM", "FBFM", "WTFM", "PLUK", "BOWD", "BLOW", "FLUT", "BELL", "DRUM", "KICK", "CYMB",
@@ -103,9 +109,10 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
  * cl: a CLOUDS case (FM1 Phase 2): 1 + its row in CLC (the settings), 0 none */
 /* c2off: a 2 CORES case with the Clouds-on-the-second-core arrangement switched off at run time (rk_fx_core2(0)): update 8's, the voices split, Clouds on the first core */
 /* v1 (update 10): a 2 CORES case with the voices above the fourth kept on the first core (rk_fx_core2_voices(0)): update 9's arrangement, for comparison */
-typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+/* kit, dv, ease (step 1 of the drum track): a DRUMS case: the kit struck every step (1 cheap, 2 rich), its voices (3 or 4), IF BUSY = CLOUD on (the guard: Clouds' DENSITY held at 0.9) */
+typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
-#define NCASE_MAX 200
+#define NCASE_MAX 240
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
 
@@ -119,6 +126,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->cl = 0;
     c->c2off = 0;
     c->v1 = 0;
+    c->kit = c->dv = c->ease = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -188,6 +196,7 @@ static const clc_t CLC[] = {
     /* 31 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 0, 1, 0, 1},  /* REVERB 0, skip off */
 };
 #define CL_REF 0
+#define CL_ON(c) ((c)->cl && CLC[(c)->cl - 1].on)       /* the case has Clouds in FX 1 (cl is its CLC row + 1: row 0 is Braids alone) */
 #define CL_REVERB 15
 #define CL_DELAY 16
 #define M_CLOUDS 30
@@ -204,9 +213,35 @@ static int bc_cl(int group, int notes, int row, const char *name, int minus)
     return k;
 }
 
+/* the DRUMS cases (see bench_cases): kit 1 CHEAP, 2 RICH; 3 or 4 voices; refs = the four cases they are measured against (BRAIDS x4 and GRAN at DENSITY 0.7, 0.9, 1.0) */
+static void bench_drum_cases(int group, int ref0, int ref7, int ref9, int ref10)
+{
+    static const char *const NAME[2][2][4] = {
+        {{"CHEAP x3", "CHEAP x3 D.7", "CHEAP x3 D.9", "CHEAP x3 D1.0"}, {"CHEAP x4", "CHEAP x4 D.7", "CHEAP x4 D.9", "CHEAP x4 D1.0"}},
+        {{"RICH x3", "RICH x3 D.7", "RICH x3 D.9", "RICH x3 D1.0"}, {"RICH x4", "RICH x4 D.7", "RICH x4 D.9", "RICH x4 D1.0"}}};
+    static const char *const EASED[2] = {"CHEAP x4 D1.0 EASED", "RICH x4 D1.0 EASED"};
+    static const uint8_t ROW[4] = {0, 13, 1, 14};   /* CLC rows: no Clouds, GRANULR 16 ST at DENSITY 0.7, 0.9, 1.0 */
+    int refs[4], kit, nv, c, k;
+    refs[0] = ref0; refs[1] = ref7; refs[2] = ref9; refs[3] = ref10;
+    for (kit = 0; kit < 2; kit++)
+        for (nv = 0; nv < 2; nv++)
+            for (c = 0; c < 4; c++) {
+                k = bc_cl(group, 4, ROW[c], NAME[kit][nv][c], refs[c]);
+                bcases[k].kit = (uint8_t)(kit + 1);
+                bcases[k].dv = (uint8_t)(3 + nv);
+            }
+    for (kit = 0; kit < 2; kit++) {
+        k = bc_cl(group, 4, 14, EASED[kit], refs[3]);
+        bcases[k].kit = (uint8_t)(kit + 1);
+        bcases[k].dv = 4;
+        bcases[k].ease = 1;
+    }
+}
+
 static void bench_cases(void)
 {
     int i, k, base;
+    int r4s = -1, d7s = -1, d9s = -1, d10s = -1;      /* the CLOUDS group's BRAIDS x4, GRAN D0.7, GRAN 16ST (D0.9), GRAN D1.0: the DRUMS cases are measured against them */
     bncases = 0;
     /* the engine with no source: envelopes, matrix, LFOs, master, for one voice */
     k = bc_add(G_CORE, P_INIT, 1, "NO SOURCE");
@@ -304,10 +339,11 @@ static void bench_cases(void)
                                             "LOOP 16MO", "LOOP 8MO", "SPEC 16ST", "SPEC 8ST", "SPEC 16MO", "SPEC 8MO"};
         int i, r4, v;
         r4 = bc_cl(G_CLOUDS, 4, CL_REF, "BRAIDS x4", -1);
+        r4s = r4;
         for (i = 0; i < 12; i++)                  /* CLC rows 1 to 12: GRANULR, LOOPDLY, SPECTRL x 16 ST, 8 ST, 16 MONO, 8 MONO */
-            bc_cl(G_CLOUDS, 4, 1 + i, BCL_NAME[i], r4);
-        bc_cl(G_CLOUDS, 4, 13, "GRAN D0.7", r4);
-        bc_cl(G_CLOUDS, 4, 14, "GRAN D1.0", r4);
+            { int q = bc_cl(G_CLOUDS, 4, 1 + i, BCL_NAME[i], r4); if (i == 0) d9s = q; }
+        d7s = bc_cl(G_CLOUDS, 4, 13, "GRAN D0.7", r4);
+        d10s = bc_cl(G_CLOUDS, 4, 14, "GRAN D1.0", r4);
         bc_cl(G_CLOUDS, 4, 19, "GRAN FREEZE", r4);
         bc_cl(G_CLOUDS, 4, 20, "G.7 48K", r4);                /* update 8: the comparison cases (CLC rows 20 to 31) */
         bc_cl(G_CLOUDS, 4, 21, "G.9 48K", r4);
@@ -338,6 +374,13 @@ static void bench_cases(void)
             }
         }
     }
+    /* DRUMS (FM1 Phase 2 step 1, 21 Nov 2026): the drum voices (engine/rack.cc "DRUMS") on the same base as CLOUDS: the firmware's P2 INIT with four notes
+     * held, Clouds in FX 1 (GRANULR 16 ST, the CLOUDS group's settings) at DENSITY 0.7 / 0.9 / 1.0 or not at all. Every step (10 ms) every voice of the kit is struck, so
+     * all of them sound all the time: the worst case, not the average (rk_drum_hit; the sequencer is not built yet). Four kits: CHEAP (KICK, SNARE, a CLOCKED NOISE hat, and a
+     * FILTERED NOISE clap) and RICH (KICK, SNARE, the CYMBAL hat, a STRUCK DRUM perc), each with 3 voices (kick, snare, hat) or 4. "alone" = no Clouds: own = minus BRAIDS x4;
+     * "D0.7" etc: own = minus the same Clouds case without drums (GRAN D0.7, GRAN 16ST, GRAN D1.0). IF BUSY is NONE in them (the engine's guard, which holds Clouds'
+     * DENSITY at 0.9 while the drums run, is off), so D1.0 is a real 1.0; the cases ending "EASED" have it on (CLOUD: D1.0 becomes 0.9) at 4 voices. The same on two cores below ("2 CORES"). */
+    bench_drum_cases(G_DRUMS, r4s, d7s, d9s, d10s);
     /* the factory presets the Lite firmware can play, a chord of as many notes as the preset has voices (one for
      * the mono presets) */
     for (i = P_PLAYED; i < NPRESETS; i++) {
@@ -349,6 +392,8 @@ static void bench_cases(void)
      * no 2-core figure); CPU % is the first core's time, waiting for the second included */
     if (!bench_cpu2_run)                     /* one core only (it didn't start): no 2 CORES cases */
         return;
+    {
+    int r2c[4] = {-1, -1, -1, -1};
     bc_add(G_CORES2, P_INIT, 2, "INIT x2");
     bc_add(G_CORES2, P_INIT, 4, "INIT x4");
     bc_add(G_CORES2, P_INIT, 6, "INIT x6");
@@ -362,7 +407,8 @@ static void bench_cases(void)
     /* CLOUDS (15 Nov 2026): the three heaviest of its one-core cases (by total CPU, the highest in each of four runs on a computer, which
      * is a rough guide only): GRAN D1.0, CL+REVERB and CL+DELAY, on two cores: the second core takes two of the four Braids voices;
      * Clouds itself runs once, on the first */
-    bc_cl(G_CORES2, 4, 14, "GRAN D1.0", -1);
+    r2c[0] = bc_cl(G_CORES2, 4, CL_REF, "BRAIDS x4", -1);   /* (step 1, drums: the DRUMS cases on two cores are measured against these four) */
+    r2c[3] = bc_cl(G_CORES2, 4, 14, "GRAN D1.0", -1);
     bc_cl(G_CORES2, 4, 17, "CL+REVERB", -1);
     bc_cl(G_CORES2, 4, 18, "CL+DELAY", -1);
     /* update 9 (16 Nov 2026): Clouds on the second core (RACK_FX_CORE2): every voice and the other effect on the first, Clouds alone on the second, a block
@@ -370,8 +416,8 @@ static void bench_cases(void)
      * strip shows: the slower core, as the block takes as long as it), and its two cores' own loads "C1" (the first core's work: the block less the time it
      * waited for the second) and "C2" (the second core's job), each as % of the block. The second set is the same cases with the arrangement
      * switched off at run time ("OFF": the voices split, Clouds on the first core, as update 8), for comparison. */
-    bc_cl(G_CORES2, 4, 13, "GRAN D0.7", -1);
-    bc_cl(G_CORES2, 4, 1, "GRAN D0.9", -1);
+    r2c[1] = bc_cl(G_CORES2, 4, 13, "GRAN D0.7", -1);
+    r2c[2] = bc_cl(G_CORES2, 4, 1, "GRAN D0.9", -1);
     bc_cl(G_CORES2, 6, 17, "CL+REV x6", -1);
     bc_cl(G_CORES2, 4, 5, "LOOPDLY", -1);
     bc_cl(G_CORES2, 4, 9, "SPECTRL", -1);
@@ -387,9 +433,11 @@ static void bench_cases(void)
     bc_cl(G_CORES2, 6, 18, "CL+DELAY x6", -1);
     bcases[bc_cl(G_CORES2, 6, 1, "GRAN D0.9 x6 V1", -1)].v1 = 1;
     bcases[bc_cl(G_CORES2, 6, 17, "CL+REV x6 V1", -1)].v1 = 1;
+    bench_drum_cases(G_CORES2, r2c[0], r2c[1], r2c[2], r2c[3]);   /* step 1, drums: the same cases on two cores (the second core renders the drums) */
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
+    }
 }
 
 /* ------------------------------------------------------------------ running one --- */
@@ -407,6 +455,7 @@ typedef struct {
     float peak;                  /* the loudest sample in the timed runs */
     uint8_t voices_fit, voices_on, dropped, bad;   /* fm1_status 2, 3, 4; bad: a NaN or infinity came out */
     uint32_t arena;              /* bytes of the arena used */
+    uint8_t drum_on;             /* step 1, drums: voices still sounding when the case ended (a DRUMS case: all of its kit) */
     uint32_t c1best, c1worst, c2best, c2worst;   /* update 9, the 2 CORES cases: the first core's work and the second's job, ticks for RUN_FRAMES (lowest and highest run) */
 } bres_t;
 static bres_t bres[NCASE_MAX];
@@ -479,6 +528,8 @@ static void bench_setup(int k)
     rk_set_worker_ex(c->group == G_CORES2 ? bench_cpu2_sync : 0, c->group == G_CORES2 ? bench_cpu2_on : 0);
     rk_fx_core2(!c->c2off);
     rk_fx_core2_voices(!c->v1);
+    rk_drum_run(0);                            /* (step 1, drums: nothing carried over from the case before) */
+    rk_drum_busy(c->ease ? 1 : 0);             /* IF BUSY: NONE, except in the EASED cases */
     rk_init();
     run_ops(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
     if (c->preset != P_INIT)
@@ -495,12 +546,13 @@ static void bench_setup(int k)
         else if (c->ch[i][0] == 2)
             rk_set_param(c->ch[i][1], c->ch[i][2], c->chv[i]);
     }
-    if (c->group == G_PRESET || c->group == G_CORES2 || c->group == G_CLOUDS)
+    if (c->group == G_PRESET || c->group == G_CORES2 || c->group == G_CLOUDS || c->group == G_DRUMS)
         rk_fm1_fit();          /* as the firmware loads a preset (rc_load): buffers sized to it, the room to voices
                                 * (until 14 Nov 2026 not here, so the delay + reverb presets fit one voice) */
     rk_set_voices(c->notes);
     for (i = 0; i < c->notes; i++)
         rk_note_on(CHORD[i], 0.8f);
+    rk_drum_run(c->kit != 0);
     bres[k].best = 0xFFFFFFFFu;
     bres[k].worst = 0;
     bres[k].c1best = bres[k].c2best = 0xFFFFFFFFu;
@@ -509,9 +561,24 @@ static void bench_setup(int k)
     bres[k].bad = 0;
 }
 
+/* a DRUMS case: every voice of the kit struck (a decay of 0.3 s: they never go idle between steps), before the step's render. The kit: voice 0 KICK, 1 SNARE, 2 the hat
+ * (CHEAP: CLOCKED NOISE, RICH: CYMBAL), 3 the clap or perc (CHEAP: FILTERED NOISE, RICH: STRUCK DRUM). The engine's models: 0 KICK, 1 SNARE, 2 CYMBAL, 3 STRUCK DRUM, 5 FILTERED NOISE, 6 CLOCKED NOISE */
+static void bench_hit(int k)
+{
+    static const uint8_t MODEL[2][4] = {{0, 1, 6, 5}, {0, 1, 2, 3}};
+    static const float NOTE[4] = {36.0f, 50.0f, 70.0f, 62.0f};
+    const bcase_t *c = &bcases[k];
+    int v;
+    if (!c->kit)
+        return;
+    for (v = 0; v < c->dv; v++)
+        rk_drum_hit(v, MODEL[c->kit - 1][v], NOTE[v], 0.5f, 0.5f, 0.3f, 0.8f, 0.0f, 0.3f);
+}
+
 /* one untimed step (n: 1 to the number of steps); FREEZE is switched on half way, once the cloud has something to hold */
 static void bench_warm(int k, int n)
 {
+    bench_hit(k);
     rk_render(RUN_FRAMES);
     if (bcases[k].cl && CLC[bcases[k].cl - 1].freeze && n == CL_WARM_STEPS / 2)
         rk_set_param(S_FX1, 10, 1.0f);
@@ -524,6 +591,7 @@ static void bench_run(int k, uint32_t (*ticks)(void))
     uint32_t t0, t;
     const float *l, *r;
     int i;
+    bench_hit(k);
     rk_set_ticks(ticks);
     rk_core_stats_reset();
     t0 = ticks();
@@ -559,7 +627,10 @@ static void bench_run(int k, uint32_t (*ticks)(void))
 
 static void bench_done(int k)
 {
+    bres[k].drum_on = (uint8_t)rk_drum_status(0);
     rk_all_off();
+    rk_drum_off();
+    rk_drum_run(0);
     bres[k].voices_fit = (uint8_t)rk_fm1_status(2);
     bres[k].voices_on = (uint8_t)rk_fm1_status(3);
     bres[k].dropped = (uint8_t)rk_fm1_status(4);

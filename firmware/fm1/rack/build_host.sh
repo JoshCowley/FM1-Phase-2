@@ -15,12 +15,12 @@ mkdir -p $OUT
 RACK_FLAGS="${RACK_FLAGS:-}"
 # update 8: the Clouds changes, each on by default; switch one off with RACK_FLAGS=-URACK_CLOUDS_32K (and so on; -URACK_CLOUDS_MAX_GRAINS);
 # update 9: RACK_FX_CORE2 (Clouds on the second core) too: RACK_FLAGS=-URACK_FX_CORE2 builds without it
-CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB -DRACK_FX_CORE2"
+CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB -DRACK_FX_CORE2 -DRACK_DRUMS -DRACK_HOST_CHECKS"
 [ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc $OUT/*.od $OUT/*.or; echo "$RACK_FLAGS" > $OUT/.flags; }
 python3 make_presets.py --full
 EURORACK="$EURORACK" python3 make_units.py
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)
-CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH -DRACK_GR_STATS $CLF $RACK_FLAGS -I$ENG/shim -I$EURORACK"
+CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH -DRACK_GR_STATS $CLF $RACK_FLAGS -I$ENG/shim -Iunits -I$EURORACK"
 rm -f $OUT/plaits_*.o   # FM1 Phase 2: no Plaits
 for src in $(grep -vE '^(elements|warps|marbles|plaits)/' $ENG/sources.txt) ; do
   o="$OUT/$(echo "$src" | sed 's#/#_#g; s#\.cc$##').o"
@@ -29,6 +29,7 @@ for src in $(grep -vE '^(elements|warps|marbles|plaits)/' $ENG/sources.txt) ; do
   # (update 27: the shim header is an input too)
   [ -f "$o" -a "$o" -nt "$in" -a "$o" -nt "$ENG/shim/clouds/dsp/granular_sample_player.h" ] || { echo "c++ $src"; $CXX -c "$in" -o "$o"; }
 done
+$CXX -c units/mi_braids_drum_oscillator.cc -o $OUT/x_drum_osc.o   # step 1 (drums): the drum-only copy of Braids' digital oscillator (make_units.py)
 $CXX -c $ENG/grids_nodes.cc -o $OUT/x_grids_nodes.o
 $CXX -c $ENG/rack.cc -o $OUT/rack.o
 $CXX -c ../common/rk.cc -o $OUT/rk.o

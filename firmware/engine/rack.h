@@ -100,6 +100,20 @@ void set_fx_core2_voices(int on);
 int shed_helps(void);
 void core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void core_stats_reset(void);
+// FM1 Phase 2 step 1 (drums; built with RACK_DRUMS, else these do nothing): four drum voices of Braids' drum models (rack.cc "DRUMS").
+// drum_hit: voice 0-3, model 0-8 (KICK, SNARE, CYMBAL, STRUCK DRUM, STRUCK BELL, FILTERED NOISE, CLOCKED NOISE, PARTICLE NOISE, TWIN PEAKS), the note, the
+// model's two parameters 0..1, DECAY (seconds to fall 60 dB), LEVEL, PAN -1..1, SEND 0..1 (the share that goes through the effects).
+// drum_run: the firmware's pattern is playing; drum_busy: IF BUSY 0 NONE, 1 CLOUD (Clouds' DENSITY held at 0.9 while the drums run), 2 VOICES.
+// drum_status: 0 voices sounding, 1 arena bytes taken, 2 Clouds held back now, 3 blocks rendered in a job, 4 blocks rendered by the first core, 5 has room
+void drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
+void drum_run(int on);
+void drum_busy(int mode);
+void drum_off(void);
+int drum_status(int what);
+#ifdef RACK_HOST_CHECKS
+int drum_identity(int model, int blocks, uint32_t seed);   // the host check: samples that differ between the stock Braids class and the drum copy
+int drum_sizes(int what);
+#endif
 #endif
 
 #ifdef __cplusplus

@@ -173,6 +173,10 @@ int main(int argc, char **argv)
                    silent ? "  SILENT" : "");
             if (bcases[k].group == G_CORES2)
                 printf("%-8s %-14s   core 1 %5.1f%%  core 2 %5.1f%%  (of the block; the computer's clock)\n", "", "", bench_core_pct10(k, 1, 24) / 10.0, bench_core_pct10(k, 2, 24) / 10.0);
+            if (bcases[k].kit && (r->drum_on != bcases[k].dv || !rk_drum_status(5))) {
+                printf("%-8s %-14s   the kit's voices: %d sounding of %d   FAIL\n", "", bcases[k].name, r->drum_on, bcases[k].dv);
+                fails++;
+            }
             if (r->bad || silent)
                 fails++;
         }
@@ -189,6 +193,7 @@ int main(int argc, char **argv)
                 if (bcases[c1].group != G_CORES2 && bcases[c1].preset == bcases[c2].preset
                     && bcases[c1].notes == bcases[c2].notes && bcases[c1].grains == bcases[c2].grains
                     && bcases[c1].cl == bcases[c2].cl
+                    && bcases[c1].kit == bcases[c2].kit && bcases[c1].dv == bcases[c2].dv && bcases[c1].ease == bcases[c2].ease
                     && bcases[c1].ch[0][0] == 0)
                     break;
             if (c1 == bncases) {
@@ -205,7 +210,7 @@ int main(int argc, char **argv)
                     continue;
                 }
                 {   /* update 9: a Clouds case on two cores is its one-core twin a block (48 frames) late */
-                    int sh = bcases[c2].cl && !bcases[c2].c2off ? 48 : 0;
+                    int sh = CL_ON(&bcases[c2]) && !bcases[c2].c2off ? 48 : 0;
                     for (i = 0; i + sh < 48000; i++)
                         if (fabsf(a[i] - b[i + sh]) > d)
                             d = fabsf(a[i] - b[i + sh]);
@@ -216,14 +221,14 @@ int main(int argc, char **argv)
                 /* (Clouds on the second core: the reverb after it keeps its own LFO's time, a block ahead of its signal's: 0.0012 at six voices) */
                 /* update 10: with six voices the fifth and sixth are in the second core's job: they and Clouds' grains draw random numbers in another order than one
                  * core's (the voices' drift), so the samples differ and the sound is the same: rms within 8 % (the 6-voice cases only; the "V1" cases keep them on the first core) */
-                if (bcases[c2].cl && !bcases[c2].c2off && !bcases[c2].v1 && bcases[c2].notes > 4) {
+                if (CL_ON(&bcases[c2]) && !bcases[c2].c2off && !bcases[c2].v1 && bcases[c2].notes > 4) {
                     double ea = 0, eb = 0;
                     for (i = 0; i + 48 < 48000; i++) { ea += (double)a[i] * a[i]; eb += (double)b[i + 48] * b[i + 48]; }
                     printf("2 cores %-14s six voices: rms %.5f / %.5f one core's (largest sample difference %g: the random numbers' order)\n", bcases[c2].name, sqrt(eb), sqrt(ea), d);
                     if (fabs(sqrt(eb / ea) - 1.0) > 0.08 || s1 != 0 || s2 == 0) { printf("2 cores %-14s six voices: rms differs, blocks shared %u / %u   FAIL\n", bcases[c2].name, (unsigned)s2, (unsigned)s1); fails++; }
                     continue;
                 }
-                if (d > (bcases[c2].cl && !bcases[c2].c2off ? 3e-3f : 1e-3f) || s1 != 0 || (bres[c2].voices_on >= 2 && s2 == 0)) {
+                if (d > (CL_ON(&bcases[c2]) && !bcases[c2].c2off ? 3e-3f : 1e-3f) || s1 != 0 || (bres[c2].voices_on >= 2 && s2 == 0)) {
                     printf("2 cores %-14s differs by %g, blocks shared %u (one core: %u)\n", bcases[c2].name, d,
                            (unsigned)s2, (unsigned)s1);
                     fails++;

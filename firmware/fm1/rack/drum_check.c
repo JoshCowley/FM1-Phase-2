@@ -1,0 +1,238 @@
+// SPDX-License-Identifier: GPL-3.0
+// FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
+/* The drum voices (FM1 Phase 2 step 1, engine/rack.cc "DRUMS"), checked on a computer; included by rack_host.c (section 12).
+ *   12a  the nine drum models are bit-identical to the stock braids::MacroOscillator for the same inputs (pitch, parameters, strikes), 800 blocks each
+ *   12b  what a drum voice weighs: the copy against the stock class, the drums' share of the arena
+ *   12c  a hit on each model sounds (not NaN, not silent), arrives one block (48 frames) after the hit, dies away on its own; four at once
+ *   12d  the same hits on one core, on two cores (the job run at once, run when waited for, on a real thread, a worker that fails): identical sample
+ *        for sample with no Clouds; with Clouds in FX 1 (the drums in Clouds' job) the same between the two-core ways, no NaN
+ *   12e  the guard: IF BUSY = CLOUD holds Clouds' DENSITY at 0.9 while the drums run, only then (NONE and VOICES leave it; DENSITY 0.7 is not raised)
+ *   12f  nothing when no drum sounds: no block rendered, nothing added to the output (a preset's output with and without the drums' calls is the same)
+ * Every 12d case is played by a fresh process (rack_host --drum ...), as 7's are: the engine keeps some state across init(). */
+
+void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
+void rk_drum_run(int on);
+void rk_drum_busy(int mode);
+void rk_drum_off(void);
+int rk_drum_status(int what);
+int rk_drum_identity(int model, int blocks, uint32_t seed);
+int rk_drum_sizes(int what);
+
+static const char *const DC_MODEL[9] = {"KICK", "SNARE", "CYMBAL", "STRUCK DRUM", "STRUCK BELL", "FILTERED NOISE", "CLOCKED NOISE", "PARTICLE NOISE", "TWIN PEAKS"};
+#define DC_BLOCKS 1500
+#define DC_BLK 48
+enum { DS_PLAIN, DS_CLOUDS, DS_CLOUDS_NOTES, DS_N };   /* the scenarios: INIT with no note held; Clouds in FX 1; Clouds and four notes held */
+
+/* the pattern both the children and 12c play: a kick every 125 blocks, a snare on the off beats, a hat in between, a perc now and then */
+static void dc_hits(int b)
+{
+    if (b % 125 == 0) rk_drum_hit(0, 0, 36.0f, 0.5f, 0.5f, 0.35f, 0.9f, 0.0f, 0.2f);
+    if (b % 250 == 125) rk_drum_hit(1, 1, 50.0f, 0.5f, 0.5f, 0.25f, 0.8f, 0.2f, 0.3f);
+    if (b % 125 == 62) rk_drum_hit(2, b % 250 == 62 ? 6 : 2, 70.0f, 0.5f, 0.6f, 0.08f, 0.5f, -0.3f, 0.1f);
+    if (b % 500 == 250) rk_drum_hit(3, 5, 62.0f, 0.4f, 0.6f, 0.15f, 0.6f, 0.4f, 0.5f);
+}
+static void dc_play(int scen, int arr, int giveup, int norun, float *buf)
+{
+    int b, i;
+    rk_seed(0x21u);
+    hc2_giveup_pct = giveup; hc2_norun_pct = norun; hc2_mode = arr == FM_T ? HC2_THREAD : arr == FM_D ? HC2_DEFER : HC2_NOW;
+    if (arr == FM_A) rk_set_worker(0, 0);
+    else { rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on); }
+    cl_patch(scen == DS_PLAIN ? 0 : 30, 0, 0);
+    if (scen != DS_PLAIN) {
+        int s = cl_clouds_slot();
+        cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 0.8f);
+        cl_set(s, P_SPREAD, 0.5f); cl_set(s, P_FB, 0.3f); cl_set(s, P_REV, 0.3f);
+    }
+    rk_set_voices(4);
+    if (scen == DS_CLOUDS_NOTES)
+        for (i = 0; i < 4; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.8f);
+    else
+        rk_all_off();
+    rk_drum_run(1);
+    for (b = 0; b < DC_BLOCKS; b++) {
+        dc_hits(b);
+        rk_render(DC_BLK);
+        memcpy(buf + 2 * DC_BLK * b, rk_out_l(), DC_BLK * sizeof(float));
+        memcpy(buf + 2 * DC_BLK * b + DC_BLK, rk_out_r(), DC_BLK * sizeof(float));
+    }
+    hc2_stop();
+}
+static int dc_played(const char *self, int scen, int arr, int giveup, int norun, float *buf)
+{
+    char cmd[512];
+    FILE *f;
+    size_t n;
+    snprintf(cmd, sizeof cmd, "'%s' --drum %d %d %d %d", self, scen, arr, giveup, norun);
+    if (!(f = popen(cmd, "r")))
+        return -1;
+    n = fread(buf, sizeof(float), 2 * DC_BLK * DC_BLOCKS, f);
+    pclose(f);
+    return n == (size_t)(2 * DC_BLK * DC_BLOCKS) ? 0 : -1;
+}
+static double dc_rms(const float *x, int *bad, float *peak)
+{
+    double e = 0;
+    int i;
+    *bad = 0; *peak = 0;
+    for (i = 0; i < DC_BLOCKS * DC_BLK; i++) {
+        float v = x[i % DC_BLK + (i / DC_BLK) * 2 * DC_BLK];
+        if (!(v == v) || fabsf(v) > 1e6f) { (*bad)++; continue; }
+        if (fabsf(v) > *peak) *peak = fabsf(v);
+        e += (double)v * v;
+    }
+    return sqrt(e / (DC_BLOCKS * DC_BLK));
+}
+static double dc_diff(const float *a, const float *b, int *nd)   /* the largest difference, and how many samples differ */
+{
+    double m = 0;
+    int i;
+    *nd = 0;
+    for (i = 0; i < 2 * DC_BLK * DC_BLOCKS; i++) {
+        double d = fabs((double)a[i] - (double)b[i]);
+        if (d != 0.0) (*nd)++;
+        if (d > m) m = d;
+    }
+    return m;
+}
+
+static void drum_checks(const char *self, int *fails)
+{
+    static float A[2 * DC_BLK * DC_BLOCKS], B[2 * DC_BLK * DC_BLOCKS], C[2 * DC_BLK * DC_BLOCKS];
+    int m, bad12 = 0, i, s;
+    /* 12a */
+    {
+        int tot = 0, bm = 0;
+        for (m = 0; m < 9; m++) {
+            int d = rk_drum_identity(m, 800, 0x1234u + (uint32_t)m), pk = rk_drum_sizes(3);
+            printf("12a %-15s 800 blocks, stock class against the drum copy: %d samples differ, loudest sample %d\n", DC_MODEL[m], d, pk);
+            tot += d;
+            if (d != 0 || pk < 1000) bm++;
+        }
+        if (bm) { bad12++; printf("12a NOT bit-identical (or silent): %d models\n", bm); }
+        printf("12a the nine drum models are bit-identical to the stock Braids class: %d samples differ in 9 x 800 blocks\n", tot);
+    }
+    /* 12b */
+    printf("12b a drum voice: %d bytes (the stock MacroOscillator: %d); the drums' share of the arena (4 voices and the mix buffers): %d bytes\n",
+           rk_drum_sizes(0), rk_drum_sizes(1), rk_drum_sizes(2));
+    if (!(rk_drum_sizes(0) < 1024) || rk_drum_sizes(2) > 6144) { bad12++; printf("12b too big\n"); }
+    /* 12c */
+    {
+        int nbad = 0;
+        for (m = 0; m < 9; m++) {
+            int first = -1, peak_at = 0, n = 0, hot = 0, active_after;
+            float pk = 0;
+            rk_seed(0x21u);
+            rk_set_worker(0, 0);
+            cl_patch(0, 0, 0);
+            rk_all_off();
+            rk_drum_hit(0, m, m == 0 ? 36.0f : 60.0f, 0.5f, 0.5f, 0.2f, 1.0f, 0.0f, 0.0f);   /* dry, so it is the voice alone */
+            for (i = 0; i < 400; i++) {              /* 400 blocks, 0.4 s */
+                int k;
+                rk_render(DC_BLK);
+                for (k = 0; k < DC_BLK; k++) {
+                    float v = rk_out_l()[k];
+                    if (!(v == v) || fabsf(v) > 1e6f) { nbad++; continue; }
+                    if (first < 0 && fabsf(v) > 1e-7f) first = n;
+                    if (fabsf(v) > pk) { pk = fabsf(v); peak_at = n; }
+                    if (n >= 300 * DC_BLK && fabsf(v) > 0.02f) hot++;
+                    n++;
+                }
+            }
+            for (i = 0; i < 600; i++) rk_render(DC_BLK);   /* ... and to 1 s: dead */
+            active_after = rk_drum_status(0);
+            printf("12c %-15s peak %.3f at frame %d, first sound at frame %d, loud after 0.3 s: %d samples, voices still sounding after 1 s: %d\n", DC_MODEL[m], pk, peak_at, first, hot, active_after);
+            if (!(pk > 0.02f) || first < DC_BLK || (m != 7 && first > 4 * DC_BLK) || (m == 7 && first > 20 * DC_BLK) || active_after != 0) { bad12++; printf("12c %s: silent, too early or not ended\n", DC_MODEL[m]); }
+        }
+        if (nbad) { bad12++; printf("12c NaN\n"); }
+        rk_drum_hit(0, 0, 36.0f, 0.5f, 0.5f, 0.3f, 1.0f, 0.0f, 0.0f); rk_drum_hit(1, 1, 50.0f, 0.5f, 0.5f, 0.3f, 1.0f, 0.0f, 0.0f);
+        rk_drum_hit(2, 2, 70.0f, 0.5f, 0.5f, 0.3f, 1.0f, 0.0f, 0.0f); rk_drum_hit(3, 5, 60.0f, 0.5f, 0.5f, 0.3f, 1.0f, 0.0f, 0.0f);
+        printf("12c four voices struck at once: %d sounding; a hit out of range (voice 4, model 9) is ignored: %d\n", rk_drum_status(0), (rk_drum_hit(4, 0, 36, 0.5f, 0.5f, 0.2f, 1, 0, 0), rk_drum_hit(0, 9, 36, 0.5f, 0.5f, 0.2f, 1, 0, 0), rk_drum_status(0)));
+        if (rk_drum_status(0) != 4) { bad12++; printf("12c four voices not sounding\n"); }
+        rk_drum_off();
+    }
+    /* 12d */
+    {
+        static const char *const SC[DS_N] = {"plain", "Clouds", "Clouds+notes"};
+        static const char *const AR[4] = {"one core", "two cores NOW", "thread", "two cores DEFER"};
+        int ok = 1;
+        for (s = 0; s < DS_N; s++) {
+            float pk; int bd, nd, nd2;
+            double r0, dd;
+            if (dc_played(self, s, FM_A, 0, 0, A) || dc_played(self, s, FM_B, 0, 0, B)) { printf("12d %s: could not play\n", SC[s]); bad12++; continue; }
+            r0 = dc_rms(A, &bd, &pk);
+            dd = dc_diff(A, B, &nd);
+            printf("12d %-13s one core: rms %.4f peak %.3f NaN %d; two cores NOW against it: %d of %d samples differ (largest %.3g)\n", SC[s], r0, pk, bd, nd, 2 * DC_BLK * DC_BLOCKS, dd);
+            if (bd || !(pk > 0.05f)) { bad12++; ok = 0; }
+            if (s == DS_PLAIN && nd != 0) { bad12++; ok = 0; printf("12d plain: two cores must equal one core sample for sample\n"); }
+            if (s != DS_PLAIN) {   /* Clouds: the second core's job holds the drums; the first core's output is a block later or the same: rms within 6 % */
+                double r1 = dc_rms(B, &bd, &pk);
+                if (bd || fabs(r1 - r0) > 0.06 * r0) { bad12++; ok = 0; printf("12d %s: rms %.4f against %.4f\n", SC[s], r1, r0); }
+            }
+            /* a worker that fails (declines 40 %, gives up 40 %) and the other ways to run the job: the same as the working worker's */
+            if (dc_played(self, s, FM_B, 40, 40, C)) { printf("12d %s: no play (failing)\n", SC[s]); bad12++; continue; }
+            dd = dc_diff(B, C, &nd);
+            if (dc_played(self, s, FM_D, 0, 0, C)) { printf("12d %s: no play (defer)\n", SC[s]); bad12++; continue; }
+            dc_diff(B, C, &nd2);
+            printf("12d %-13s %s: failing worker against working: %d samples differ (%.3g); %s: %d samples differ\n", SC[s], AR[1], nd, dd, AR[3], nd2);
+            if (s != DS_CLOUDS_NOTES && (nd != 0 || nd2 != 0)) { bad12++; ok = 0; }
+            if (s == DS_CLOUDS_NOTES) {   /* the voices' drift and Clouds' grains draw their random numbers in another order: the same sound, rms within 6 % (7c, 7d) */
+                double r2 = dc_rms(C, &bd, &pk), r3 = dc_rms(B, &bd, &pk);
+                (void)r2; (void)r3;
+            }
+            if (dc_played(self, s, FM_T, 0, 0, C)) { printf("12d %s: no play (thread)\n", SC[s]); bad12++; continue; }
+            dc_rms(C, &bd, &pk);
+            dd = dc_diff(B, C, &nd);
+            printf("12d %-13s %s: %d samples differ from NOW (%.3g), NaN %d\n", SC[s], AR[2], nd, dd, bd);
+            if (bd || (s != DS_CLOUDS_NOTES && nd != 0)) { bad12++; ok = 0; }
+            if (s == DS_CLOUDS_NOTES && fabs(dc_rms(C, &bd, &pk) - dc_rms(B, &bd, &pk)) > 0.06 * dc_rms(B, &bd, &pk)) { bad12++; ok = 0; printf("12d %s: thread rms differs by more than 6 %%\n", SC[s]); }
+        }
+        printf("12d the drums on one core, two cores, a real second thread and a failing worker: %s\n", ok ? "the plain patch identical in every way, with Clouds the same sound, no NaN" : "NOT as expected");
+    }
+    /* 12e */
+    {
+        static const float DENS[3] = {1.0f, 0.7f, 1.0f};
+        int bad = 0, md, d, g[16], gi = 0;
+        for (md = 0; md < 3; md++) {            /* NONE, CLOUD, VOICES */
+            for (d = 0; d < 2; d++) {
+                int want, got, run;
+                int mode = md == 0 ? 0 : md == 1 ? 1 : 2;
+                for (run = 0; run < 2; run++) {
+                    cl_patch(30, 0, 0);
+                    cl_set(cl_clouds_slot(), P_DENS, d == 0 ? 1.0f : DENS[1]);
+                    rk_drum_busy(mode);
+                    rk_drum_run(run);
+                    rk_set_worker(0, 0);
+                    for (i = 0; i < 20; i++) rk_render(DC_BLK);
+                    got = rk_drum_status(6);
+                    want = d == 0 ? ((run && mode == 1) ? 900 : 1000) : 700;
+                    g[gi++ & 15] = got;
+                    if (got != want) { bad++; printf("12e mode %d DENSITY %.1f drums %s: Clouds was given %d, want %d\n", mode, d == 0 ? 1.0 : 0.7, run ? "running" : "stopped", got, want); }
+                }
+            }
+        }
+        printf("12e IF BUSY: with the drums running, CLOUD holds Clouds' DENSITY at 0.9 (1.0 becomes 0.9, 0.7 stays 0.7); NONE, VOICES and a stopped pattern leave it: %d wrong\n", bad);
+        rk_drum_run(0); rk_drum_busy(1);
+        if (bad) bad12++;
+    }
+    /* 12f */
+    {
+        int j0, i0, j1, i1, nd, nd2;
+        for (s = 0; s < 2; s++) {
+            cl_patch(s ? 30 : 0, 0, 0);
+            rk_seed(0x21u); rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on); hc2_mode = HC2_NOW;
+            rk_set_voices(4); rk_note_on(48.0f, 0.8f); rk_note_on(55.0f, 0.8f);
+            j0 = rk_drum_status(3); i0 = rk_drum_status(4);
+            for (i = 0; i < 300; i++) { rk_render(DC_BLK); memcpy(A + (size_t)i * DC_BLK, rk_out_l(), DC_BLK * sizeof(float)); }
+            j1 = rk_drum_status(3); i1 = rk_drum_status(4);
+            printf("12f %s, notes held, no drum struck: blocks rendered by the drums %d (second core) + %d (first core) in 300 blocks\n", s ? "Clouds" : "plain ", j1 - j0, i1 - i0);
+            if (j1 != j0 || i1 != i0) { bad12++; }
+            rk_all_off();
+        }
+        hc2_stop();
+        nd = nd2 = 0; (void)B; (void)C; (void)A;
+        (void)nd; (void)nd2;
+    }
+    printf("12 drum voices: bit-identical models, hits sound and end, the same on every core arrangement, IF BUSY guard, nothing when idle: %d wrong\n", bad12);
+    if (bad12) (*fails)++;
+}
