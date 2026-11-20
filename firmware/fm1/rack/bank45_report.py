@@ -53,7 +53,7 @@ def phrase45(q):
     elif kind == "thumb":      # a kalimba-like melody: pentatonic notes, two together now and then, then chords struck on the beat
         mel = [60, 64, 67, 72, 71, 67, 64, 60, 62, 67, 69, 74, 72, 69, 67, 62]
         ev = seq(mel, 0.2, S, S * 1.6, 0.7) + [(0.2 + S * i, S * 1.6, n + 12, 0.55) for i, n in zip((0, 4, 8, 12), (60, 67, 62, 69))]
-        ev += [(8.4 + 1.0 * k, 0.95, n, 0.7) for k in range(7) for n in ((48, 55, 60, 64) if k % 2 == 0 else (45, 52, 57, 60))]
+        ev += [(5.2 + 1.0 * k, 0.95, n, 0.7) for k in range(10) for n in ((48, 55, 60, 64) if k % 2 == 0 else (45, 52, 57, 60))]
         root = 60
     elif kind in ("arp", "pluck") or q["amp"]["SUSTAIN"] < 0.35 and cat == "KEYS":
         arp = [48, 52, 55, 59, 60, 64, 67, 71, 72, 76, 79, 83, 84, 83, 79, 76, 72, 67, 64, 60]
