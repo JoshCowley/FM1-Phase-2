@@ -169,7 +169,8 @@ static void snapshot(upatch_t *u, const char *name, int cat)
     u->cat = (uint8_t)cat;
     u->base = (uint8_t)(rc_patch.index < 0 ? 0 : rc_patch.index);
     u->mode = (uint8_t)rc_patch.mode;
-    u->pad = 1;                               /* (bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0) */
+    u->pad = 3;                               /* (bit 0: saved with the knob layer, whose targets are its base preset's; older slots have 0. Bit 1: its base is a number
+                                                 of the 45-preset bank; older slots hold the old 125-preset bank's, see apply) */
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(rc_patch.mod[s]);
         u->mod[s] = (uint8_t)rc_patch.mod[s];
@@ -199,9 +200,12 @@ static void snapshot(upatch_t *u, const char *name, int cat)
 static void apply(const upatch_t *u)
 {
     int s, i;
-    rc_load(u->base < NPRESETS ? u->base : 0);
-    if (!(u->pad & 1))
-        rk_clear_macro_targets();             /* a slot saved before the knob layer plays as it was saved, whatever its base gains later */
+    int base = u->base;
+    if (!(u->pad & 2))                        /* saved before the 45-preset bank: its base is the old bank's number, mapped to the new one's (0, INIT, where that sound */
+        base = base < OLD_NPRESETS ? OLD_TO_NEW[base] : 0;   /* is gone: the slot still plays as saved, every setting is in it) */
+    rc_load(base < NPRESETS ? base : 0);
+    if (!(u->pad & 1) || !(u->pad & 2))
+        rk_clear_macro_targets();             /* a slot saved before the knob layer, or before this bank, plays as it was saved, whatever its base gains later */
     for (s = 0; s < 6; s++) {
         const ui_mod_t *m = ui_mod(u->mod[s]);
         if (rc_patch.mod[s] != (int8_t)u->mod[s]) {

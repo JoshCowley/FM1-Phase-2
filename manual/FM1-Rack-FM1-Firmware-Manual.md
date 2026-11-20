@@ -707,125 +707,93 @@ The FM-1 has two processor cores. FM1 Rack shares the voices between them: the f
 
 ## 14. Factory presets
 
-There are 125: 17 keys (CH), 14 basses (BS), 11 leads (LD), 19 pads (PD), 31 textures (FX: the 15 older ones and 16 granular ones, update 12), the 16 modulation presets of update 15 (bank 2), the 16 everyday presets of update 17 (bank 3) and INIT. PRESET steps through INIT, then the 16 granular presets (FROZEN PAD to GRAIN CHOIR: Braids into Clouds, K1 TONE, K2 MOTION, K3 SPACE, K4 TEXTURE), then the 16 modulation presets of update 15 (TINE EP to MODEL DIAL, K1 MORPH; not yet heard), then the 16 everyday presets of update 17 (WARM PAD to NOISE SWEEP: pads, strings, brass, choir, leads, basses, a pluck, a bell, keys, an organ, a texture and a riser; K1 MORPH; not yet heard), then the basses, leads, pads, keys and textures, and on to your own; ALGORITHM jumps between categories.
-
-**Genre classics** (update 52, marked "new, update 52"):
-
-- **House**: CH HOUSE ORGAN (the percussive organ of 90s house, a 2:1 FM organ with a key click through chorus), CH DEEP STAB (the deep house minor-chord stab: a saw through a resonant low-pass that snaps shut, with a dotted-eighth echo; play a minor 7th or 9th), BS DEEP HOUSE (a round, plucky bass with a short filter envelope).
-- **Drum and bass**: BS REESE (two saws slightly apart, beating, through a driven low-pass that slowly breathes; M2 widens the detune), LD HOOVER (the rave hoover: four detuned saws, a pitch that scoops up into each note, chorus), BS DNB SUB (a gliding sine sub, driven just enough to be heard on small speakers), PD LIQUID (a soft, chorused pad for liquid rollers).
-- **Ambient**: PD AMBIENT WASH (Plaits' swarm into a shimmer hall, drifting), PD FROZEN (a string-machine pad that barely moves, a long hall), CH GLASS BELL (FM at a ratio of pi, so it rings like glass rather than a chime, with echoes).
-
-Reworked in update 52 because they were harsh and thin: CH SOFT PIANO (now a soft hammer into Rings' string), CH MARIMBA (a softer mallet and a filter that follows the keys and velocity), CH HARP (Braids' pluck into Rings' string), FX SINGING BOWL (Rings' FM voice struck softly, with a slow chorus beating against it).
+There are 45 (plus INIT, number 0): 9 pads and drones, 9 keys, bells and plucks, 6 thumb pianos, 6 leads, 7 basses and 8 textures. PRESET steps through INIT, the 45 in the order below, and on to your own 15 slots; ALGORITHM jumps between categories.
 
 Every preset:
 
-- has four macros that start in the middle (the M1–M4 column below says what each moves);
-- responds to velocity in level and tone;
-- is matched in loudness to the others, so you can switch without touching MASTER. The struck ones (CH MARIMBA, CH MUSIC BOX, FX CHIMES, FX GLASS RAIN) are a little quieter: their peaks reach the limiter first.
+- has four knobs, K1 to K4, that are macros: each moves 4 to 8 parameters at once, gently at the bottom and towards glitch or a wash at the top, in its own direction (the names under the picture on HOME are the preset's own: the table below gives them as K1 · K2 · K3 · K4);
+- also moves on its own (LFOs, Tides, Func, Peaks, Grids or Rings, set per preset); the "movement" column says how much at rest: subtle (steady, a slow drift), medium (movement you notice) or bold (it plainly changes);
+- is in tune (A4 = 440) within a few cents from C2 to C5, and level-matched to the others, so you can switch without touching MASTER;
+- responds to velocity in level and tone.
 
-The Voices column gives how many notes each plays at once on the FM-1 (mono, legato and unison presets play one key at a time). Twenty presets, marked new, are the FM-1's own; the other 57 are shared with the browser version, though the FM-1 plays some with fewer voices or lighter modules so that every one fits the processor.
+Nothing in this bank has been heard on an FM-1: every figure behind it is a desktop render of the engine.
 
-### Keys (CH, 17)
+**Older saves.** A user preset saved on the older 125-preset bank keeps working: its base is mapped to the nearest preset still in the bank, or to INIT where there is none, and it plays as it was saved. The preset you last played is carried over the same way. The 16 granular presets and 73 older ones were removed from the list.
 
-| Preset | Built from | Voices | M1 · M2 · M3 · M4 |
-| --- | --- | --- | --- |
-| CH ROUND EP | Plaits 2OP FM · chorus, plate reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · FX 2.MIX |
-| CH BRIGHT EP | Plaits 2OP FM · chorus, delay | 6 | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · FX 2.MIX |
-| CH SOFT PIANO | Plaits 2OP FM, Rings STRING · hall reverb | 4 | SHP.BRIGHT · SHP.DAMPING · FX 1.MIX · SHP.POSITION |
-| CH MARIMBA | Plaits MODAL, filter LP · plate reverb | 5 | SRC.TIMBRE · SHP.CUTOFF · FX 1.MIX · SRC.MORPH |
-| CH VIBES | Plaits 2OP FM · chorus, hall reverb | 5 | SRC.TIMBRE · FX 1.DEPTH · FX 2.MIX · AMP.DECAY |
-| CH DRAWBAR | Plaits ADDITIVE · chorus | 4 | SRC.TIMBRE · SRC.MORPH · FX 1.RATE · FX 1.DEPTH |
-| CH POLY SYNTH | Braids CSAW, filter LP · chorus, plate reverb | 6 | SHP.CUTOFF · SHP.RESO · FX 1.MIX · SHP.F DEC |
-| CH NYLON | Plaits STRING · hall reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · SRC.HARMO |
-| CH HARP | Braids PLUK, Rings STRING · hall reverb | 4 | SHP.BRIGHT · SHP.DAMPING · FX 1.MIX · SHP.POSITION |
-| CH CLAV | Plaits WAVESHP, filter LP · chorus | 6 | SHP.CUTOFF · SRC.TIMBRE · FX 1.MIX · SHP.RESO |
-| CH MUSIC BOX | Plaits MODAL · delay, hall reverb | 4 | SRC.TIMBRE · SRC.HARMO · FX 1.MIX · FX 2.MIX |
-| CH KOTO | Braids PLUK, Rings STRING · plate reverb | 6 | SHP.BRIGHT · SHP.POSITION · FX 1.MIX · SHP.DAMPING |
-| CH SYNTH PLUCK (new) | Braids //-_, filter LP · delay, plate reverb | 6 | SHP.CUTOFF · SHP.F DEC · FX 1.MIX · SHP.RESO |
-| CH REED KEYS (new) | Plaits WAVESHP · chorus, plate reverb | 6 | SRC.TIMBRE · LFO.RATE 2 · FX 2.MIX · SRC.ENV>TIMB |
-| CH HOUSE ORGAN (new, update 52) | Plaits 2OP FM, filter LP · chorus, plate reverb | 5 | SRC.TIMBRE · SHP.CUTOFF · FX 1.MIX · SRC.MORPH |
-| CH DEEP STAB (new, update 52) | Plaits VA VCF, filter LP24 · delay, plate reverb | 5 | SHP.CUTOFF · SHP.ENV AMT · FX 1.MIX · SHP.RESO |
-| CH GLASS BELL (new, update 52) | Plaits 2OP FM · delay, hall reverb | 5 | SRC.TIMBRE · SRC.HARMO · FX 1.MIX · FX 2.MIX |
+### Pads and drones (9)
 
-### Bass (BS, 14)
+| # | Preset | What it is | K1 · K2 · K3 · K4 | Movement |
+| --- | --- | --- | --- | --- |
+| 1 | WARM PAD | Six-voice analogue pad: four detuned saws, a low-pass filter, a slow Tides loop, chorus and hall. | MORPH · MOTION · WASH · GRIT | subtle |
+| 2 | SILK STRINGS | Slow ensemble strings: a Peaks LFO breathes the filter, chorus widens the section, a hall holds it. | BOW · BREATH · HALL · ROSIN | subtle |
+| 3 | SLOW STRINGS | Slow-attack strings with a Peaks envelope and a Tides loop that move the filter and the timbre. | SWELL · TIDE · CATHEDRAL · DUST | medium |
+| 4 | VOX PAD | A choir-like pad from Braids' vowel model, a slow Tides loop and a wide chorus. | VOWEL · BREATH · CHAPEL · AIR | subtle |
+| 5 | VOWEL PAD | A formant pad where a FUNC envelope pair sweeps the vowel and the filter on every note. | OPEN · RISE · ROOM · CRUSH | medium |
+| 6 | TIDE PAD | A saw pad through light Clouds with a Tides AR that moves the colour, the cutoff and the grain blend. | COLOUR · MOTION · CLOUD · SCATTER | bold |
+| 7 | HORN SECT | A brass section: four saws with a quick filter swell and a Tides envelope, vibrato that the knob brings in. | BITE · VIBRATO · HALL · BLARE | medium |
+| 8 | SHIMMER PAD | A harmonic pad into a shimmer reverb (an octave of the tail rising) with a slow Tides loop and chorus. | TIMBRE · MOTION · SHIMMER · GRIT | subtle |
+| 9 | DEEP DRONE | A low sub drone, slowly opening and closing with a long chorus and a huge hall; a held note is a room tone. | DEPTH · TIDE · VOID · ROT | bold |
 
-| Preset | Built from | Voices | M1 · M2 · M3 · M4 |
-| --- | --- | --- | --- |
-| BS ROUND SUB | Plaits VA VCF, filter LP24 · OSC sub | legato | SHP.CUTOFF · SHP.ENV AMT · SHP.DRIVE · AMP.GLIDE |
-| BS ANALOG | Braids CSAW, filter LP24 · OSC sub | legato | SHP.CUTOFF · SHP.RESO · SHP.ENV AMT · SHP.F DEC |
-| BS ACID | Braids //-_, filter LP · delay | legato | SHP.CUTOFF · SHP.RESO · SHP.ENV AMT · SHP.F DEC |
-| BS PICKED | Plaits 2OP FM, filter LP · OSC sub | mono | SHP.CUTOFF · SRC.TIMBRE · SRC.MORPH · AMP.DECAY |
-| BS FINGER | Plaits STRING, filter LP · OSC sub | mono | SHP.CUTOFF · SRC.TIMBRE · SRC.MORPH · SHP.DRIVE |
-| BS PULSE | Plaits VA VCF, filter LP24 · OSC sub | legato | SHP.CUTOFF · SRC.MORPH · SHP.ENV AMT · SHP.RESO |
-| BS WARM MOOG | Plaits PAIR VA, filter LP24 · OSC sub | legato | SHP.CUTOFF · SHP.RESO · SHP.DRIVE · AMP.GLIDE |
-| BS DUB SINE | Plaits 2OP FM, filter LP · delay · OSC sub | legato | SRC.TIMBRE · SHP.DRIVE · FX 1.MIX · AMP.GLIDE |
-| BS SOFT KEYS | Plaits WAVESHP, filter LP · OSC sub | mono | SRC.TIMBRE · SRC.MORPH · SHP.CUTOFF · SRC.HARMO |
-| BS SUB BOOM (new) | Plaits BASS DR, filter LP · OSC sub | mono | SRC.TIMBRE · SRC.HARMO · SHP.DRIVE · AMP.RELEASE |
-| BS WOBBLE (new) | Braids //-_, filter LP24, FUNC · OSC sub | legato | SHP.CUTOFF · MOD A.LVL 4 · SHP.RESO · MOD A.FALL 4 |
-| BS DEEP HOUSE (new, update 52) | Plaits VA VCF, filter LP24 · OSC sub | legato | SHP.CUTOFF · SHP.ENV AMT · SHP.DRIVE · AMP.GLIDE |
-| BS REESE (new, update 52) | Braids CSAW, filter LP24 · chorus | unison 2 | SHP.CUTOFF · AMP.DETUNE · SHP.DRIVE · SHP.RESO |
-| BS DNB SUB (new, update 52) | Plaits 2OP FM, filter LP | legato | SHP.DRIVE · SRC.TIMBRE · AMP.GLIDE · SHP.CUTOFF |
+### Keys, bells and plucks (9)
 
-### Lead (LD, 11)
+| # | Preset | What it is | K1 · K2 · K3 · K4 | Movement |
+| --- | --- | --- | --- | --- |
+| 10 | TINE EP | A tine electric piano: Braids wavetable bark that dies away, Tides as a tremolo and wah, chorus and plate. | BARK · TREMOLO · CHORUS · GROWL | medium |
+| 11 | E PIANO | A Rhodes-like FM piano with a looping Tides as tremolo, chorus and plate. | TONE · TREMOLO · SPACE · DIRT | subtle |
+| 12 | SOFT PIANO | A felt piano: Braids FM as the hammer and string, a dark filter, a long gentle decay, chorus and a hall; no tremolo until K2 brings it in. | TOUCH · TREMOLO · ROOM · HAMMER | subtle |
+| 13 | TONEWHEEL | A drawbar organ with a Peaks LFO that works the key click and cutoff, chorus as the rotary. | DRAWBARS · LESLIE · HALL · DIRT | medium |
+| 14 | ROTARY ORGAN | A rotary-speaker organ: an LFO swings the level, pan and cutoff and the chorus rate follows the knob. | REGISTER · ROTOR · CABINET · DRIVE | medium |
+| 15 | ARP PLUCK | A short saw pluck for arpeggios, with a Peaks LFO and a ping-pong delay. | PLUCK · MOTION · ECHO · EDGE | subtle |
+| 16 | FM BELL | A two-operator FM bell: a sharp inharmonic strike that mellows as it rings, Tides breathing the tone, chorus and hall. | STRIKE · SHIMMER · HALO · RUST | subtle |
+| 17 | GLASS BELLS | Glass bells: a bright FM strike with a long, glassy ring, a ping-pong delay into a large hall. | TINE · SHIVER · ROOM · BREAK | subtle |
+| 18 | SYMPATH HARP | A harp: a plucked exciter into Rings' sympathetic strings, triggered by Grids for the accents, delay and hall. | PLUCK · GRIDS · HALL · DRIFT | medium |
 
-| Preset | Built from | Voices | M1 · M2 · M3 · M4 |
-| --- | --- | --- | --- |
-| LD SOFT SAW | Braids CSAW, filter LP · delay, plate reverb | legato | SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.GLIDE |
-| LD SQUARE | Plaits VA VCF, filter LP · delay | legato | SHP.CUTOFF · SRC.MORPH · FX 1.MIX · AMP.GLIDE |
-| LD SYNC | Braids SYN/, filter LP · delay | legato | SRC.TIMBRE · SHP.CUTOFF · FX 1.MIX · SRC.AD>TIMB |
-| LD FLUTE | Braids FLUT · hall reverb | legato | SRC.TIMBRE · SRC.COLOR · FX 1.MIX · AMP.ATTACK |
-| LD WHISTLE | Plaits 2OP FM · delay, hall reverb | legato | SRC.TIMBRE · AMP.GLIDE · FX 2.MIX · FX 1.MIX |
-| LD BRASS | Braids CSAW, filter LP · plate reverb | unison 2 | SHP.CUTOFF · SHP.F ATK · FX 1.MIX · SHP.ENV AMT |
-| LD REED | Plaits FORMANT, filter LP · plate reverb | legato | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · SHP.CUTOFF |
-| LD BOWED | Braids BOWD, Rings STRING · hall reverb | legato | SHP.BRIGHT · SRC.TIMBRE · FX 1.MIX · SHP.MIX |
-| LD UNISON | Braids CSAW, filter LP · delay, plate reverb | unison 4 | SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.GLIDE |
-| LD PHASE SWEEP (new) | Plaits PHASE D, FUNC · delay, plate reverb | legato | SRC.TIMBRE · MOD A.FALL 1 · FX 1.MIX · AMP.GLIDE |
-| LD HOOVER (new, update 52) | Braids CSAW, filter LP · chorus, plate reverb | unison 4 | SHP.CUTOFF · AMP.DETUNE · FX 1.MIX · AMP.GLIDE |
+### Thumb pianos (6)
 
-### Pads (PD, 19)
+| # | Preset | What it is | K1 · K2 · K3 · K4 | Movement |
+| --- | --- | --- | --- | --- |
+| 19 | KALIMBA | A kalimba: an FM tine with a quick bright tink that dies into a round fundamental, a touch of chorus and a plate. | TINE · SHIVER · ROOM · BREAK | subtle |
+| 20 | MBIRA | An mbira: a buzzing, slightly inharmonic tine with a longer ring, a little resonance and a wide chorus. | TINE · SHIVER · ROOM · BREAK | subtle |
+| 21 | SANSULA | A sansula: a soft, round tine with a long warm ring, a deep chorus and a hall. | TINE · SHIVER · ROOM · BREAK | subtle |
+| 22 | BOX KALIMBA | A box kalimba: a woody, resonant body behind a short bright tine, a touch of chorus and a small room. | TINE · SHIVER · ROOM · BREAK | subtle |
+| 23 | BELL KALIMBA | A kalimba with a bell tine: a higher, glassier overtone that rings on, a ping-pong delay and a hall. | TINE · SHIVER · ROOM · BREAK | subtle |
+| 24 | HAZE KALIMBA | A kalimba lost in a haze: soft tines into a long dotted delay and a very large hall, so each note blooms and fades. | TINE · SHIVER · ROOM · BREAK | subtle |
 
-| Preset | Built from | Voices | M1 · M2 · M3 · M4 |
-| --- | --- | --- | --- |
-| PD WARM STRINGS | Plaits STR MACH · hall reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · AMP.ATTACK |
-| PD ANALOG | Plaits VA VCF, FUNC · chorus, hall reverb | 4 | SRC.TIMBRE · SRC.HARMO · FX 1.DEPTH · AMP.ATTACK |
-| PD CHOIR | Plaits FORMANT · chorus, hall reverb | 4 | SRC.MORPH · SRC.TIMBRE · FX 2.MIX · AMP.ATTACK |
-| PD GLASS | Plaits WAVETBL · shimmer reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · FX 1.SHIMMER |
-| PD SOFT SINE | Plaits 2OP FM · chorus, hall reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 2.MIX · AMP.ATTACK |
-| PD RESONANT | Plaits VA VCF, Rings STR+VERB | 4 | SHP.STRUCT · SHP.BRIGHT · SHP.DAMPING · SHP.MIX |
-| PD SHIMMER | Plaits 2OP FM · shimmer reverb | 6 | SRC.TIMBRE · FX 1.SHIMMER · FX 1.MIX · AMP.ATTACK |
-| PD HAZE | Braids CSAW, filter LP · chorus, hall reverb | 6 | SHP.CUTOFF · SHP.RESO · FX 2.MIX · AMP.ATTACK |
-| PD STRING ENS | Braids CSAW, filter LP · chorus, hall reverb | 6 | SHP.CUTOFF · FX 1.DEPTH · FX 2.MIX · AMP.ATTACK |
-| PD EVOLVING | Plaits TERRAIN, FUNC · chorus, hall reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 2.MIX · MOD A.LVL 4 |
-| PD DARK | Braids CSAW, filter LP24 · hall reverb | 6 | SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.ATTACK |
-| PD ORGAN AIR | Plaits ADDITIVE · chorus, delay · OSC sub | 4 | SRC.TIMBRE · SRC.MORPH · FX 2.MIX · AMP.ATTACK |
-| PD BELL PAD | Plaits 2OP FM · chorus, hall reverb | 5 | SRC.TIMBRE · SRC.HARMO · FX 2.MIX · AMP.ATTACK |
-| PD LIQUID (new, update 52) | Plaits VA VCF, filter LP · chorus, hall reverb | 5 | SHP.CUTOFF · AMP.ATTACK · FX 2.MIX · SRC.TIMBRE |
-| PD AMBIENT WASH (new, update 52) | Plaits SWARM · chorus, shimmer reverb | 4 | SRC.TIMBRE · SRC.MORPH · FX 2.MIX · FX 2.SHIMMER |
-| PD FROZEN (new, update 52) | Plaits STR MACH, filter LP · chorus, hall reverb | 4 | SHP.CUTOFF · SRC.TIMBRE · FX 2.MIX · AMP.ATTACK |
-| PD SAW SWARM (new) | Plaits SWARM · hall reverb | 5 | SRC.TIMBRE · SRC.MORPH · FX 1.MIX · AMP.ATTACK |
-| PD TEMPO GATE (new) | Braids CSAW, filter LP, FUNC · chorus, hall reverb | 6 | SHP.CUTOFF · MOD A.FALL 1 · FX 2.MIX · SHP.RESO |
-| PD SLOW BLOOM (new) | Braids //x3, filter LP, FUNC · chorus, hall reverb | 5 | SHP.CUTOFF · MOD A.RISE 1 · FX 2.MIX · SHP.RESO |
+### Leads (6)
 
-### Textures (FX, 15)
+| # | Preset | What it is | K1 · K2 · K3 · K4 | Movement |
+| --- | --- | --- | --- | --- |
+| 25 | SAW LEAD | A mono saw lead: a filter that opens with the playing, Tides on the colour and a slow vibrato that fades in. | BITE · VIBRATO · SPACE · GRIT | medium |
+| 26 | HOLLOW LEAD | A hollow, square-ish mono lead with a soft filter swell and a slow Tides drift on the cutoff. | WOOD · DRIFT · SPACE · GRIT | subtle |
+| 27 | FORMANT LEAD | A vowel lead: the formants glide between sung vowels under Tides, with a delay and a hall. | VOWEL · GLIDE · SPACE · GRIT | medium |
+| 28 | HARD SYNC | A hard-sync lead whose sweep rings out as each note opens: the classic tearing sync tone, with Tides on the timbre. | SWEEP · TEAR · SPACE · GRIT | medium |
+| 29 | FLUTE | A mono flute: a few soft harmonics with a slow attack, a vibrato that fades in and the knob brings up, and a hall. | BREATH · VIBRATO · AIR · GRIT | subtle |
+| 30 | STRING LEAD | A bowed-string lead: a detuned saw with a slow filter bloom on every note, a vibrato the knob brings in, a hall and a ping-pong delay. | BOW · VIBRATO · HALL · GRIT | subtle |
 
-| Preset | Built from | Voices | M1 · M2 · M3 · M4 |
-| --- | --- | --- | --- |
-| FX RESONATOR | Plaits 2OP FM, Rings STR+VERB, Tides | 4 | SHP.STRUCT · SHP.BRIGHT · SHP.MIX · SHP.DAMPING |
-| FX DRONE | Plaits CHORDS · chorus, hall reverb | 3 | SRC.TIMBRE · SRC.HARMO · FX 2.MIX · SRC.MORPH |
-| FX WIND | Plaits NOISE, filter BP · hall reverb | 5 | SHP.CUTOFF · SHP.RESO · FX 1.MIX · AMP.ATTACK |
-| FX RAIN | Plaits PARTICLE · delay, hall reverb | 3 | SRC.TIMBRE · SRC.MORPH · FX 2.MIX · FX 1.FEEDBACK |
-| FX OCEAN | Braids NOIS, filter LP, Tides · hall reverb | 6 | SHP.CUTOFF · MOD A.FREQ · FX 1.MIX · SHP.RESO |
-| FX STRING BLOOM | Plaits VA VCF, Rings STR+VERB | 4 | SHP.BRIGHT · SHP.STRUCT · SHP.DAMPING · AMP.ATTACK |
-| FX CHIMES | Plaits MODAL · delay, hall reverb | 4 | SRC.TIMBRE · SRC.HARMO · FX 1.FEEDBACK · FX 2.MIX |
-| FX ECHO KEYS | Plaits 2OP FM · delay, hall reverb | 4 | SRC.TIMBRE · FX 1.FEEDBACK · FX 1.MIX · FX 1.WOW |
-| FX CHORD DRIFT | Plaits CHORDS · chorus, hall reverb | 3 | SRC.HARMO · SRC.TIMBRE · FX 2.MIX · SRC.MORPH |
-| FX TIDAL WASH | Braids CSAW, filter LP, Tides · chorus, hall reverb | 6 | SHP.CUTOFF · SHP.RESO · FX 2.MIX · MOD A.FREQ |
-| FX SINGING BOWL | Plaits 2OP FM, Rings FM VOICE · chorus, hall reverb | 3 | SHP.STRUCT · SHP.BRIGHT · FX 2.MIX · SHP.DAMPING |
-| FX DEEP DRONE | Braids SUB-, filter LP24 · chorus, hall reverb | 6 | SHP.CUTOFF · SHP.RESO · FX 2.MIX · SRC.TIMBRE |
-| FX GLASS RAIN | Plaits WAVETBL, Peaks · delay, shimmer reverb | 4 | SRC.MORPH · SRC.TIMBRE · FX 1.FEEDBACK · FX 2.MIX |
-| FX BOUNCE (new) | Plaits WAVESHP, FUNC · delay, hall reverb | 5 | SRC.TIMBRE · MOD A.FALL 1 · FX 2.MIX · MOD A.FALL 4 |
-| FX SPEAK (new) | Plaits SPEECH, FUNC · delay | 4 | SRC.TIMBRE · SRC.HARMO · FX 1.MIX · MOD A.RISE 1 |
+### Basses (7)
 
+| # | Preset | What it is | K1 · K2 · K3 · K4 | Movement |
+| --- | --- | --- | --- | --- |
+| 31 | SUB BASS | A deep mono sub: a folded sine that stays round at the bottom, a slow Tides motion on the cutoff and a touch of chorus. | TONE · MOTION · SPACE · GRIT | subtle |
+| 32 | MOOG BASS | A warm Moog-style bass: a fat filtered saw with a gentle resonance, drive and a glide the fourth knob brings in. | CUTOFF · SQUELCH · DRIVE · SLIDE | subtle |
+| 33 | SNAP BASS | A plucky mono bass: a fast filter snap on every note, a Tides motion on the colour and a little chorus. | TONE · MOTION · SPACE · GRIT | medium |
+| 34 | ACID BASS | A 303-style mono line: a resonant saw filter with accent and a ping-pong delay, Tides moving the cutoff. | TONE · MOTION · SPACE · GRIT | medium |
+| 35 | REESE | A reese bass: two detuned saws beating against each other through a slow filter, chorus and a plate. | CUTOFF · DETUNE · DRIVE · GRIT | medium |
+| 36 | FOLD BASS | A wavefolded mono bass: a harmonic fold that a Func envelope pushes on every note, a filter and a plate. | FOLD · MOTION · ROOM · GRIT | medium |
+| 37 | TIDAL BASS | A bass the Tides moves in time: the cutoff, the colour and the drive follow a loop, with a chorus and a plate. | TONE · TIDE · SPACE · GRIT | bold |
+
+### Textures (8)
+
+| # | Preset | What it is | K1 · K2 · K3 · K4 | Movement |
+| --- | --- | --- | --- | --- |
+| 38 | MODEL DIAL | A vowel-organ texture where the first knob dials through four neighbouring Braids models while the Tides moves the cutoff and the colour. | DIAL · MOTION · SPACE · GRIT | subtle |
+| 39 | CHORD DRIFT | Four-voice wavetable chords that drift in colour under a slow two-bar LFO, with a wide chorus and a hall. | COLOUR · DRIFT · HALL · GRIT | medium |
+| 40 | STRING BLOOM | Harmonic chords that bloom through Rings' string and reverb, the position drifting slowly under an LFO. | BRIGHT · STRUCT · SPACE · SWELL | subtle |
+| 41 | SINGING BOWL | A struck singing bowl: a high FM overtone over a long, slowly beating ring, a chorus and a big hall. | STRIKE · BEAT · HALL · CRACK | subtle |
+| 42 | ATMOSPHERE | A wavetable atmosphere: a slow Tides loop and two Func cycles move the colour, the timbre and the cutoff, a tape delay and a shimmer reverb. | TONE · MOTION · SPACE · GRIT | medium |
+| 43 | TIDAL WASH | A saw wash the Tides sweeps through a dark filter on a very slow loop, with chorus and a big hall. | TONE · TIDE · WASH · GRIT | bold |
+| 44 | TAPE KEYS | Tape-worn keys: a saw through a Func envelope, a tape delay with wow and flutter, and a plate. | TONE · WOW · DELAY · GRIT | medium |
+| 45 | FUNC PULSE | A pulsing saw chord: two Func envelopes fire on a clock so the cutoff, the colour and the fall times breathe in rhythm, with a delay and a hall. | PULSE · CLOCK · SPACE · GRIT | medium |
 
 ## 15. Troubleshooting
 

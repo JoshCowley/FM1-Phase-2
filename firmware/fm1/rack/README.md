@@ -18,6 +18,18 @@ decay envelope as Braids' AD, macros and routes on HARMO or MORPH onto COLOR), a
 again. A user preset saved with Plaits loads on Braids. The weakest matches: PD ORGAN AIR, CH DRAWBAR (ADDITIVE has
 no close Braids model), FX SPEAK, CH BRIGHT EP, LD SQUARE. The benchmark firmware (`fm1/bench`) keeps Plaits.
 
+## The factory bank of 45 (update 24; host-tested, NOT heard, NOT run on an FM-1)
+
+The bank is INIT and 45 presets (`NPRESETS` 46; it was 125), with 15 user slots after them: 9 pads and drones (1-9), 9 keys, bells and plucks (10-18),
+6 thumb pianos (19-24), 6 leads (25-30), 7 basses (31-37) and 8 textures (38-45). `presets_bank45.py` builds it (`bank45_r1.py`, `bank45_r2.py`, `bank45_r3.py`: the
+presets, written on the knob layer: each of K1 to K4 drives 4 to 8 targets, gentle at 0 and glitch or wash at 1); `fit_levels.py` fits each preset's loudness (`presets_bank45_levels.json`);
+`bank45_report.py` measures all of them (tuning at C2 to C5, level, K1 sweep, hands-off movement, the 16 knob corners, load estimate) and renders the demos.
+The 16 granular presets and 73 others were removed (`presets_old_names.txt` is the old bank in its old order); they stay in `presets_fm1.py` and the older batch files as sources.
+**Older saves.** A user slot saved before this bank holds the old bank's preset number as its base: `OLD_TO_NEW` (presets.h, made by `make_presets.py` from
+`presets_old_names.txt`, the old bank in its old order) maps it to the new number where that sound is still in the bank, else to INIT; such a slot plays as it was saved
+(its knob targets cleared, every setting is in the slot; `upatch_t.pad` bit 1 marks a slot already saved on the new bank). The settings record's `rsv` bit 0 does the same
+for the preset last played (a factory number is mapped; a user slot keeps its slot number). The home page's knob read-outs show each factory preset's own four names (`MNAMES`).
+
 ## What it does
 
 The FM-1's 67 factory presets (the page's 57, fitted to the FM-1's CPU, and ten of its own), from the Lite modules

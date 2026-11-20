@@ -1009,6 +1009,68 @@ static const rk_preset_t PRESETS[] = {
 };
 #define NPRESETS 46
 
+/* MNAMES: the four knob names of each factory preset (empty: the page names the knob by what it moves) */
+static const char MNAMES[NPRESETS][4][10] = {
+    {"", "", "", ""},
+    {"MORPH", "MOTION", "WASH", "GRIT"},
+    {"BOW", "BREATH", "HALL", "ROSIN"},
+    {"SWELL", "TIDE", "CATHEDRAL", "DUST"},
+    {"VOWEL", "BREATH", "CHAPEL", "AIR"},
+    {"OPEN", "RISE", "ROOM", "CRUSH"},
+    {"COLOUR", "MOTION", "CLOUD", "SCATTER"},
+    {"BITE", "VIBRATO", "HALL", "BLARE"},
+    {"TIMBRE", "MOTION", "SHIMMER", "GRIT"},
+    {"DEPTH", "TIDE", "VOID", "ROT"},
+    {"BARK", "TREMOLO", "CHORUS", "GROWL"},
+    {"TONE", "TREMOLO", "SPACE", "DIRT"},
+    {"TOUCH", "TREMOLO", "ROOM", "HAMMER"},
+    {"DRAWBARS", "LESLIE", "HALL", "DIRT"},
+    {"REGISTER", "ROTOR", "CABINET", "DRIVE"},
+    {"PLUCK", "MOTION", "ECHO", "EDGE"},
+    {"STRIKE", "SHIMMER", "HALO", "RUST"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"PLUCK", "GRIDS", "HALL", "DRIFT"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"TINE", "SHIVER", "ROOM", "BREAK"},
+    {"BITE", "VIBRATO", "SPACE", "GRIT"},
+    {"WOOD", "DRIFT", "SPACE", "GRIT"},
+    {"VOWEL", "GLIDE", "SPACE", "GRIT"},
+    {"SWEEP", "TEAR", "SPACE", "GRIT"},
+    {"BREATH", "VIBRATO", "AIR", "GRIT"},
+    {"BOW", "VIBRATO", "HALL", "GRIT"},
+    {"TONE", "MOTION", "SPACE", "GRIT"},
+    {"CUTOFF", "SQUELCH", "DRIVE", "SLIDE"},
+    {"TONE", "MOTION", "SPACE", "GRIT"},
+    {"TONE", "MOTION", "SPACE", "GRIT"},
+    {"CUTOFF", "DETUNE", "DRIVE", "GRIT"},
+    {"FOLD", "MOTION", "ROOM", "GRIT"},
+    {"TONE", "TIDE", "SPACE", "GRIT"},
+    {"DIAL", "MOTION", "SPACE", "GRIT"},
+    {"COLOUR", "DRIFT", "HALL", "GRIT"},
+    {"BRIGHT", "STRUCT", "SPACE", "SWELL"},
+    {"STRIKE", "BEAT", "HALL", "CRACK"},
+    {"TONE", "MOTION", "SPACE", "GRIT"},
+    {"TONE", "TIDE", "WASH", "GRIT"},
+    {"TONE", "WOW", "DELAY", "GRIT"},
+    {"PULSE", "CLOCK", "SPACE", "GRIT"},
+};
+
+#define OLD_NPRESETS 125
+/* OLD_TO_NEW: the number a preset of the old bank (update 23 and before) has in this one; 0 (INIT) where its sound is no longer in the bank */
+static const uint8_t OLD_TO_NEW[125] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 13, 44,
+    0, 0, 18, 37, 36, 0, 27, 3, 5, 6, 0, 45, 38, 1, 2, 7, 4, 25, 26, 31,
+    33, 34, 15, 16, 11, 14, 28, 42, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0,
+    0, 35, 0, 0, 0, 0, 29, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 0, 0, 39, 43,
+    0, 9, 0, 0, 0,
+};
+
 /* META: each module's parameter ranges (key: module id; 100 + slot for slots 6-8), as param, lo, hi, span */
 static const rk_meta_t META[181] = {
     {0, 0.0f, 46.0f, 46.0f},

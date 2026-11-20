@@ -212,7 +212,32 @@ def main():
     out += ["};", "", "static const rk_preset_t PRESETS[] = {"]
     for n, cat, at, ln, v, m in table:
         out.append(f'    {{"{n}", "{cat}", {at}, {ln}, {v}, {m}}},')
-    out += ["};", f"#define NPRESETS {len(table)}", "",
+    out += ["};", f"#define NPRESETS {len(table)}", ""]
+    # update 24: the bank is INIT and 45. MNAMES: each preset's four knob names (the home page's read-outs); OLD_TO_NEW: the old 125-preset bank's
+    # numbers to the new ones, for the settings' preset and the user presets' base (a preset whose older source is gone maps to INIT)
+    labs = [p.get("fm1", {}).get("mnames") or ["", "", "", ""] for p in keep]
+    if any(len(l) > 9 for ls in labs for l in ls):
+        raise SystemExit("make_presets: a knob name is longer than 9 characters")
+    out += ["/* MNAMES: the four knob names of each factory preset (empty: the page names the knob by what it moves) */",
+            f"static const char MNAMES[NPRESETS][4][10] = {{"]
+    for p, ls in zip(keep, labs):
+        out.append("    {" + ", ".join('"' + l + '"' for l in ls) + "},")
+    out += ["};", ""]
+    old = [n for n in (HERE / "presets_old_names.txt").read_text().split("\n") if n]
+    new_of = {}
+    for i, p in enumerate(keep):
+        src = p.get("fm1", {}).get("src")
+        if src and src != "new" and (src not in new_of or p["name"] == src):
+            new_of[src] = i
+    o2n = [0 if n == "INIT" else new_of.get(n, 0) for n in old]
+    out += [f"#define OLD_NPRESETS {len(old)}",
+            "/* OLD_TO_NEW: the number a preset of the old bank (update 23 and before) has in this one; 0 (INIT) where its sound is no longer in the bank */",
+            f"static const uint8_t OLD_TO_NEW[{len(old)}] = {{"]
+    for i in range(0, len(o2n), 20):
+        out.append("    " + ", ".join(str(v) for v in o2n[i:i + 20]) + ",")
+    out += ["};", ""]
+    out += [
+
             "/* META: each module's parameter ranges (key: module id; 100 + slot for slots 6-8), as param, lo, hi, span */"]
     keys = sorted(meta)
     rows, idx = [], []

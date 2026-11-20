@@ -211,6 +211,7 @@ def main():
         c["fm1"] = {k: pr[k] for k in ("fm1_voices", "osc", "bank", "cat") if k in pr}
         if "bank45" in pr:
             c["fm1"]["mnames"] = pr["bank45"]["labels"]
+            c["fm1"]["src"] = pr["bank45"]["src"]      # the older preset it came from (or "new"): save.c and app.c map old numbers to new ones
         out.append(c)
     OUT.write_text(json.dumps(out))
     print(f"{OUT.name}: {len(out)} presets")

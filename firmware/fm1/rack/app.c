@@ -1272,6 +1272,15 @@ void app_init(void)
         set.octave = ok1 ? o : 0;
         set.voices = ok1 ? v : 0;
     }
+    if (!(set.rsv & 1)) {                     /* a record from before the 45-preset bank: its preset is the old bank's number (or the old bank's end + a user slot) */
+        if (set.preset < OLD_NPRESETS)
+            set.preset = OLD_TO_NEW[set.preset];
+        else if (set.preset < OLD_NPRESETS + NUSER)
+            set.preset = (uint8_t)(NPRESETS + set.preset - OLD_NPRESETS);
+        else
+            set.preset = 0;
+        set.rsv |= 1;
+    }
     if (set.preset >= NPRESETS + NUSER || set.octave < -3 || set.octave > 3 || set.voices > RC_MAXV) {
         set.preset = 0;
         set.octave = 0;
