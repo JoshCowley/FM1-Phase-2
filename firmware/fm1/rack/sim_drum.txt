@@ -132,13 +132,15 @@ turn ALGO -1
 wait 100
 expect drum_cnt0 0
 expect drum_on 6
-# the sequencer's other pages are still there: SEQ goes on through LANE SOUND and LANE MIX (step 3), then round to NOTES
+# the sequencer's other pages are still there: SEQ goes on through the drum pages (LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN), then round to NOTES
 tap SEQ
 wait 200
 expect sub 7
 tap SEQ
 wait 200
 expect sub 8
+tap SEQ
+tap SEQ
 tap SEQ
 wait 200
 expect sub 0

@@ -1,0 +1,330 @@
+# The drum track, step 4: LANE FEEL (length, divide, shift, choke), DRUM GEN (a lane filled, then edited), the patterns A-H (SEL + K1 on the
+# DRUM page: at once when stopped, the one left kept first; at the bar line while playing; refused with edits unsaved; an edit calls a queued one
+# off), SAVE and a power cycle (patterns, kit and feel come back), and the starting state with no drum data in the store (an older save).
+wait 500
+tap SEQ
+wait 200
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+# no OBJ_DRM yet (an older save): pattern A, empty, 909 ISH, 16 steps a lane, the closed hat choking the open one
+expect sub 6
+expect drum_pat 0
+expect drum_next -1
+expect drum_any 0
+expect drum_dirty 0
+expect drum_kit 0
+expect drum_len 16
+expect drum_swing 50
+# LANE FEEL: the KICK to 12 steps, 1/32, shifted 3, choking the snare
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+expect sub 9
+turn K1 -4
+turn K2 1
+turn K3 3
+turn K4 2
+wait 100
+expect drum_len 12
+expect drum_div 2
+expect drum_shift 3
+expect drum_choke 2
+expect drum_pop 4
+shot drum_feel.png
+turn K2 -1
+turn K2 -1
+turn K2 -1
+wait 100
+expect drum_div 0
+turn K2 5
+wait 100
+expect drum_div 4
+shot drum_feel_div.png
+turn K2 -3
+wait 100
+expect drum_div 1
+turn K1 -20
+wait 100
+expect drum_len 1
+turn K1 20
+wait 100
+expect drum_len 16
+turn K3 -40
+wait 100
+expect drum_shift -15
+turn K3 15
+wait 100
+expect drum_shift 0
+turn K4 -9
+wait 100
+expect drum_choke 0
+turn SELECT 1
+turn SELECT 1
+wait 100
+expect drum_lane 2
+expect drum_choke 4
+turn SELECT -2
+wait 100
+expect drum_lane 0
+# DRUM GEN: lane 0, EUCLID 7 hits in 16 (a lane of 16), written; FOUR FLOOR; then a lane edited by hand
+tap SEQ
+wait 300
+expect sub 10
+expect drum_ga 0
+expect drum_gh 7
+shot drum_gen.png
+turn ALGO 1
+wait 100
+expect drum_on 7
+turn K3 4
+wait 100
+expect drum_gt 4
+turn ALGO 1
+wait 100
+expect drum_on 7
+turn K1 1
+wait 100
+expect drum_ga 1
+expect drum_pop 5
+shot drum_genlist.png
+turn ALGO 1
+wait 100
+expect drum_on 4
+expect drum_dirty 1
+turn K1 1
+turn K1 1
+turn K1 1
+turn K1 1
+wait 100
+expect drum_ga 5
+turn K2 -20
+turn K2 3
+wait 100
+expect drum_gh 3
+turn ALGO 1
+wait 100
+expect drum_on 3
+turn K1 5
+wait 100
+expect drum_ga 7
+turn ALGO 1
+wait 100
+expect drum_on 0
+# the lane 2 (C HAT): 16THS, VARY 100
+turn SELECT 1
+turn SELECT 1
+turn K1 -3
+turn K4 100
+wait 100
+expect drum_lane 2
+expect drum_ga 4
+expect drum_gv 100
+turn ALGO 1
+wait 100
+expect drum_on 16
+# back to the DRUM page: the lane's hits are there, the kick lane's are not
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+expect sub 6
+expect drum_lane 2
+expect drum_cnt0 1
+expect drum_cnt15 1
+shot drum_afterGen.png
+# patterns, stopped: A has edits (unsaved), SEL + K1 goes to B: A is kept first, B is empty
+expect drum_dirty 1
+press SEL
+wait 100
+turn K1 1
+release SEL
+wait 300
+expect drum_pat 1
+expect drum_on 0
+expect drum_dirty 0
+expect drum_next -1
+# B: the beat (SEL + ALGO left on an empty grid), a different kit sound on the kick (LANE SOUND), then back to A: 16 hits of the hat are there
+press SEL
+wait 100
+turn ALGO -1
+release SEL
+wait 200
+expect drum_on 19
+shot drum_patB.png
+press SEL
+wait 100
+turn K1 -1
+release SEL
+wait 300
+expect drum_pat 0
+expect drum_on 16
+expect drum_dirty 0
+press SEL
+wait 100
+turn K1 1
+release SEL
+wait 300
+expect drum_pat 1
+expect drum_on 19
+# C is empty; the beat in B is untouched by going there and back
+press SEL
+wait 100
+turn K1 1
+release SEL
+wait 300
+expect drum_pat 2
+expect drum_on 0
+press SEL
+wait 100
+turn K1 -1
+release SEL
+wait 300
+expect drum_pat 1
+expect drum_on 19
+# the feel is part of the pattern: B's kick gets 12 steps (FEEL), A's stays 16
+tap SEQ
+tap SEQ
+tap SEQ
+wait 200
+expect sub 9
+expect drum_lane 2
+turn SELECT -2
+turn K1 -4
+wait 100
+expect drum_len 12
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+expect sub 6
+# SAVE (a tap) from a drum page, then a power cycle
+tap SAVE
+wait 800
+expect drum_dirty 0
+# a change not saved (the live kit's hat, a cleared lane) so that only a real load can bring the saved state back; the simulator keeps the menu's page
+tap SEQ
+tap SEQ
+wait 100
+expect sub 8
+turn K2 -50
+wait 100
+expect drum_level 50
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 100
+expect sub 6
+turn ALGO -1
+wait 100
+power
+wait 1500
+expect sub 6
+expect drum_pat 1
+expect drum_on 19
+expect drum_dirty 0
+expect drum_level 100
+tap SEQ
+tap SEQ
+tap SEQ
+wait 200
+turn SELECT -2
+wait 100
+expect drum_len 12
+turn SELECT 2
+wait 100
+expect drum_choke 4
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+tap SEQ
+wait 300
+expect sub 6
+# A came back as it was kept: its hat lane has 16 hits
+press SEL
+wait 100
+turn K1 -1
+release SEL
+wait 300
+expect drum_pat 0
+expect drum_on 16
+# playing: a switch to B is read ahead and comes in at the bar line (2 s at the tempo of the sim), the grid is B's after it
+tap PLAY
+wait 300
+expect drum_run 1
+press SEL
+wait 100
+turn K1 1
+release SEL
+wait 100
+expect drum_next 1
+expect drum_staged 1
+expect drum_pat 0
+shot drum_queued.png
+wait 2500
+expect drum_pat 1
+expect drum_next -1
+expect drum_on 19
+expect drum_staged 0
+# an edit of the live pattern while one is queued calls it off; a switch with edits unsaved is refused while playing
+press SEL
+wait 100
+turn K1 -1
+release SEL
+wait 100
+expect drum_next 0
+turn SELECT 1
+tap EDIT
+wait 100
+expect drum_next -1
+expect drum_dirty 1
+press SEL
+wait 100
+turn K1 -1
+release SEL
+wait 200
+expect drum_next -1
+expect drum_pat 1
+tap SAVE
+wait 800
+expect drum_dirty 0
+press SEL
+wait 100
+turn K1 -1
+release SEL
+wait 100
+expect drum_next 0
+# pressing the live pattern's own letter again calls the queue off
+press SEL
+wait 100
+turn K1 1
+release SEL
+wait 100
+expect drum_next -1
+tap PLAY
+wait 800
+expect drum_run 0

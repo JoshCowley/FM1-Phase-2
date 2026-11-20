@@ -134,6 +134,8 @@ tap SEQ
 tap SEQ
 tap SEQ
 tap SEQ
+tap SEQ
+tap SEQ
 wait 300
 expect sub 6
 press SEL

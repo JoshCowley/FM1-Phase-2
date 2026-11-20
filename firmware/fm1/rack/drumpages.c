@@ -7,8 +7,8 @@
  * SELECT moves the step, EDIT turns it on / off, ALGORITHM right mutes the lane, left clears it (with SEL held: the
  * 909 ISH beat, when the grid is empty). HOLD SEQ: the 16 white keys are the lane's steps (tap: on / off; held + K1-K4
  * force, ratchet, chance, nudge; SELECT: lane). Included by app.c after seqpages.c. */
-static struct { int8_t lane, step; uint8_t pop; uint32_t pop_at; } dp = {0, 0, 0, 0};
-enum { DPOP_NONE, DPOP_MODEL, DPOP_KIT };     /* the list showing over the picture while its knob turns */
+static struct { int8_t lane, step; uint8_t pop, ga, gh, gt, gv; uint32_t pop_at; } dp = {0, 0, 0, 0, 7, 0, 0, 0};   /* GEN: the algorithm, HITS, TURN, VARY */   /* GEN: the algorithm, HITS, TURN, VARY */
+enum { DPOP_NONE, DPOP_MODEL, DPOP_KIT, DPOP_DIV, DPOP_CHOKE, DPOP_GEN };     /* the list showing over the picture while its knob turns */
 static void dp_pop(int kind) { dp.pop = (uint8_t)kind; dp.pop_at = plat_ms(); ui.redraw = 1; }
 static void drum_tick(void)                   /* the main loop's: a list goes when its knob has rested */
 {
@@ -17,13 +17,148 @@ static void drum_tick(void)                   /* the main loop's: a list goes wh
         ui.redraw = 1;
     }
 }
+
+/* ---- the store: OBJ_DRM keeps the live kit, the settings and the eight patterns (A-H); the live pattern is in RAM, the others only here.
+ * Read and written whole through save.c's scratch (share: 3,792 B; the object is 1,808 B). A save, or a switch while stopped, is a write (the
+ * sound stops for a moment, as the sequencer's SAVE does); a switch while the drums play only reads, ahead, into dr_stage. */
+#define DRM_MAGIC 0x44524D31u                 /* "DRM1" */
+typedef struct {
+    uint32_t magic;
+    uint8_t kit, swing, busy, in_mask, pat, flags, rsv0, rsv1;   /* the kit loaded last, SWING, IF BUSY, the lanes MIDI in plays, the pattern live, (bit 0: STYLE starts the drums) */
+    dr_snd_t snd[DR_LANES];                   /* the live kit */
+    uint8_t note[DR_LANES], ch[DR_LANES], out[DR_LANES], rsv2[2];   /* the lanes' MIDI: GM note, channel (0-15), OUT (SOUND MIDI ALSO OFF) */
+    dr_pat_t p[DR_NPAT];
+} dr_store_t;
+typedef char dr_store_fits[sizeof(dr_store_t) <= sizeof share && sizeof(dr_store_t) <= 3840 ? 1 : -1];
+static dr_store_t *drm(void) { return (dr_store_t *)&share; }
+static void drm_blank(void)                   /* an object never saved, or a bad one: the defaults */
+{
+    dr_store_t *S = drm();
+    int l, k;
+    memset(S, 0, sizeof *S);
+    S->magic = DRM_MAGIC;
+    S->swing = 50;
+    S->busy = 1;
+    S->in_mask = 0x3Fu;
+    memcpy(S->snd, DR_KITS[0], sizeof S->snd);
+    for (l = 0; l < DR_LANES; l++) { S->note[l] = DR_GM[l]; S->ch[l] = DR_CH; S->out[l] = 2; }
+    for (k = 0; k < DR_NPAT; k++) {
+        for (l = 0; l < DR_LANES; l++) { S->p[k].f[l].len = 16; S->p[k].f[l].div = 1; S->p[k].f[l].choke = l == 2 ? 4 : 0; }
+    }
+}
+static int drm_valid(const dr_store_t *S)     /* every value inside its range (a bad object is not half-loaded) */
+{
+    int l, k;
+    if (S->magic != DRM_MAGIC || S->kit >= DR_NKIT || S->swing < 50 || S->swing > 75 || S->busy > 2 || S->pat >= DR_NPAT)
+        return 0;
+    for (l = 0; l < DR_LANES; l++) {
+        const dr_snd_t *d = &S->snd[l];
+        if (d->model >= DR_NMODEL || d->pitch < 12 || d->pitch > 96 || d->p1 > 100 || d->p2 > 100 || d->decay_cs < 2 || d->level > 150 || d->send > 100 ||
+            d->pan < -100 || d->pan > 100 || S->note[l] > 127 || S->ch[l] > 15 || S->out[l] > 3)
+            return 0;
+    }
+    for (k = 0; k < DR_NPAT; k++)
+        for (l = 0; l < DR_LANES; l++) {
+            const dr_feel_t *f = &S->p[k].f[l];
+            if (f->len < 1 || f->len > DR_STEPS || f->div >= DR_NDIV || f->choke > DR_LANES || f->shift < -15 || f->shift > 15)
+                return 0;
+        }
+    return 1;
+}
+static int drm_read(void)                     /* the store into share: 1 read, 0 nothing (or a bad object): share holds the defaults */
+{
+    dr_store_t *S = drm();
+    int n;
+    share_undo = 0;
+    n = plat_store_load(OBJ_DRM, S, sizeof *S);
+    if (n == (int)sizeof *S && drm_valid(S))
+        return 1;
+    drm_blank();
+    return 0;
+}
+static void dr_live_to(dr_pat_t *o) { memcpy(o->s, dr_pat, sizeof dr_pat); memcpy(o->f, dr_feel, sizeof dr_feel); }
+static int dr_save_store(void)                /* the live pattern (into its slot), the kit and the settings; 0 saved */
+{
+    dr_store_t *S;
+    int e;
+    drm_read();
+    S = drm();
+    S->kit = dr_kit_ix; S->swing = dr.swing; S->pat = dr.pat;
+    memcpy(S->snd, dr_kit, sizeof S->snd);
+    dr_live_to(&S->p[dr.pat]);
+    e = plat_store_save(OBJ_DRM, S, sizeof *S);
+    if (!e)
+        dr_dirty = 0;
+    return e;
+}
+static void dr_load_store(void)               /* power-up: the store, if there is one (an older save has none: the defaults stay) */
+{
+    dr_store_t *S = drm();
+    if (!drm_read())
+        return;
+    dr_kit_ix = S->kit;
+    memcpy(dr_kit, S->snd, sizeof dr_kit);
+    dr.swing = S->swing;
+    dr.pat = S->pat;
+
+    memcpy(dr_pat, S->p[S->pat].s, sizeof dr_pat);
+    memcpy(dr_feel, S->p[S->pat].f, sizeof dr_feel);
+    dr_dirty = 0;
+}
+static void drum_say(const char *a, const char *b);
+/* queue pattern p (0-7): stopped, it is live at once (the one left is kept first, if it has edits); playing, it is read ahead and comes in at the bar line;
+ * playing with edits not saved, it is refused (they would be lost); the live pattern again calls a queued one off */
+static void dr_queue(int p)
+{
+    char t[16];
+    if (p < 0 || p >= DR_NPAT)
+        return;
+    t[0] = (char)('A' + p); t[1] = 0;
+    if (!dr.run) {
+        if (p == dr.pat)
+            return;
+        if ((dr_dirty & 1u) && dr_save_store()) {
+            drum_say("NOT SAVED", "STORE FULL");
+            return;
+        }
+        drm_read();
+        memcpy(dr_pat, drm()->p[p].s, sizeof dr_pat);
+        memcpy(dr_feel, drm()->p[p].f, sizeof dr_feel);
+        dr.pat = (uint8_t)p;
+        dr.next = 255;
+        dr_staged = 0;
+        dr_dirty &= (uint8_t)~1u;
+        drum_say("PATTERN", t);
+        return;
+    }
+    if (p == dr.pat) {
+        dr.next = 255;
+        dr_staged = 0;
+        drum_say("PATTERN", "STAYS");
+        return;
+    }
+    if (dr_dirty & 1u) {
+        drum_say("SAVE FIRST", "EDITS WOULD BE LOST");
+        return;
+    }
+    drm_read();
+    memcpy(&dr_stage, &drm()->p[p], sizeof dr_stage);
+    dr.next = (uint8_t)p;
+    dr_staged = 1;
+    drum_say("NEXT", t);
+}
+static int drum_save(void)
+{
+    return dr_save_store();
+}
 static int drum_lane_step(int d) { int v = dp.lane + (d > 0 ? 1 : -1); return v < 0 ? 0 : v >= DR_LANES ? DR_LANES - 1 : v; }
 
 static void pic_drum(void)
 {
-    int l, i, pc = dr.run ? dr.cur : -1;
+    int l, i, pc;
     for (l = 0; l < DR_LANES; l++) {
         int32_t y = 3 + l * 24;
+        pc = dr_col(l);
         int sel = l == dp.lane, mut = (dr.mute >> l & 1u) != 0;
         cv_text(5, y + 3, &FONT_XS, DR_LNAME[l], mut ? GREY(80) : sel ? K_FG : K_DIM);
         if (sel)
@@ -35,6 +170,8 @@ static void pic_drum(void)
             int32_t x = 50 + i * 11;
             int on = (s & DRS_ON) != 0;
             uint16_t col = on ? mix565(K_SEQC, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
+            if (i >= dr_feel[l].len)           /* past the lane's own length: dark */
+                col = SQ_PAST;
             if (on && dr.run && pl_now - dr_flash[l] < 6000u)
                 col = mix565(K_FG, col, 110);
             if (mut)
@@ -122,6 +259,53 @@ static void pic_dsound(void)                   /* LANE SOUND: the lane's tabs, t
     else if (dp.pop == DPOP_KIT)
         dr_pop_list("DRUM KIT", DR_NKIT, dr_kit_ix, DR_KNAME, 0);
 }
+static const char *const DR_CHOKEN[DR_LANES + 1] = {"OFF", "KICK", "SNARE", "C HAT", "O HAT", "CLAP", "PERC"};
+static void pic_dfeel(void)                    /* LANE FEEL: each lane's loop as a bar of 16, its own length lit */
+{
+    int l, i;
+    char t[8];
+    for (l = 0; l < DR_LANES; l++) {
+        int32_t y = 3 + l * 24;
+        int sel = l == dp.lane;
+        cv_text(3, y + 5, &FONT_XS, DR_LNAME[l], sel ? K_FG : K_DIM);
+        for (i = 0; i < DR_STEPS; i++) {
+            uint16_t c = i < dr_feel[l].len ? ((dr_pat[l][i] & DRS_ON) ? DR_LCOL[l] : mix565(DR_LCOL[l], K_BG, 110)) : SQ_PAST;
+            rrect(40 + i * 11, y + 2, 9, 16, c, 2);
+        }
+        if (sel) {
+            cv_rect(38, y, 1, 20, K_FG);
+            t[0] = 0;
+            int_text(dr_feel[l].len, t);
+            cv_text_acc(218 - text_w(&FONT_XS, t) + 6, y + 4, &FONT_XS, t, K_BG);
+        }
+    }
+    if (dp.pop == DPOP_DIV)
+        dr_pop_list("DIVIDE: A STEP IS", DR_NDIV, dr_feel[dp.lane].div, DR_DIVN, 0);
+    else if (dp.pop == DPOP_CHOKE)
+        dr_pop_list("CHOKE: A HIT CUTS", DR_LANES + 1, dr_feel[dp.lane].choke, DR_CHOKEN, 0);
+}
+static void pic_dgen(void)                     /* DRUM GEN: the lane's tabs, the mask the settings make, and what it is */
+{
+    uint8_t m[DR_STEPS];
+    int i, len = dr_feel[dp.lane].len;
+    char t[40], u[8];
+    dr_tabs();
+    dr_gen_mask(dp.ga, len, dp.gh, dp.gt, m);
+    for (i = 0; i < DR_STEPS; i++)
+        rrect(6 + i * 13, 34, 11, 34, i >= len ? SQ_PAST : m[i] ? DR_LCOL[dp.lane] : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF), 3);
+    t[0] = 0;
+    cat(t, DG_NAME[dp.ga]);
+    if (dp.ga == DG_EUCLID || dp.ga == DG_RAND) {
+        int_text(dp.gh > len ? len : dp.gh, u);
+        cat(t, " "); cat(t, u); cat(t, " HITS IN "); int_text(len, u); cat(t, u);
+        if (dp.ga == DG_EUCLID && dp.gt % (len < 1 ? 1 : len)) { cat(t, "  TURNED "); int_text(dp.gt % len, u); cat(t, u); }
+    }
+    cv_text_acc(114 - text_w(&FONT_XS, t) / 2, 84, &FONT_XS, t, K_FG);
+    cv_text(114 - text_w(&FONT_XS, "FILLS THE LANE, THEN EDIT IT BY HAND") / 2, 100, &FONT_XS, "FILLS THE LANE, THEN EDIT IT BY HAND", K_DIM);
+    cv_text(114 - text_w(&FONT_XS, "ALGO RIGHT: WRITE THE LANE") / 2, 116, &FONT_XS, "ALGO RIGHT: WRITE THE LANE", K_DIM);
+    if (dp.pop == DPOP_GEN)
+        dr_pop_list("DRUM GEN", DG_N, dp.ga, DG_NAME, 0);
+}
 static void pic_dmix(void)                     /* LANE MIX: six faders: the level bar, the pan dot, the send bar */
 {
     int l;
@@ -145,13 +329,22 @@ static void pic_dmix(void)                     /* LANE MIX: six faders: the leve
 static void drum_header_text(char *t, const char *state)
 {
     t[0] = 0;
-    if (mn.sub == SQP_DSOUND || mn.sub == SQP_DMIX) {
+    if (mn.sub == SQP_DSOUND || mn.sub == SQP_DMIX || mn.sub == SQP_DFEEL || mn.sub == SQP_DGEN) {
         cat(t, DR_LNAME[dp.lane]);
         cat(t, " ");
         cat(t, state);
         return;
     }
-    cat(t, "A ");
+    t[0] = (char)('A' + dr.pat);
+    t[1] = 0;
+    if (dr_dirty & 1u)
+        cat(t, "*");
+    if (dr.next != 255) {
+        char n[3] = ">A";
+        n[1] = (char)('A' + dr.next);
+        cat(t, n);
+    }
+    cat(t, " ");
     cat(t, state);
     cat(t, "  ");
     cat(t, DR_KNAME[dr_kit_ix]);
@@ -173,6 +366,25 @@ static void drum_dials(const char **l, char v[4][16], float *f)
         int_text(k->p1, v[1]); f[1] = (float)k->p1 / 100.0f;
         int_text(k->p2, v[2]); f[2] = (float)k->p2 / 100.0f;
         note_name(k->pitch, v[3]); f[3] = (float)(k->pitch - 12) / 84.0f;
+        return;
+    }
+    if (mn.sub == SQP_DFEEL) {
+        l[0] = "LENGTH"; l[1] = "DIVIDE"; l[2] = "SHIFT"; l[3] = "CHOKE";
+        int_text(dr_feel[dp.lane].len, v[0]); f[0] = (float)(dr_feel[dp.lane].len - 1) / 15.0f;
+        cat(v[1], DR_DIVN[dr_feel[dp.lane].div]); f[1] = (float)dr_feel[dp.lane].div / (float)(DR_NDIV - 1);
+        if (dr_feel[dp.lane].shift > 0) cat(v[2], "+");
+        int_text(dr_feel[dp.lane].shift, v[2] + (dr_feel[dp.lane].shift > 0)); f[2] = (float)(dr_feel[dp.lane].shift + 15) / 30.0f;
+        cat(v[3], DR_CHOKEN[dr_feel[dp.lane].choke]); f[3] = (float)dr_feel[dp.lane].choke / (float)DR_LANES;
+        return;
+    }
+    if (mn.sub == SQP_DGEN) {
+        int hits = dp.ga == DG_EUCLID || dp.ga == DG_RAND;
+        l[0] = "ALGO"; l[1] = "HITS"; l[2] = dp.ga == DG_RAND ? "SEED" : "TURN"; l[3] = "VARY";
+        cat(v[0], DG_NAME[dp.ga]); f[0] = (float)dp.ga / (float)(DG_N - 1);
+        if (hits) int_text(dp.gh, v[1]); else cat(v[1], "-");
+        f[1] = (float)dp.gh / 16.0f;
+        int_text(dp.gt, v[2]); f[2] = (float)dp.gt / 15.0f;
+        int_text(dp.gv, v[3]); f[3] = (float)dp.gv / 100.0f;
         return;
     }
     if (mn.sub == SQP_DMIX) {
@@ -245,18 +457,52 @@ static void drum_enc_mix(const int32_t *e)     /* LANE MIX: SELECT lane, K1 DECA
     if (e[5]) ch |= dp_nudge(&k->send, (int)e[5], 0, 100);
     if (ch) { drum_hear(); ui.redraw = 1; }
 }
+static void drum_enc_feel(const int32_t *e)    /* LANE FEEL: SELECT lane, K1 LENGTH, K2 DIVIDE, K3 SHIFT, K4 CHOKE */
+{
+    dr_feel_t *f = &dr_feel[dp.lane];
+    int n;
+    if (e[0]) { dp.lane = (int8_t)drum_lane_step((int)e[0]); ui.redraw = 1; }
+    if (e[2]) { n = dr_clamp(f->len + (int)e[2], 1, DR_STEPS); if (n != f->len) { f->len = (uint8_t)n; dr_touch(); } ui.redraw = 1; }
+    if (e[3]) { n = dr_clamp(f->div + (e[3] > 0 ? 1 : -1), 0, DR_NDIV - 1); if (n != f->div) { f->div = (uint8_t)n; dr_touch(); } dp_pop(DPOP_DIV); }
+    if (e[4]) { n = dr_clamp(f->shift + (int)e[4], -15, 15); if (n != f->shift) { f->shift = (int8_t)n; dr_touch(); } ui.redraw = 1; }
+    if (e[5]) { n = dr_clamp(f->choke + (e[5] > 0 ? 1 : -1), 0, DR_LANES); if (n != f->choke) { f->choke = (uint8_t)n; dr_touch(); } dp_pop(DPOP_CHOKE); }
+}
+static void drum_enc_gen(const int32_t *e)     /* DRUM GEN: SELECT lane, K1 ALGO, K2 HITS, K3 TURN, K4 VARY; ALGO right writes the lane */
+{
+    if (e[0]) { dp.lane = (int8_t)drum_lane_step((int)e[0]); ui.redraw = 1; }
+    if (e[2]) { dp.ga = (uint8_t)dr_clamp(dp.ga + (e[2] > 0 ? 1 : -1), 0, DG_N - 1); dp_pop(DPOP_GEN); }
+    if (e[3]) { dp.gh = (uint8_t)dr_clamp(dp.gh + (int)e[3], 0, 16); ui.redraw = 1; }
+    if (e[4]) { dp.gt = (uint8_t)dr_clamp(dp.gt + (int)e[4], 0, 15); ui.redraw = 1; }
+    if (e[5]) { dp.gv = (uint8_t)dr_clamp(dp.gv + (int)e[5], 0, 100); ui.redraw = 1; }
+    if (e[1] > 0) {
+        dr_gen_write(dp.lane, dp.ga, dp.gh, dp.gt, dp.gv);
+        drum_say(DR_LNAME[dp.lane], dp.ga == DG_CLEAR ? "CLEARED" : "FILLED");
+    }
+}
 static const char *drum_help(void)
 {
     return mn.sub == SQP_DSOUND ? "SELECT: LANE  ALGO: MODEL  SEL+ALGO: KIT" : mn.sub == SQP_DMIX ? "SELECT: LANE  K4: HOW MUCH GOES TO FX" :
-           "SEL: STEP  EDIT: ON/OFF  ALGO RIGHT: MUTE";
+           mn.sub == SQP_DFEEL ? "LENGTH 12 AGAINST 16 DRIFTS EVERY BAR" : mn.sub == SQP_DGEN ? "SELECT: LANE  ALGO RIGHT: WRITE IT" :
+           "SEL: STEP  EDIT: ON/OFF  SEL+K1: PATTERN";
 }
 static void drum_encoders(const int32_t *e)   /* e: SELECT, ALGO, K1-K4 */
 {
     int d;
     if (mn.sub == SQP_DSOUND) { drum_enc_sound(e); return; }
     if (mn.sub == SQP_DMIX) { drum_enc_mix(e); return; }
+    if (mn.sub == SQP_DFEEL) { drum_enc_feel(e); return; }
+    if (mn.sub == SQP_DGEN) { drum_enc_gen(e); return; }
+    int k1 = (int)e[2];
+    if (k1 && (in_btn >> B_SEL & 1u)) {            /* SEL held + K1: the pattern (A-H), at the bar line while playing */
+        int p = dr.next != 255 ? dr.next : dr.pat;
+        dr_queue(dr_clamp(p + (k1 > 0 ? 1 : -1), 0, DR_NPAT - 1));
+        mn.sel_long = 1;
+        mn.sel_n = 0;
+        k1 = 0;
+        ui.redraw = 1;
+    }
     if (e[0]) dp.step = (int)(((dp.step + e[0]) % DR_STEPS + DR_STEPS) % DR_STEPS);
-    if (e[2]) { d = dp.lane + (e[2] > 0 ? 1 : -1); dp.lane = d < 0 ? 0 : d >= DR_LANES ? DR_LANES - 1 : d; }
+    if (k1) { d = dp.lane + (k1 > 0 ? 1 : -1); dp.lane = d < 0 ? 0 : d >= DR_LANES ? DR_LANES - 1 : d; }
     if (e[3]) dr_adjust(dp.lane, dp.step, 0, e[3] > 0 ? 1 : -1);
     if (e[4]) dr_adjust(dp.lane, dp.step, 1, e[4] > 0 ? 1 : -1);
     if (e[5]) dr_adjust(dp.lane, dp.step, 2, e[5] > 0 ? 1 : -1);
@@ -323,7 +569,7 @@ static void drum_layer_encoders(void)
 static void draw_drum_layer(void)
 {
     char t[48], u[8];
-    int r, w, pc = dr.run ? dr.cur : -1;
+    int r, w, pc = dr_col(dp.lane);
     cv_begin(240, 16, K_SEQC);
     t[0] = 0;
     cat(t, "DRUM ");
@@ -379,6 +625,21 @@ static int drum_expect(const char *what, int *got)
     else if (same(what, "drum_send")) *got = k->send;
     else if (same(what, "drum_kit")) *got = dr_kit_ix;
     else if (same(what, "drum_pop")) *got = dp.pop;
+    else if (same(what, "drum_pat")) *got = dr.pat;
+    else if (same(what, "drum_next")) *got = dr.next == 255 ? -1 : dr.next;
+    else if (same(what, "drum_staged")) *got = dr_staged;
+    else if (same(what, "drum_dirty")) *got = dr_dirty;
+    else if (same(what, "drum_len")) *got = dr_feel[dp.lane].len;
+    else if (same(what, "drum_div")) *got = dr_feel[dp.lane].div;
+    else if (same(what, "drum_shift")) *got = dr_feel[dp.lane].shift;
+    else if (same(what, "drum_choke")) *got = dr_feel[dp.lane].choke;
+    else if (same(what, "drum_ga")) *got = dp.ga;
+    else if (same(what, "drum_gh")) *got = dp.gh;
+    else if (same(what, "drum_gt")) *got = dp.gt;
+    else if (same(what, "drum_gv")) *got = dp.gv;
+    else if (same(what, "drum_swing")) *got = dr.swing;
+    else if (same(what, "drum_colp")) *got = dr_col(dp.lane);
+    else if (same(what, "drum_lanehits")) *got = (int)dr.hits;
     else return 0;
     return 1;
 }

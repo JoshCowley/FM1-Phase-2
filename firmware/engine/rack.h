@@ -109,6 +109,7 @@ void drum_hit(int voice, int model, float note, float p1, float p2, float decay,
 void drum_run(int on);
 void drum_busy(int mode);
 void drum_off(void);
+void drum_cut(int voice);   // a CHOKE: the voice dies away in about 8 ms
 int drum_status(int what);
 #ifdef RACK_HOST_CHECKS
 int drum_identity(int model, int blocks, uint32_t seed);   // the host check: samples that differ between the stock Braids class and the drum copy

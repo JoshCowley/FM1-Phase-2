@@ -17,7 +17,8 @@
 static struct { uint32_t blk; int lane; int force_lv; int voice, model; float note, p1, p2, decay, level, pan, send; } dq_hit[DQ_MAX];
 static int dq_n;
 static struct { uint32_t blk; int ch, note, vel; } dq_mid[DQ_MAX];
-static int dq_nm, dq_runs[8], dq_nrun;
+static int dq_nm, dq_runs[8], dq_nrun, dq_cuts[64], dq_ncut;
+static void dq_cut_hook(int voice) { if (dq_ncut < 64) dq_cuts[dq_ncut++] = voice; }
 static uint32_t dq_now;                       /* the block the driver is in */
 static int dq_lane_of(float note, float decay)
 {
@@ -50,11 +51,12 @@ static void dq_midi_hook(int ch0, int note, int vel)
 static void dq_run_hook(int on) { if (dq_nrun < 8) dq_runs[dq_nrun++] = on; }
 static void dq_reset(void)
 {
-    dq_n = dq_nm = dq_nrun = 0;
+    dq_n = dq_nm = dq_nrun = dq_ncut = 0;
     dr_hook_hit = dq_hit_hook; dr_hook_midi = dq_midi_hook; dr_hook_run = dq_run_hook;
     dr_hz = 44100.0f;
-    dr_load_kit(0);
-    dr.run = 0; dr.mute = 0; dr.ring = 0; dr.nq = 0; dr.cur = -1; dr.hits = 0;
+    { uint16_t keep[DR_LANES][DR_STEPS]; memcpy(keep, dr_pat, sizeof keep); dr_reset_state(); memcpy(dr_pat, keep, sizeof keep); }   /* (the pattern stays: a check sets it, then restarts) */
+    dr_hook_cut = dq_cut_hook;
+    dr.run = 0;
 }
 /* play nsteps 16ths from frame 0, in blocks of nb frames; ticks: the MIDI clock's way */
 static void dq_play(int nsteps, float d, int nb, int ticks)
@@ -233,9 +235,9 @@ static void dseq_checks(int *fails)
         memset(dr_pat, 0, sizeof dr_pat);
         dr_pat[0][0] = DRS_NEW;
         for (i = 0; i < 2000; i++) { dq_now = (uint32_t)i * 48u; dr_block(dq_now, 48, d); dr_tick(dq_now, d); dr_flush(dq_now, 48); }
-        ok = dq_n == 0 && dq_nm == 0 && dq_nrun == 0 && dr.nq == 0 && dr.hits == 0 && dr.cur == -1;
+        ok = dq_n == 0 && dq_nm == 0 && dq_nrun == 0 && dr.nq == 0 && dr.hits == 0 && dr_col(0) == -1;
         dr_start(0); dr_start(0); dr_block(0, 48, d); dr_stop(); dr_stop();
-        ok = ok && dq_nrun == 2 && dq_runs[0] == 1 && dq_runs[1] == 0 && dr.cur == -1 && !dr.run;
+        ok = ok && dq_nrun == 2 && dq_runs[0] == 1 && dq_runs[1] == 0 && dr_col(0) == -1 && !dr.run;
         printf("13d stopped: 2000 blocks, ticks and flushes: no hook, no hit queued; a start runs the voices' guard (hook 1), a stop ends it (0), a second start or stop does nothing: %s\n", ok ? "ok" : "FAIL");
         bad += !ok;
     }
@@ -299,6 +301,214 @@ static void dseq_checks(int *fails)
         printf("13f a lane heard from a page: its sound once, no MIDI note, not counted as a hit: %s\n", ok ? "ok" : "FAIL");
         bad += !ok;
     }
+    /* 13g (step 4): each lane's own length, divide and shift, and SWING, each hit in the block of its frame (blocks of 16) */
+    {
+        float d = 60.0f / 120.0f / 4.0f * 44100.0f;
+        int ok = 1, n, bad_l = 0, bad_d = 0, bad_s = 0, bad_w = 0;
+        /* LENGTH: lane 0 loops on 12 steps, lane 1 on 16: over 96 steps they hit 8 and 6 times, at multiples of 12 and 16 steps */
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[0][0] = DRS_NEW; dr_pat[1][0] = DRS_NEW;
+        dr_feel[0].len = 12; dr_feel[1].len = 16;
+        dq_play(96, d, 16, 0);
+        { int c0 = 0, c1 = 0;
+          for (i = 0; i < dq_n; i++) {
+              if (dq_hit[i].lane == 0) { if (!dq_in_block(dq_hit[i].blk, (float)(c0 * 12) * d, 16)) bad_l++; c0++; }
+              if (dq_hit[i].lane == 1) { if (!dq_in_block(dq_hit[i].blk, (float)(c1 * 16) * d, 16)) bad_l++; c1++; }
+          }
+          if (c0 != 8 || c1 != 6) bad_l++;
+          printf("13g length 12 against 16 over 96 steps: %d and %d hits, every one on its own multiple: %s\n", c0, c1, bad_l ? "FAIL" : "ok"); }
+        /* DIVIDE: a step of 1/8, 1/32, 8T, 16T (2, 1/2, 4/3, 2/3 of a 16th) on a lane of one step */
+        { static const float DIVS[DR_NDIV] = {2.0f, 1.0f, 0.5f, 4.0f / 3.0f, 2.0f / 3.0f};
+          int dv;
+          for (dv = 0; dv < DR_NDIV; dv++) {
+              int want;
+              dq_reset();
+              memset(dr_pat, 0, sizeof dr_pat);
+              dr_pat[0][0] = DRS_NEW;
+              dr_feel[0].len = 1; dr_feel[0].div = (uint8_t)dv;
+              dq_play(16, d, 16, 0);
+              want = (int)(16.0f / DIVS[dv] + 0.001f);
+              if (dq_n != want) { bad_d++; printf("13g divide %s: %d hits in 16 sixteenths, want %d\n", DR_DIVN[dv], dq_n, want); }
+              for (i = 0; i < dq_n; i++)
+                  if (!dq_in_block(dq_hit[i].blk, (float)i * DIVS[dv] * d, 16)) { bad_d++; break; }
+          }
+          printf("13g divide 1/8, 1/16, 1/32, 8T, 16T: a step of 2, 1, 1/2, 4/3, 2/3 sixteenths, each hit on its frame: %s\n", bad_d ? "FAIL" : "ok"); }
+        /* SHIFT: a step on at column 3, shifted +2 plays at step 1, -2 at step 5, and a shift longer than the lane wraps */
+        { static const int SH[4] = {2, -2, 0, 17}; static const int AT[4] = {1, 5, 3, 2};   /* +17 on 16 is +1: step 2 */
+          int k2;
+          for (k2 = 0; k2 < 4; k2++) {
+              dq_reset();
+              memset(dr_pat, 0, sizeof dr_pat);
+              dr_pat[0][3] = DRS_NEW;
+              dr_feel[0].shift = (int8_t)(SH[k2] > 15 ? 1 : SH[k2]);
+              dq_play(16, d, 16, 0);
+              if (dq_n != 1 || !dq_in_block(dq_hit[0].blk, (float)AT[k2] * d, 16)) { bad_s++; printf("13g shift %d: step %.1f wanted\n", SH[k2], (float)AT[k2]); }
+          }
+          printf("13g shift +2, -2, 0, +1 (on a lane of 16): the step on column 3 plays at step 1, 5, 3, 2: %s\n", bad_s ? "FAIL" : "ok"); }
+        /* SWING 62 %%: the odd steps 0.24 of a step late, the even ones not; triplets are not swung */
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        for (i = 0; i < 16; i++) dr_pat[0][i] = DRS_NEW;
+        dr.swing = 62;
+        dq_play(16, d, 16, 0);
+        for (i = 0; i < dq_n; i++) {
+            float want = (float)i * d + (i & 1 ? 0.24f * d : 0.0f);
+            if (!dq_in_block(dq_hit[i].blk, want, 16)) bad_w++;
+        }
+        n = dq_n;
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[0][0] = DRS_NEW; dr_pat[0][1] = DRS_NEW;
+        dr_feel[0].len = 2; dr_feel[0].div = 4;                              /* 16T */
+        dr.swing = 75;
+        dq_play(8, d, 16, 0);
+        for (i = 0; i < dq_n; i++) if (!dq_in_block(dq_hit[i].blk, (float)i * (2.0f / 3.0f) * d, 16)) bad_w++;
+        printf("13g swing 62%%: %d hits, the odd 16ths 0.24 of a step late, the even on the grid; 16T at 75%% not swung: %s\n", n, bad_w ? "FAIL" : "ok");
+        ok = !bad_l && !bad_d && !bad_s && !bad_w;
+        bad += !ok;
+    }
+    /* 13h (step 4): CHOKE: a hit cuts the lane named (its voice, when it is another one), and its MIDI note ends */
+    {
+        float d = 60.0f / 120.0f / 4.0f * 44100.0f;
+        int ok = 1;
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[1][0] = DRS_NEW;                    /* snare on step 0 (its MIDI note rings 30 ms), the kick a little after it (nudge +3) chokes it */
+        dr_pat[0][0] = DRS_MK(1u, DF_NORM, 1, 5, 3);
+        dr_feel[0].choke = 2;                      /* KICK cuts SNARE (voice 1) */
+        dq_play(4, d, 16, 0);
+        ok = ok && dq_ncut == 1 && dq_cuts[0] == 1;
+        { int on = 0, off = 0; for (i = 0; i < dq_nm; i++) if (dq_mid[i].note == 38) { if (dq_mid[i].vel) on++; else off++; }
+          ok = ok && on == 1 && off == 1; }
+        { int offb = -1; for (i = 0; i < dq_nm; i++) if (dq_mid[i].note == 38 && !dq_mid[i].vel) offb = (int)dq_mid[i].blk;
+          ok = ok && dq_in_block((uint32_t)offb, 3.0f / 64.0f * d, 16 + 16); }   /* the note ends with the kick (3/64 of a step), not 30 ms on */
+        /* the lane itself and a lane on the same voice are no cut: C HAT -> O HAT share voice 2 (the new hit cuts it anyway), a lane choking itself */
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[2][0] = DRS_NEW; dr_pat[0][0] = DRS_NEW;
+        dr_feel[2].choke = 4;                      /* C HAT -> O HAT: the same voice */
+        dr_feel[0].choke = 1;                      /* KICK -> KICK */
+        dq_play(2, d, 16, 0);
+        ok = ok && dq_ncut == 0;
+        /* OFF: no cut */
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[0][0] = DRS_NEW;
+        dr_feel[0].choke = 0;
+        dq_play(2, d, 16, 0);
+        ok = ok && dq_ncut == 0;
+        printf("13h choke: the kick cuts the snare's voice and ends its MIDI note at once; the same voice, itself and OFF cut nothing: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+    }
+    /* 13i (step 4): the pattern switch at the bar line: a pattern queued mid-bar (read ahead into dr_stage) starts at the next bar line, every lane from
+     * its first step; an edit calls it off; nothing changes before the bar line */
+    {
+        float d = 60.0f / 120.0f / 4.0f * 44100.0f, bar = 16.0f * d;
+        uint32_t t;
+        int ok = 1, before_a = 0, before_b = 0, after_a = 0, after_b = 0;
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[0][0] = DRS_NEW;                    /* A: the kick on step 1 */
+        memset(&dr_stage, 0, sizeof dr_stage);
+        dr_stage.s[1][8] = DRS_NEW;                /* B: the snare on step 9 (and a lane of 12 on the kick's: restarted at the bar) */
+        dr_stage.f[0].len = 16; dr_stage.f[0].div = 1; dr_stage.f[1].len = 16; dr_stage.f[1].div = 1;
+        for (i = 2; i < DR_LANES; i++) { dr_stage.f[i].len = 16; dr_stage.f[i].div = 1; }
+        dr_start(0);
+        dq_n = 0;
+        for (t = 0; (float)t < 4.0f * bar; t += 48u) {
+            dq_now = t;
+            if ((float)t >= 1.3f * bar && !dr_staged && dr.pat == 0 && dr.next == 255) { dr.next = 1; dr_staged = 1; }   /* queued mid-bar 2 */
+            dr_block(t, 48, d);
+        }
+        for (i = 0; i < dq_n; i++) {
+            float at = (float)dq_hit[i].blk;
+            if (at < 2.0f * bar - 50.0f) { if (dq_hit[i].lane == 0) before_a++; if (dq_hit[i].lane == 1) before_b++; }
+            else if (at > 2.0f * bar - 50.0f) { if (dq_hit[i].lane == 0) after_a++; if (dq_hit[i].lane == 1) after_b++; }
+        }
+        /* bars 1 and 2: the kick (A) twice, no snare; bars 3 and 4: the snare (B) twice at step 9, no kick */
+        ok = before_a == 2 && before_b == 0 && after_a == 0 && after_b == 2 && dr.pat == 1 && dr.next == 255 && !dr_staged;
+        { int first_b = -1; for (i = 0; i < dq_n; i++) if (dq_hit[i].lane == 1 && first_b < 0) first_b = i;
+          ok = ok && first_b >= 0 && dq_in_block(dq_hit[first_b].blk, 2.0f * bar + 8.0f * d, 48); }
+        printf("13i pattern A to B queued mid-bar 2: A's kick plays in bars 1 and 2, B's snare (step 9) in bars 3 and 4, nothing of either on the wrong side of the bar line: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+        dr_stop();
+        /* the queued pattern is called off by an edit; the live one stays */
+        dr.next = 1; dr_staged = 1;
+        dr_toggle(0, 5);
+        ok = dr.next == 255 && !dr_staged && (dr_dirty & 1u);
+        dr.next = 1; dr_staged = 1;
+        dr.run = 0;
+        printf("13i an edit of the live pattern calls a queued switch off (and marks it unsaved): %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+        /* lanes of other lengths restart at the switch (a 12 and a 16 both start at their step 1) */
+        dq_reset();
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[0][0] = DRS_NEW; dr_pat[1][0] = DRS_NEW; dr_feel[0].len = 12;
+        memset(&dr_stage, 0, sizeof dr_stage);
+        dr_stage.s[0][0] = DRS_NEW; dr_stage.s[1][0] = DRS_NEW;
+        for (i = 0; i < DR_LANES; i++) { dr_stage.f[i].len = 16; dr_stage.f[i].div = 1; }
+        dr_stage.f[0].len = 12;
+        dr_start(0);
+        dq_n = 0;
+        for (t = 0; (float)t < 3.0f * bar; t += 48u) {
+            dq_now = t;
+            if ((float)t >= 0.5f * bar && !dr_staged && dr.pat == 0 && dr.next == 255) { dr.next = 1; dr_staged = 1; }
+            dr_block(t, 48, d);
+        }
+        { int k0 = 0, k1 = 0, okp = 1;                /* hits at the bar line (2 bars in: the switch at 1 bar, so bar 2 starts both lanes afresh) */
+          for (i = 0; i < dq_n; i++) {
+              float at = (float)dq_hit[i].blk;
+              if (dq_hit[i].lane == 0 && fabsf(at - bar) < 60.0f) k0++;
+              if (dq_hit[i].lane == 1 && fabsf(at - bar) < 60.0f) k1++;
+          }
+          okp = k0 == 1 && k1 == 1;
+          printf("13i at the switch the lane of 12 and the lane of 16 both start from their first step on the bar line: %s\n", okp ? "ok" : "FAIL");
+          bad += !okp; }
+        dr_stop();
+    }
+    /* 13j (step 4): DRUM GEN */
+    {
+        uint8_t m[DR_STEPS];
+        int ok = 1, h, len, n, i2;
+        for (len = 1; len <= DR_STEPS; len++)
+            for (h = 0; h <= len; h++) {
+                int first = -1, last = -1, mn = 99, mx = 0, c = 0;
+                dr_gen_mask(DG_EUCLID, len, h, 0, m);
+                for (i2 = 0; i2 < len; i2++) if (m[i2]) { if (first >= 0 && i2 - last < mn) mn = i2 - last; if (first >= 0 && i2 - last > mx) mx = i2 - last; if (first < 0) first = i2; last = i2; c++; }
+                if (c != h) ok = 0;
+                if (c > 1 && c < len && mx - mn > 1) ok = 0;        /* as even as the steps allow (the wrap-round gap aside) */
+                for (i2 = len; i2 < DR_STEPS; i2++) if (m[i2]) ok = 0;
+            }
+        dr_gen_mask(DG_EUCLID, 16, 4, 0, m); for (i2 = 0, n = 0; i2 < 16; i2++) n += m[i2] << i2 & 0 ? 0 : (m[i2] && i2 % 4 == 0);
+        ok = ok && n == 4;                                           /* euclid 4 in 16 is the four on the floor */
+        dr_gen_mask(DG_EUCLID, 16, 3, 0, m); { uint8_t t2[DR_STEPS]; dr_gen_mask(DG_EUCLID, 16, 3, 5, t2); for (i2 = 0; i2 < 16; i2++) if (t2[(i2 + 5) % 16] != m[i2]) ok = 0; }   /* TURN 5 is the mask turned 5 right */
+        dr_gen_mask(DG_FOUR, 16, 0, 0, m); ok = ok && m[0] && m[4] && m[8] && m[12] && !m[1] && !m[5];
+        dr_gen_mask(DG_BACK, 16, 0, 0, m); ok = ok && m[4] && m[12] && !m[0] && !m[8];
+        dr_gen_mask(DG_OFFB, 16, 0, 0, m); ok = ok && m[2] && m[6] && m[10] && m[14] && !m[0];
+        dr_gen_mask(DG_16TH, 12, 0, 0, m); for (i2 = 0, n = 0; i2 < DR_STEPS; i2++) n += m[i2]; ok = ok && n == 12;
+        dr_gen_mask(DG_CLEAR, 16, 9, 3, m); for (i2 = 0, n = 0; i2 < DR_STEPS; i2++) n += m[i2]; ok = ok && n == 0;
+        { uint8_t a[DR_STEPS], b[DR_STEPS], c2[DR_STEPS];
+          dr_gen_mask(DG_RAND, 16, 7, 3, a); dr_gen_mask(DG_RAND, 16, 7, 3, b); dr_gen_mask(DG_RAND, 16, 7, 4, c2);
+          for (i2 = 0, n = 0; i2 < DR_STEPS; i2++) n += a[i2];
+          ok = ok && n == 7 && !memcmp(a, b, DR_STEPS) && memcmp(a, c2, DR_STEPS); }   /* RANDOM: 7 hits, the same for the same seed, others for another */
+        /* the write: the lane's steps (length 12: none past it), NORM x1 100%%, VARY 0 all NORM, VARY 100 not all, the other lanes alone, the lane editable */
+        memset(dr_pat, 0, sizeof dr_pat);
+        dr_pat[3][2] = DRS_NEW;
+        dr_feel[1].len = 12;
+        dr_gen_write(1, DG_16TH, 0, 0, 0);
+        for (i2 = 0, n = 0; i2 < DR_STEPS; i2++) { if (dr_pat[1][i2] != (i2 < 12 ? DRS_NEW : 0)) ok = 0; n += dr_pat[1][i2] & 1; }
+        ok = ok && n == 12 && dr_pat[3][2] == DRS_NEW && (dr_dirty & 1u);
+        dr_gen_write(1, DG_16TH, 0, 0, 100);
+        for (i2 = 0, n = 0; i2 < 12; i2++) n += DRS_FORCE(dr_pat[1][i2]) != DF_NORM;
+        ok = ok && n >= 6;
+        dr_gen_write(1, DG_CLEAR, 0, 0, 0);
+        ok = ok && !(dr_pat[1][0] & 1) && !(dr_pat[1][11] & 1);
+        dr_toggle(1, 4);
+        ok = ok && (dr_pat[1][4] & 1);
+        printf("13j drum gen: euclid 0-16 hits in 1-16 steps (every count right, gaps differ by at most 1), 4 in 16 is the four on the floor, TURN rotates, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, CLEAR, RANDOM by seed; a write fills the lane (none past its length), VARY changes forces, the lane edits after: %s\n", ok ? "ok" : "FAIL");
+        bad += !ok;
+    }
     memset(dr_pat, 0, sizeof dr_pat);
     dr_hook_hit = 0; dr_hook_midi = 0; dr_hook_run = 0;
     printf("13 drum sequencer: hits on the steps at the tempo and the clock, MIDI out per lane, ratchet, nudge, chance, mute, idle, editing: %d wrong\n", bad);
@@ -345,6 +555,32 @@ static void dkit_checks(int *fails)
         if (diff < 4) { bad++; same++; printf("12g kit %s is too like %s: only %d lanes differ in energy\n", DR_KNAME[k], DR_KNAME[0], diff); }
     }
     rk_drum_off();
+    /* 12h: a choke through the engine: the cut voice fades in about 8 ms, no click, and the next hit on it sounds */
+    {
+        float pre = 0, post = 0, step_pre = 0, step_cut = 0, last = 0;
+        int blk, j, ok = 1;
+        void rk_drum_cut(int voice);
+        rk_seed(0x21u); rk_set_worker(0, 0); cl_patch(0, 0, 0); rk_all_off();
+        rk_drum_hit(2, 2, 70.0f, 0.5f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f);   /* a cymbal ringing a second */
+        for (blk = 0; blk < 200; blk++) {
+            if (blk == 100) rk_drum_cut(2);
+            rk_render(48);
+            for (j = 0; j < 48; j++) {
+                float v = rk_out_l()[j], st = fabsf(v - last);
+                last = v;
+                if (blk >= 60 && blk < 100) { if (fabsf(v) > pre) pre = fabsf(v); if (st > step_pre) step_pre = st; }
+                if (blk >= 100 && blk < 103 && st > step_cut) step_cut = st;
+                if (blk >= 120 && fabsf(v) > post) post = fabsf(v);
+            }
+        }
+        ok = pre > 0.02f && post < 0.05f * pre && step_cut <= 1.2f * step_pre + 1e-4f;
+        rk_drum_hit(2, 2, 70.0f, 0.5f, 0.5f, 0.3f, 1.0f, 0.0f, 0.0f);
+        ok = ok && rk_drum_status(0) == 1;
+        rk_drum_cut(7); rk_drum_cut(-1);                              /* out of range: ignored */
+        rk_drum_off();
+        if (!ok) bad++;
+        printf("12h choke through the engine: a cymbal 0.1 s in, cut: before %.3f, 40 ms after the cut %.4f (%.1f %% of it), the largest step at the cut x%.2f of the cymbal's own: %s\n", pre, post, 100.0f * post / (pre > 0 ? pre : 1), step_cut / (step_pre > 0 ? step_pre : 1), ok ? "ok" : "FAIL");
+    }
     if (nbad) bad++;
     printf("12g the four factory kits through the engine: 24 lanes sound, no NaN, each ends on its own within 1.8 s, the other three differ from 909 ISH in at least 4 lanes: %d wrong\n", bad);
     if (bad)

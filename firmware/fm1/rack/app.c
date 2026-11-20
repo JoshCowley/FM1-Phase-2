@@ -1332,6 +1332,7 @@ void app_init(void)
     sq_init();
     dr_init();
     users_load();
+    dr_load_store();
     if (set.preset >= NPRESETS && !us.used[set.preset - NPRESETS])
         set.preset = 0;
     pal_set(GI(G_DISP));                      /* the palette (update 55: NORMAL or DAYLIGHT) */
@@ -1399,7 +1400,7 @@ int app_expect(const char *what, int *got)
         same(what, "drum_cur") || same(what, "drum_snd") || same(what, "drum_on") || same(what, "drum_any") ||
         same(what, "drum_force") || same(what, "drum_ratchet") || same(what, "drum_chance")) {   /* the drum track (sim_drum.txt) */
         *got = same(what, "drum_run") ? dr.run : same(what, "drum_hits") ? (int)dr.hits : same(what, "drum_mute") ? dr.mute :
-               same(what, "drum_lane") ? dp.lane : same(what, "drum_cursor") ? dp.step : same(what, "drum_cur") ? dr.cur :
+               same(what, "drum_lane") ? dp.lane : same(what, "drum_cursor") ? dp.step : same(what, "drum_cur") ? dr_col(0) :
                same(what, "drum_snd") ? rk_drum_status(0) : same(what, "drum_any") ? dr_any() :
                same(what, "drum_force") ? (int)DRS_FORCE(dr_pat[dp.lane][dp.step]) : same(what, "drum_ratchet") ? DRS_RATCH(dr_pat[dp.lane][dp.step]) :
                same(what, "drum_chance") ? (int)DR_CHANCE[DRS_CHANCE(dr_pat[dp.lane][dp.step])] : 0;

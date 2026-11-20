@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0
 // FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
-/* The drum sequencer (drum track, steps 2-3). Included by app.c (through drumrun.c) and by rack_host.c: no libm, no app
+/* The drum sequencer (drum track, steps 2-4). Included by app.c (through drumrun.c) and by rack_host.c: no libm, no app
  * globals. The sounds and the MIDI notes go out through three hooks the caller sets (the firmware: rk_drum_hit, a
  * MIDI note on the lane's channel, rk_drum_run; the host check: recorders), so the same code is what runs and what the
  * check measures.
  *
- * 6 lanes (KICK, SNARE, C HAT, O HAT, CLAP, PERC) of 16 steps, one pattern (A). A step is 16 bits: on, force (GHOST SOFT
+ * 6 lanes (KICK, SNARE, C HAT, O HAT, CLAP, PERC) of 16 steps, 8 patterns (A-H: one live, a queued one read ahead into dr_stage and taken at the
+ * bar line, the rest in the store). Each lane has its own LENGTH, DIVIDE, SHIFT and CHOKE, and the grid runs on ticks (a sixth of a 16th: the MIDI
+ * clock's own), so a lane of 12 steps drifts against one of 16, a triplet divide fits, and SWING delays the odd steps. A step is 16 bits: on, force (GHOST SOFT
  * NORM HARD ACC), ratchet 1-4, chance (12 25 50 75 90 100 %), nudge (-4..+3 of a 64th of the step). The grid is one
- * 1/16 a step, at the tempo or the MIDI clock's (6 ticks), starting with the sequencer's PLAY and stopping with it.
+ * 1/16 a step by default, at the tempo or the MIDI clock's, starting with the sequencer's PLAY and stopping with it.
  * A hit is struck at the block that holds its frame (1 ms; the voices render a block later). Static RAM: the pattern
- * 192 B, the hits waiting 192 B, the state about 60 B.
+ * 192 B, its feel 24 B, the queued pattern 216 B, the hits waiting 192 B, the state about 40 B.
  * The kit (the sounds): four factory kits in flash, the live one (and its edits) in RAM. */
 #include <stdint.h>
 
@@ -36,7 +38,7 @@ static const char *const DR_LNAME[DR_LANES] = {"KICK", "SNARE", "C HAT", "O HAT"
  * loaded and edited, and is what SAVE keeps. */
 typedef struct { uint8_t model, pitch, p1, p2, decay_cs, level, send; int8_t pan; } dr_snd_t;
 static const uint8_t DR_VOICE[DR_LANES] = {0, 1, 2, 2, 3, 3};
-static const uint8_t DR_GM[DR_LANES] = {36, 38, 42, 46, 39, 45};
+static const uint8_t DR_GM[DR_LANES] = {36, 38, 42, 46, 39, 45};   /* the General MIDI notes each lane starts with */
 #define DR_NKIT 4
 static const char *const DR_KNAME[DR_NKIT] = {"909 ISH", "808 ISH", "LO-FI", "SPARSE"};
 /* models: KICK SNARE CYMBAL STRUCK DRUM STRUCK BELL FILTERED NOISE CLOCKED NOISE PARTICLE NOISE TWIN PEAKS (rack.cc DM_*) */
@@ -66,26 +68,65 @@ static void dr_load_kit(int k) { memcpy(dr_kit, DR_KITS[k], sizeof dr_kit); dr_k
 #define DR_CH 9                               /* MIDI channel 10 (from 0) */
 #define DR_GATE_MS 30
 
-static uint16_t dr_pat[DR_LANES][DR_STEPS];   /* pattern A */
+static uint16_t dr_pat[DR_LANES][DR_STEPS];   /* the live pattern */
+/* a lane's feel (the pattern's): LENGTH 1-16 (it loops on its own: a polymeter), DIVIDE (the step's length: 1/8 1/16 1/32 8T 16T), SHIFT
+ * (the pattern turned, -15..15 steps) and CHOKE (the lane whose sound it cuts: 0 none, 1-6 the lanes) */
+typedef struct { uint8_t len, div, choke; int8_t shift; } dr_feel_t;
+static dr_feel_t dr_feel[DR_LANES];
+#define DR_NDIV 5
+static const uint8_t DR_DIVT[DR_NDIV] = {12, 6, 3, 8, 4};   /* ticks (a sixth of a 16th: the MIDI clock's) a step */
+static const char *const DR_DIVN[DR_NDIV] = {"1/8", "1/16", "1/32", "8T", "16T"};
+#define DR_BAR 96                             /* ticks in a bar of 4/4 */
+typedef struct { uint16_t s[DR_LANES][DR_STEPS]; dr_feel_t f[DR_LANES]; } dr_pat_t;   /* a pattern as kept: 216 B */
+#define DR_NPAT 8
 typedef struct { uint32_t at; uint8_t lane, force; } dr_hit_t;
 static dr_hit_t dr_q[DR_NQ];
+static dr_pat_t dr_stage;                     /* the next pattern, read from the store while the drums play, taken at the bar line */
+static volatile uint8_t dr_staged;
+static uint8_t dr_dirty;                      /* bit 0: the live pattern has edits the store has not; bit 1: the kit or the settings */
 static volatile struct {
     uint8_t run, mute;                        /* playing; the lanes muted (bit per lane: still advancing, not sounding) */
-    int8_t cur;                               /* the step playing, -1 stopped */
     uint8_t ring;                             /* the lanes whose MIDI note is on */
+    uint8_t pat, next, swing;                 /* the pattern live (0-7, A-H); the one queued for the bar line (255 none); SWING 50-75 % */
+    uint8_t lstep[DR_LANES], lcnt[DR_LANES];  /* each lane's step last played (255 none yet), the ticks left in it */
     int nq;
-    uint32_t next_at, step, ticks, rng;
+    uint32_t next_at, ticks, rng;
     uint32_t hits;                            /* struck since the start (the checks') */
     float frac;
-} dr = {0, 0, -1, 0, 0, 0, 0, 0, 1, 0, 0.0f};
+} dr;
 static volatile uint8_t dr_aud;               /* the pages ask for a lane to sound (lane + 1), when stopped: the interrupt does it */
 static uint32_t dr_flash[DR_LANES];           /* when each lane last struck (the screen's: a lit tile) */
 static float dr_hz = 44100.0f;                /* frames a second */
 static uint32_t dr_off_at[DR_LANES];          /* the frame each lane's MIDI note ends */
 
 static void (*dr_hook_hit)(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
+static void (*dr_hook_cut)(int voice);       /* a choke: the voice dies away quickly */
 static void (*dr_hook_midi)(int ch0, int note, int vel);   /* vel 0: note off */
 static void (*dr_hook_run)(int on);
+static void dr_feel_default(void)
+{
+    int l;
+    for (l = 0; l < DR_LANES; l++) {
+        dr_feel[l].len = 16; dr_feel[l].div = 1; dr_feel[l].shift = 0;
+        dr_feel[l].choke = l == 2 ? 4 : 0;     /* the closed hat cuts the open one */
+    }
+}
+static void dr_reset_state(void)              /* power-up (and the checks'): pattern A empty, the 909 ISH kit, the lanes at their start */
+{
+    int l;
+    memset(dr_pat, 0, sizeof dr_pat);
+    dr_feel_default();
+    dr_load_kit(0);
+    dr.pat = 0; dr.next = 255; dr.swing = 50; dr.mute = 0; dr.ring = 0; dr.nq = 0; dr.hits = 0;
+    for (l = 0; l < DR_LANES; l++) { dr.lstep[l] = 255; dr.lcnt[l] = 0; }
+    dr_staged = 0; dr_dirty = 0;
+}
+static void dr_touch(void)                    /* the live pattern is edited: it is the store's no more, and a queued switch (which would drop the edit) is called off */
+{
+    dr_dirty |= 1u;
+    dr.next = 255;
+    dr_staged = 0;
+}
 
 static float dr_rand(void)                    /* the chance's draw: its own, so a pattern plays the same on any host */
 {
@@ -116,6 +157,15 @@ static void dr_fire(int lane, int force, uint32_t at)
 {
     dr.hits++;
     dr_flash[lane] = at;
+    if (dr_feel[lane].choke) {                /* CHOKE: the lane named is cut (its voice, if it is another one: a shared voice is cut by the new hit) */
+        int t = dr_feel[lane].choke - 1;
+        if (t != lane && DR_VOICE[t] != DR_VOICE[lane] && dr_hook_cut)
+            dr_hook_cut(DR_VOICE[t]);
+        if (t != lane && (dr.ring >> t & 1u) && dr_hook_midi) {
+            dr_hook_midi(DR_CH, DR_GM[t], 0);
+            dr.ring &= (uint8_t)~(1u << t);
+        }
+    }
     dr_sound(lane, force);
     if (dr_hook_midi) {
         if (dr.ring >> lane & 1u)
@@ -147,40 +197,46 @@ static void dr_due(uint32_t end)
                 dr_hook_midi(DR_CH, DR_GM[l], 0);
         }
 }
-/* the step i, whose frame is tg and which lasts d frames: each lane's step is struck (or its ratchets queued) */
-static void dr_step(int i, uint32_t tg, float d)
+/* a lane's step (column col of the pattern), struck at frame tg; it lasts lf frames (the ratchets and the nudge are fractions of it) */
+static void dr_lane_step(int l, int col, uint32_t tg, float lf)
 {
-    int l, k;
-    dr.cur = (int8_t)i;
-    for (l = 0; l < DR_LANES; l++) {
-        uint16_t s = dr_pat[l][i];
-        int r;
-        uint32_t t;
-        if (!(s & DRS_ON) || (dr.mute >> l & 1u))
-            continue;
-        if (DRS_CHANCE(s) < 5 && dr_rand() * 100.0f >= (float)DR_CHANCE[DRS_CHANCE(s) > 5 ? 5 : DRS_CHANCE(s)])
-            continue;
-        t = tg + (uint32_t)(int32_t)((float)DRS_NUDGE(s) / 64.0f * d);
-        r = DRS_RATCH(s);
-        for (k = 0; k < r && dr.nq < DR_NQ; k++) {
-            dr_q[dr.nq].at = t + (uint32_t)((float)k * d / (float)r);
-            dr_q[dr.nq].lane = (uint8_t)l;
-            dr_q[dr.nq].force = (uint8_t)DRS_FORCE(s);
-            dr.nq++;
-        }
+    uint16_t s = dr_pat[l][col];
+    int r, k;
+    uint32_t t;
+    if (!(s & DRS_ON) || (dr.mute >> l & 1u))
+        return;
+    if (DRS_CHANCE(s) < 5 && dr_rand() * 100.0f >= (float)DR_CHANCE[DRS_CHANCE(s) > 5 ? 5 : DRS_CHANCE(s)])
+        return;
+    t = tg + (uint32_t)(int32_t)((float)DRS_NUDGE(s) / 64.0f * lf);
+    r = DRS_RATCH(s);
+    for (k = 0; k < r && dr.nq < DR_NQ; k++) {
+        dr_q[dr.nq].at = t + (uint32_t)((float)k * lf / (float)r);
+        dr_q[dr.nq].lane = (uint8_t)l;
+        dr_q[dr.nq].force = (uint8_t)DRS_FORCE(s);
+        dr.nq++;
     }
+}
+static int dr_col_of(int l, int step)         /* the column of the lane's step n: its length, shifted */
+{
+    int len = dr_feel[l].len < 1 ? 1 : dr_feel[l].len > DR_STEPS ? DR_STEPS : dr_feel[l].len;
+    return ((step % len) + dr_feel[l].shift % len + len) % len;
+}
+static int dr_col(int l)                      /* the column playing (the screen's playhead), -1 stopped */
+{
+    return dr.run && dr.lstep[l] != 255 ? dr_col_of(l, dr.lstep[l]) : -1;
 }
 static void dr_start(uint32_t now)
 {
+    int l;
     if (dr.run)
         return;
     dr.run = 1;
-    dr.step = 0;
     dr.ticks = 0;
     dr.next_at = now;
     dr.frac = 0.0f;
     dr.nq = 0;
     dr.hits = 0;
+    for (l = 0; l < DR_LANES; l++) { dr.lstep[l] = 255; dr.lcnt[l] = 0; }
     dr.rng = 12345u;                          /* the same draws on every start */
     if (dr_hook_run)
         dr_hook_run(1);
@@ -191,53 +247,78 @@ static void dr_stop(void)
     if (!dr.run)
         return;
     dr.run = 0;
-    dr.cur = -1;
     dr.nq = 0;
-    for (l = 0; l < DR_LANES; l++)
+    for (l = 0; l < DR_LANES; l++) {
+        dr.lstep[l] = 255;
         if (dr.ring >> l & 1u && dr_hook_midi)
             dr_hook_midi(DR_CH, DR_GM[l], 0);
+    }
     dr.ring = 0;
     if (dr_hook_run)
         dr_hook_run(0);
 }
-/* each block, on the tempo: d frames a step (the caller's: the tempo's 16th); the steps that begin before the block ends */
+/* the bar line: a queued pattern comes in (read ahead into dr_stage), and every lane starts again from its first step */
+static void dr_bar(void)
+{
+    int l;
+    if (dr.next == 255 || !dr_staged)
+        return;
+    memcpy(dr_pat, dr_stage.s, sizeof dr_pat);
+    memcpy(dr_feel, dr_stage.f, sizeof dr_feel);
+    dr.pat = dr.next;
+    dr.next = 255;
+    dr_staged = 0;
+    dr_dirty &= (uint8_t)~1u;
+    for (l = 0; l < DR_LANES; l++) { dr.lstep[l] = 255; dr.lcnt[l] = 0; }
+}
+/* a tick (a sixth of a 16th: the MIDI clock's, or the tempo's, d frames a 16th) at frame at: each lane whose step ends starts its next */
+static void dr_tick(uint32_t at, float d)
+{
+    int l;
+    if (!dr.run)
+        return;
+    if (dr.ticks % DR_BAR == 0u)
+        dr_bar();
+    for (l = 0; l < DR_LANES; l++) {
+        if (dr.lcnt[l] == 0) {
+            int div = dr_feel[l].div >= DR_NDIV ? 1 : dr_feel[l].div, len = dr_feel[l].len < 1 ? 1 : dr_feel[l].len > DR_STEPS ? DR_STEPS : dr_feel[l].len;
+            int n = dr.lstep[l] == 255 ? 0 : (dr.lstep[l] + 1) % len;
+            float lf = (float)DR_DIVT[div] * d / 6.0f;
+            uint32_t t = at;
+            dr.lstep[l] = (uint8_t)n;
+            if (dr.swing > 50 && div < 3 && (n & 1))   /* SWING: the odd steps late (not the triplets') */
+                t += (uint32_t)((float)(dr.swing - 50) * 0.02f * lf);
+            dr_lane_step(l, dr_col_of(l, n), t, lf);
+            dr.lcnt[l] = DR_DIVT[div];
+        }
+        dr.lcnt[l]--;
+    }
+    dr.ticks++;
+}
+/* each block, on the tempo: d frames a 16th (the caller's); the ticks that begin before the block ends, a tick ahead (so a hit nudged early is not late) */
 static void dr_block(uint32_t now, uint32_t n, float d)
 {
     uint32_t end = now + n;
+    float tf = d / 6.0f;
     if (dr.run) {
-        /* a step is worked out a little ahead (the largest nudge back, 4/64 of a step), so a hit nudged early is not late */
-        while ((int32_t)(dr.next_at - end) < (int32_t)(d * (4.0f / 64.0f))) {
-            uint32_t di = (uint32_t)d;
-            if (dr.step >= DR_STEPS)
-                dr.step = 0;
-            dr_step((int)dr.step, dr.next_at, d);
-            dr.frac += d - (float)di;         /* the fraction of a frame carried: the tempo holds over bars */
+        while ((int32_t)(dr.next_at - end) < (int32_t)tf) {
+            uint32_t di = (uint32_t)tf;
+            dr_tick(dr.next_at, d);
+            dr.frac += tf - (float)di;        /* the fraction of a frame carried: the tempo holds over bars */
             if (dr.frac >= 1.0f) { di++; dr.frac -= 1.0f; }
             dr.next_at += di;
-            dr.step++;
         }
     }
     dr_due(end);
 }
-/* MIDI clock: a tick, at frame at; every 6th is a step */
-static void dr_tick(uint32_t at, float d)
-{
-    if (!dr.run)
-        return;
-    if (dr.ticks++ % 6u == 0u) {
-        if (dr.step >= DR_STEPS)
-            dr.step = 0;
-        dr_step((int)dr.step, at, d);
-        dr.step++;
-    }
-}
-/* only the hits due (the MIDI clock's: the steps come from dr_tick) */
+/* only the hits due (the MIDI clock's: the ticks come from dr_tick) */
 static void dr_flush(uint32_t now, uint32_t n) { dr_due(now + n); }
 
 /* ---- editing (the page's) */
 static void dr_toggle(int lane, int i)
 {
     dr_pat[lane][i] = (dr_pat[lane][i] & DRS_ON) ? 0 : DRS_NEW;
+    dr_touch();
 }
 static int dr_clamp(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 static void dr_adjust(int lane, int i, int what, int d)   /* what: 0 force, 1 ratchet, 2 chance, 3 nudge; a step off is turned on first */
@@ -252,14 +333,16 @@ static void dr_adjust(int lane, int i, int what, int d)   /* what: 0 force, 1 ra
     else if (what == 2) c = dr_clamp(c + d, 0, 5);
     else n = dr_clamp(n + d, -4, 3);
     dr_pat[lane][i] = DRS_MK(1u, f, r, c, n);
+    dr_touch();
 }
-static void dr_clear_lane(int lane) { memset(dr_pat[lane], 0, sizeof dr_pat[lane]); }
+static void dr_clear_lane(int lane) { memset(dr_pat[lane], 0, sizeof dr_pat[lane]); dr_touch(); }
 /* the factory beat (909 ISH): four on the floor, a backbeat of snare and clap, offbeat hats, an open hat, a ghost kick, two toms */
 static void dr_load_beat(void)
 {
     static const uint8_t K[] = {0, 4, 8, 12}, S[] = {4, 12}, CH[] = {0, 2, 4, 6, 8, 10, 12}, OH[] = {14}, CL[] = {4, 12}, PC[] = {7, 11};
     int i;
     memset(dr_pat, 0, sizeof dr_pat);
+    dr_touch();
     for (i = 0; i < 4; i++) dr_pat[0][K[i]] = DRS_NEW;
     dr_pat[0][10] = DRS_MK(1u, DF_GHOST, 1, 5, 0);
     for (i = 0; i < 2; i++) dr_pat[1][S[i]] = DRS_MK(1u, DF_HARD, 1, 5, 0);
@@ -268,4 +351,58 @@ static void dr_load_beat(void)
     for (i = 0; i < 2; i++) dr_pat[4][CL[i]] = DRS_MK(1u, DF_SOFT, 1, 5, 0);
     for (i = 0; i < 2; i++) dr_pat[5][PC[i]] = DRS_MK(1u, DF_SOFT, 1, 3, 0);
     dr_pat[5][7] = DRS_MK(1u, DF_NORM, 2, 4, 0);
+}
+
+/* ---- DRUM GEN: a lane filled by an algorithm (a mask of the steps, rotated by TURN), then a force varied on VARY percent of its hits; edited by hand after */
+enum { DG_EUCLID, DG_FOUR, DG_BACK, DG_OFFB, DG_16TH, DG_RAND, DG_BREAK, DG_CLEAR, DG_N };
+static const char *const DG_NAME[DG_N] = {"EUCLID", "FOUR FLOOR", "BACKBEAT", "OFFBEAT", "16THS", "RANDOM", "BREAK", "CLEAR"};
+static uint32_t dg_hash(uint32_t x) { x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16; return x; }
+static void dr_gen_mask(int algo, int len, int hits, int turn, uint8_t m[DR_STEPS])
+{
+    uint8_t t[DR_STEPS];
+    int i;
+    memset(m, 0, DR_STEPS);
+    if (len < 1) len = 1;
+    if (len > DR_STEPS) len = DR_STEPS;
+    hits = hits < 0 ? 0 : hits > len ? len : hits;
+    switch (algo) {
+    case DG_EUCLID: for (i = 0; i < len; i++) m[i] = hits && (i * hits) % len < hits; break;   /* hits spread as evenly as the steps allow */
+    case DG_FOUR: for (i = 0; i < len; i++) m[i] = i % 4 == 0; break;
+    case DG_BACK: for (i = 0; i < len; i++) m[i] = i % 8 == 4; break;
+    case DG_OFFB: for (i = 0; i < len; i++) m[i] = i % 4 == 2; break;
+    case DG_16TH: for (i = 0; i < len; i++) m[i] = 1; break;
+    case DG_BREAK: { static const uint8_t B[5] = {0, 3, 6, 10, 13}; for (i = 0; i < 5; i++) if (B[i] < len) m[B[i]] = 1; break; }
+    case DG_RAND: {                            /* TURN is the seed: the same hits for the same settings */
+        uint32_t h = dg_hash((uint32_t)turn * 977u + (uint32_t)hits * 31u + 7u);
+        int n = 0, guard = 0;
+        while (n < hits && guard++ < 400) {
+            int p;
+            h = dg_hash(h + 0x9e3779b9u);
+            p = (int)(h % (uint32_t)len);
+            if (!m[p]) { m[p] = 1; n++; }
+        }
+        return;
+    }
+    default: return;                            /* CLEAR */
+    }
+    if (turn % len) {                          /* TURN: the mask turned right */
+        memcpy(t, m, DR_STEPS);
+        for (i = 0; i < len; i++) m[(i + turn) % len] = t[i];
+    }
+}
+static void dr_gen_write(int lane, int algo, int hits, int turn, int vary)
+{
+    uint8_t m[DR_STEPS];
+    int i, len = dr_feel[lane].len;
+    uint32_t h = dg_hash((uint32_t)(hits * 64 + turn) * 13u + (uint32_t)algo + 99u);
+    dr_gen_mask(algo, len, hits, turn, m);
+    for (i = 0; i < DR_STEPS; i++) {
+        int f = DF_NORM;
+        if (i >= len || !m[i]) { dr_pat[lane][i] = 0; continue; }
+        h = dg_hash(h + (uint32_t)i);
+        if ((int)(h % 100u) < vary)            /* VARY: this hit's force is another */
+            f = (int)((h >> 8) % 5u);
+        dr_pat[lane][i] = DRS_MK(1u, f, 1, 5, 0);
+    }
+    dr_touch();
 }

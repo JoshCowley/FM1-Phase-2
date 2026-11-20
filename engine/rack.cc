@@ -2868,6 +2868,15 @@ EXPORT void drum_busy(int mode) {
   (void)mode;
 #endif
 }
+// a CHOKE: the voice dies away in about 8 ms (not cut dead: that clicks); the next hit on it starts afresh. A voice not sounding is left alone.
+EXPORT void drum_cut(int voice) {
+#ifdef HAVE_DRUMS
+  if (!drum_ || voice < 0 || voice >= DR_N) return;
+  drum_->v[voice].dec = expf(-6.9077553f / (0.008f * SR));
+#else
+  (void)voice;
+#endif
+}
 // all the drum voices silent at once
 EXPORT void drum_off() {
 #ifdef HAVE_DRUMS

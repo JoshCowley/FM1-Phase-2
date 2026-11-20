@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 // FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
-/* The drum sequencer in the firmware (drum track, step 2): drumseq.c's hooks set to the engine's drum voices and the MIDI
+/* The drum sequencer in the firmware (drum track, steps 2-4): drumseq.c's hooks set to the engine's drum voices and the MIDI
  * out, and the two calls from the audio interrupt. The drums follow the sequencer's PLAY (sq.run) and nothing else:
  * stopped, no hit is queued, the engine's drum guard is off and no block renders (rk_drum_run 0). Included by app.c after seq.c. */
 #include "drumseq.c"
 
 void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
 void rk_drum_run(int on);
+void rk_drum_cut(int voice);
 int rk_drum_status(int what);
 
 static void dr_midi_out(int ch0, int note, int vel)   /* GLOBAL > MIDI OUT gates it, as the notes' */
@@ -19,13 +20,15 @@ static void dr_hit_out(int voice, int model, float note, float p1, float p2, flo
     rk_drum_hit(voice, model, note, p1, p2, decay, level, pan, send);
 }
 static void dr_run_out(int on) { rk_drum_run(on); }
+static void dr_cut_out(int voice) { rk_drum_cut(voice); }
 static void dr_init(void)
 {
     dr_hook_hit = dr_hit_out;
     dr_hook_midi = dr_midi_out;
     dr_hook_run = dr_run_out;
+    dr_hook_cut = dr_cut_out;
     dr_hz = PL_HZ;
-    dr_load_kit(0);
+    dr_reset_state();
 }
 static float dr_step_frames(void)             /* a 16th: the MIDI clock's 6 ticks, or the tempo's */
 {
