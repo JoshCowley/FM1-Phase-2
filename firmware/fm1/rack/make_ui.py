@@ -101,6 +101,11 @@ def main():
     d["MODULES"]["FUNC"] = FUNC
     for name in LITE:
         m = d["MODULES"][name]
+        if name in ("PEAKS", "TIDES"):        # FM1 Phase 2 (21 Nov 2026): the GATE list also takes the GATE PATTERN's two lanes
+            for pg in m["pages"]:
+                for p in pg:
+                    if p["l"] == "GATE":
+                        p["opts"] = list(p["opts"]) + ["GATE 1", "GATE 2"]
         if name == "FILTER":
             # update 26: the filter is always in the chain, no module of the shaper slot: its own page (FLT) on GLO's parameters
             # 8-23 (engine/rack.cc FLT_P0), the browser's FILTER pages and the player's SWEEP (the performance cutoff offset)
@@ -115,6 +120,10 @@ def main():
         mods.append(f"    {{{cstr(name)}, {cstr(m['blurb'])}, {MID[name]}, {KIND[m['kind']]}, {npg}, {npar}, UG_{name},"
                     f" UP_{name}, {len(outs)}, {{{o}}}" + (f", UPM_{name}" if m.get("layout") else "") + "},")
     a_pg, a_n = params("AMP", d["AMP"]["pages"])
+    for pg in d["LFOS"]["pages"]:             # RETRIG: OFF, KEY (as ON was), or a hit of the GATE PATTERN (GATE 1 / GATE 2)
+        for p in pg:
+            if p["l"].startswith("RETRIG"):
+                p["opts"] = ["OFF", "KEY", "GATE 1", "GATE 2"]
     l_pg, l_n = params("LFO", d["LFOS"]["pages"])
     # OSC: the firmware's own page (not on the browser page): a plain oscillator per voice mixed with the source,
     # on AMP's spare parameters 24-31 (engine/rack.cc osc_mix); AUX LVL (31): Plaits' AUX output into the mix

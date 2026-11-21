@@ -4,7 +4,7 @@
 run_func). Not on the browser page, so defined here: make_ui.py writes its page, make_presets.py its ranges."""
 SOURCES = ["-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1", "A OUT 2", "B OUT 1",
            "B OUT 2", "LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1", "SEQ 2", "SEQ 3", "SEQ 4"]
-TRIGS = ["OFF", "NOTE", "GATE", "1/16", "1/8", "1/4", "BAR", "OTHER EOC", "SOURCE"]
+TRIGS = ["OFF", "NOTE", "GATE", "1/16", "1/8", "1/4", "BAR", "OTHER EOC", "SOURCE", "GATE 1", "GATE 2"]   # GATE 1 / 2: the LFO menu's GATE PATTERN (21 Nov 2026)
 OUTS = ["CH 1", "CH 4", "SUM", "INV", "OR", "EOR", "EOC"]
 
 

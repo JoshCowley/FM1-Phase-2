@@ -568,7 +568,7 @@ static void vis_feel(uint16_t c)
     cv_text(110, 1, &FONT_T, s, K_DIM);
 }
 /* -------------------------------------------- RHYTHM (update 48): the generators as rings, their hits as a shape */
-static uint32_t vr_seq[3], vr_at[3];
+static uint32_t vr_seq[5], vr_at[5];   /* (3 rhythm generators, then the GATE PATTERN's 2 lanes) */
 /* a ring round (cx, cy) radius r (canvas pixels): its steps as dots, the hits joined into a polygon, the step
  * playing now lit (fl: its flash) and a hand to it from the middle */
 static void ring_draw(int32_t cx, int32_t cy, int32_t r, uint32_t m, int n, int cur, float fl, float chance,
@@ -664,6 +664,48 @@ static void vis_rhythm(uint16_t c, int sub)
             int_text((int32_t)(RP(v, RF_MUT) * 100.0f + 0.5f), u); cat(t, u); cat(t, "% MUT");
             cv_text(126, 15, &FONT_T, t, K_DIM);
         }
+    }
+}
+
+/* GATE PATTERN (21 Nov 2026, the LFO menu): the two gate lanes as rings round one centre, the lane picked on top; on
+ * the right each lane's rate, hits and steps, and a lamp that is lit while its gate is up */
+static void vis_gate(uint16_t c)
+{
+    static const char *const RN[7] = {"OFF", "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"};
+    int v = (int)(set.arp[A_GSEL] + 0.5f) & 1, o;
+    uint32_t now = plat_ms();
+    char t[32], u[8];
+    for (o = 0; o < 2; o++) {
+        int L = o == 0 ? 1 - v : v, g = 3 + L, n, r = gp[L].s.rate, h = 0, k, cur;
+        uint32_t m = gp_ring(L, &n);
+        uint16_t col = L == 0 ? c : K_GOLD;
+        float fl;
+        if (gp[L].seq != vr_seq[g]) { vr_seq[g] = gp[L].seq; vr_at[g] = now; }
+        fl = 1.0f - (float)(now - vr_at[g]) * 0.004f;
+        fl = fl < 0.0f ? 0.0f : fl;
+        cur = r ? gp[L].pos % n : -1;
+        if (r) {
+            if (L != v) col = mix565(col, K_WELL, 140);
+            ring_draw(vmx(60), vmy(21), 56 - L * 16, m, n, cur, fl, gp[L].s.chance, col, L == v);
+        }
+        for (k = 0; k < n; k++) h += m >> k & 1u;
+        t[0] = 0;
+        cat(t, "GATE ");
+        int_text(L + 1, u); cat(t, u);
+        cat(t, " ");
+        if (!r) cat(t, "OFF");
+        else { cat(t, RN[r]); cat(t, " "); int_text(h, u); cat(t, u); cat(t, "/"); int_text(n, u); cat(t, u); }
+        cv_text(126, 8 + L * 8, &FONT_T, t, !r ? K_FAINT : L == v ? (L == 0 ? c : K_GOLD) : K_DIM);
+        if (gp[L].on)
+            cv_rect(vmx(116), vmy(9 + L * 8), 5, 5, L == 0 ? c : K_GOLD);
+    }
+    cv_text(126, 1, &FONT_T, "MATRIX SRC: GATE 1 / 2", K_DIM);
+    if (!gp[v].s.rate) cv_text(126, 30, &FONT_T, "TURN RATE UP TO START", K_FG);
+    else if (gp[v].s.chance < 0.999f || gp[v].s.mut > 0.0f) {
+        t[0] = 0;
+        int_text((int32_t)(gp[v].s.chance * 100.0f + 0.5f), u); cat(t, u); cat(t, "% HIT  ");
+        int_text((int32_t)(gp[v].s.mut * 100.0f + 0.5f), u); cat(t, u); cat(t, "% MUT");
+        cv_text(126, 30, &FONT_T, t, K_DIM);
     }
 }
 

@@ -119,9 +119,12 @@ enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4
              M_CLOUDS = 30, M_DELAY = 31, M_REVERB = 32, M_CHORUS = 33 };
 enum Src { SR_NONE, SR_M1, SR_M2, SR_M3, SR_M4, SR_VELO, SR_KEY, SR_RAND, SR_ENV,
            SR_MA0, SR_MA1, SR_MB0, SR_MB1, SR_LFO1, SR_LFO2, SR_LFO3, SR_MENV,
-           SR_SEQ1, SR_SEQ2, SR_SEQ3, SR_SEQ4, SR_WHEEL, SR_PRESS, NSRC };
-// external sources set from the page: 0-3 mod sequencer lanes, 4 mod wheel, 5 pressure (aftertouch)
-static float ext_tgt_[6], ext_cur_[6], ext_slew_[6] = { 1, 1, 1, 1, 0.3f, 0.3f };
+           SR_SEQ1, SR_SEQ2, SR_SEQ3, SR_SEQ4, SR_WHEEL, SR_PRESS, SR_GATE1, SR_GATE2, NSRC };
+// external sources set from the page: 0-3 mod sequencer lanes, 4 mod wheel, 5 pressure (aftertouch), 6-7 the GATE
+// PATTERN's lanes (FM-1 Phase 2, 21 Nov 2026: 1 for the length of a hit, else 0; they retrigger LFOs, PEAKS, TIDES, FUNC)
+static const int NEXT = 8;
+static float ext_tgt_[NEXT], ext_cur_[NEXT], ext_slew_[NEXT] = { 1, 1, 1, 1, 0.3f, 0.3f, 1, 1 };
+static bool gate_prev_[2], gate_rise_[2];   // a gate lane's level last block, and a rising edge this block
 // tuning: an offset in semitones per MIDI note; pitch bend in semitones; VINTAGE drift amount; MONO retrigger
 static float tune_[128];
 static float bend_ = 0.0f, vintage_ = 0.0f;
@@ -601,6 +604,7 @@ static float source_value(int s, const VoiceState* v) {
     case SR_LFO1: case SR_LFO2: case SR_LFO3: return lfo_val_[s - SR_LFO1];
     case SR_MENV: return v ? v->menv : 0.0f;
     case SR_SEQ1: case SR_SEQ2: case SR_SEQ3: case SR_SEQ4: case SR_WHEEL: case SR_PRESS: return ext_cur_[s - SR_SEQ1];
+    case SR_GATE1: case SR_GATE2: return ext_cur_[6 + s - SR_GATE1];
     default: return 0.0f;
   }
 }
@@ -777,8 +781,8 @@ static void glide_step() {
   macro_update();
 }
 EXPORT void set_master(float v) { master_ = v; }
-EXPORT void set_ext(int i, float v) { if (i >= 0 && i < 6) ext_tgt_[i] = v; }
-EXPORT void set_ext_slew(int i, float s) { if (i >= 0 && i < 6) ext_slew_[i] = clampf(s, 0.001f, 1.0f); }
+EXPORT void set_ext(int i, float v) { if (i >= 0 && i < NEXT) ext_tgt_[i] = v; }
+EXPORT void set_ext_slew(int i, float s) { if (i >= 0 && i < NEXT) ext_slew_[i] = clampf(s, 0.001f, 1.0f); }
 EXPORT void set_tune(int note, float semis) { if (note >= 0 && note < 128) tune_[note] = semis; }
 EXPORT void set_bend(float semis) { bend_ = semis; }
 EXPORT void set_vintage(float a) { vintage_ = a; }
@@ -1214,7 +1218,8 @@ EXPORT void init() {
   flt_defaults();
   for (int i = 0; i < MAXV; ++i) { memset(&vs_[i], 0, sizeof(VoiceState)); svf_[i].Init(); svf2_[i].Init(); card_[i] = randf() * 2.0f - 1.0f; vdrift_[i] = 0.0f; }
   memset(tune_, 0, sizeof(tune_)); bend_ = 0.0f; vintage_ = 0.0f; legato_ = true;
-  for (int i = 0; i < 6; ++i) ext_tgt_[i] = ext_cur_[i] = 0.0f;
+  for (int i = 0; i < NEXT; ++i) ext_tgt_[i] = ext_cur_[i] = 0.0f;
+  gate_prev_[0] = gate_prev_[1] = gate_rise_[0] = gate_rise_[1] = false;
   for (int k = 0; k < 2; ++k) { peaks_lfo_[k].Init(); peaks_env_[k].Init(); tides_[k].Init(); tap_period_[k] = 0.5f; }
   for (int i = 0; i < NROUTE; ++i) routes_[i].src = SR_NONE;
   memset(mt_, 0, sizeof(mt_)); memset(mo_, 0, sizeof(mo_)); memset(rowoff_, 0, sizeof(rowoff_)); mdirty_ = 0;
@@ -1321,9 +1326,10 @@ static void run_benv(VoiceState& v) {
 }
 
 // ------------------------------------------------------------------ mod slots
-static float division_gate(int which) {   // 0 NOTE 1 GRID 2 1/16 3 1/8 4 1/4 5 BAR
+static float division_gate(int which) {   // 0 NOTE 1 GRID 2 1/16 3 1/8 4 1/4 5 BAR 6 GATE 1 7 GATE 2
   static const float div[] = { 0, 0, 1, 2, 4, 16 };
   if (which == 0) return any_gate_ ? 1.0f : 0.0f;
+  if (which >= 6) return ext_cur_[which] > 0.5f ? 1.0f : 0.0f;   // 6 GATE 1, 7 GATE 2 (the GATE PATTERN's lanes)
   if (which == 1) return grids_gate_ && fmodf(CLK(), 1.0f) < 0.5f ? 1.0f : 0.0f;
   float p = fmodf(CLK(), div[which]) / div[which];
   return p < 0.5f ? 1.0f : 0.0f;
@@ -1354,6 +1360,7 @@ static bool func_trigger(int k, int which, int c, bool* level) {   // a rising e
     case 3: case 4: case 5: case 6: now = division_gate(which - 1) > 0.5f; break;    // 1/16 1/8 1/4 BAR
     case 7: return f.ch[1 - c].evt;                                                  // the other's end of cycle
     case 8: now = source_value(PI(slot, 10, 0), &vs_[last_voice_]) > 0.5f; break;    // a matrix source over the middle
+    case 9: case 10: now = ext_cur_[which - 3] > 0.5f; break;                         // GATE 1 / GATE 2: a hit of the GATE PATTERN
     default: return false;
   }
   *level = now;
@@ -1522,6 +1529,7 @@ static void run_lfos() {
   static const float shapes_div[] = { 0, 1, 2, 4, 8, 16, 32 };   // OFF 1/16 1/8 1/4 1/2 1BAR 2BARS
   bool any = any_gate_;
   bool rising = any && !lfo_any_gate_prev_;
+  for (int g = 0; g < 2; ++g) { bool hi = ext_cur_[6 + g] > 0.5f; gate_rise_[g] = hi && !gate_prev_[g]; gate_prev_[g] = hi; }
   lfo_any_gate_prev_ = any;
   if (rising) lfo_since_gate_ = 0.0f; else lfo_since_gate_ += BLOCK / SR;
   for (int l = 0; l < 3; ++l) {
@@ -1531,15 +1539,16 @@ static void run_lfos() {
     int shape = PI(S_LFO, l * 4 + 0, 0);
     float rate = P(S_LFO, l * 4 + 1, 0);
     int sync = PI(S_LFO, l * 4 + 2, 0);
-    bool retrig = PI(S_LFO, l * 4 + 3, 0) == 1;
+    int rt = PI(S_LFO, l * 4 + 3, 0);           // 0 OFF, 1 KEY, 2 GATE 1, 3 GATE 2
+    bool retrig = rt == 1, grt = rt >= 2 && rt <= 3 && gate_rise_[rt - 2];
     float ph;
     if (sync > 0) {
       ph = fmodf(CLK(), shapes_div[sync]) / shapes_div[sync];
     } else {
       float hz = 0.03f * powf(2.0f, rate * 10.0f);     // 0.03 .. 30 Hz
-      if (one && rising) { lfo_phase_[l] = 0.0f; lfo_done_[l] = false; }
+      if (one && (rising || grt)) { lfo_phase_[l] = 0.0f; lfo_done_[l] = false; }
       if (!(one && lfo_done_[l])) lfo_phase_[l] += hz * BLOCK / SR;
-      if (retrig && rising) lfo_phase_[l] = 0.0f;
+      if ((retrig && rising) || grt) lfo_phase_[l] = 0.0f;
       if (one && lfo_phase_[l] >= 1.0f) { lfo_done_[l] = true; lfo_phase_[l] = 0.9999f; }
       lfo_phase_[l] -= floorf(lfo_phase_[l]);
       ph = lfo_phase_[l];
@@ -2805,7 +2814,7 @@ static void process_block_() {
   glide_step();
   float bpm = base_[S_GLO][0] > 1.0f ? base_[S_GLO][0] : 112.0f;
   clk_advance(BLOCK / SR * bpm / 60.0f * 4.0f);
-  for (int i = 0; i < 6; ++i) ext_cur_[i] += (ext_tgt_[i] - ext_cur_[i]) * ext_slew_[i];
+  for (int i = 0; i < NEXT; ++i) ext_cur_[i] += (ext_tgt_[i] - ext_cur_[i]) * ext_slew_[i];
   run_lfos();
   run_mod(0); run_mod(1);
   if (shrink_to_) {   // fewer voices: once the ones going have faded out

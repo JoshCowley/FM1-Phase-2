@@ -1,0 +1,134 @@
+# sim_gate: the LFO menu's GATE PATTERN (21 Nov 2026). The LFO button's third page is the LFOs; SELECT back from the first page reaches
+# GATE PATTERN (RATE, HITS, STEPS) and GATE: CHANCE (TURN, CHANCE, MUTATE), K1 the lane. At 112 bpm a 1/16 step is 134 ms: 4 hits of 16
+# fall on steps 0, 4, 8, 12, so 1.9 s after RATE is turned up four hits have fired (steps 0-14). Then CHANCE 0 fires none, a lane OFF
+# runs nothing, lane 2 runs on its own, a setting survives a power cycle, GATE 1 / GATE 2 are sources in the matrix and the LFO's RETRIG.
+wait 500
+tap LFO
+wait 400
+tap LFO
+wait 400
+tap LFO
+wait 400
+expect page 9
+expect sub 0
+turn SELECT -2
+wait 300
+expect sub 9
+expect gate_lane 0
+expect gate_hits1 0
+expect gate_steps1 0
+shot gt_a_off.png
+# lane 1: 1/16 (RATE 4 up from OFF), 4 hits in 16 steps (the defaults)
+turn K2 4
+wait 1900
+expect gate_steps1 >12
+expect gate_hits1 4
+shot gt_a_run.png
+# RATE OFF: nothing runs, nothing more fires
+turn K2 -4
+wait 1000
+expect gate_hits1 4
+expect gate_on1 0
+# CHANCE 0 (page 2): the steps run, no hit fires
+turn SELECT 1
+wait 200
+expect sub 10
+turn K3 -100
+wait 200
+shot gt_b_chance0.png
+turn SELECT -1
+wait 200
+turn K2 4
+wait 2000
+expect gate_steps1 >25
+expect gate_hits1 4
+# CHANCE back to 1: hits fire again
+turn SELECT 1
+wait 200
+turn K3 100
+wait 2000
+expect gate_hits1 >6
+# lane 2 (K1 on either page), 1/16 of 3 hits in 8 steps, its own counters
+turn K1 1
+wait 200
+expect gate_lane 1
+expect gate_hits2 0
+turn SELECT -1
+wait 200
+turn K2 4
+wait 1900
+expect gate_hits2 >2
+shot gt_a_lane2.png
+turn K1 -1
+wait 200
+turn K2 -4
+wait 200
+turn K1 1
+wait 3500
+expect gate_hits1 23
+# a power cycle: the lane shown and each lane's RATE come back as saved (lane 2 on 1/16, lane 1 OFF; the host keeps the counts in RAM)
+reboot
+wait 800
+tap LFO
+wait 400
+tap LFO
+wait 400
+tap LFO
+wait 400
+turn SELECT -2
+wait 1500
+expect gate_lane 1
+expect gate_rate2 4
+expect gate_rate1 0
+expect gate_hits1 23
+shot gt_after_reboot.png
+# the matrix: GATE 1 / GATE 2 are sources. SELECT round to row 1 (M1 -> SRC COLOR in INIT): K1 forward through the sources reaches GATE 1 after SEQ 4
+# (INIT has no MOD A / B outputs; the engine's WHEEL and PRESS are not offered), then GATE 2: 16 and 17 steps from M1
+tap HOME
+wait 300
+tap LFO
+wait 100
+tap LFO
+wait 500
+expect page 10
+turn SELECT 1
+wait 200
+turn SELECT 1
+wait 200
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+turn K1 1
+wait 40
+wait 300
+shot gt_matrix_gate1.png
+turn K1 1
+wait 300
+shot gt_matrix_gate2.png

@@ -14,6 +14,7 @@
  *   10. the filter's SWEEP (update 26): darker down, brighter up, the matrix's LFO on the cutoff still moves it.
  *   12. the drum voices (step 1 of the drum track, drum_check.c): bit-identical models, hits, cores, IF BUSY.
  *   13. the drum sequencer (step 2, drumseq_check.c): hits on the steps at the tempo and the clock, MIDI out per lane, ratchet, nudge, chance, mute, idle.
+ *   15. the GATE PATTERN (21 Nov 2026, gate_check.c): hits on the Euclid steps at the tempo, CHANCE, retriggers an LFO and PEAKS' envelope.
  *   11. JAM's moves (update 28, jam.c): each changes its parameters while on and gives back exactly the preset's own values
  *       (HOLD and LATCH, and jam_clear), moves stack, the clocked ones follow the tempo, the velocity scales them.
  * Build and run: sh build_host.sh */
@@ -177,6 +178,7 @@ static void patch_run(int pk, float sw, int clean, int plain, float lfo, int nwi
     }
 }
 
+#include "gate_check.c"
 int main(int argc, char **argv)
 {
     static float a[48000], b[48000];
@@ -215,6 +217,20 @@ int main(int argc, char **argv)
         dseq_checks(&fails);
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);
         return fails != 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--gate")) {    /* section 15 alone */
+        gc_self = argv[0];
+        gate_checks(&fails);
+        printf(fails ? "%d FAILED\n" : "all passed\n", fails);
+        return fails != 0;
+    }
+    if (argc == 4 && !strcmp(argv[1], "--playgate")) {   /* 15d: --play with the GATE PATTERN's code run first, both lanes OFF */
+        int i;
+        gc_reset(); gc_lane(0, 0, 4, 16, 0, 1.0f); gc_lane(1, 0, 3, 8, 0, 1.0f);
+        for (i = 0; i < 100; i++) gp_block((uint32_t)i * 256u, 256u, 120.0f, 0, 0.0f);
+        play_engine(atoi(argv[2]), atoi(argv[3]), a);
+        fwrite(a, sizeof(float), 48000, stdout);
+        return 0;
     }
     if (argc == 4 && !strcmp(argv[1], "--play")) {
         play_engine(atoi(argv[2]), atoi(argv[3]), a);
@@ -634,6 +650,8 @@ int main(int argc, char **argv)
     dkit_checks(&fails);            /* 12g (step 3: the factory kits through the engine) */
     dseq_checks(&fails);            /* 13 (step 2: the drum sequencer) */
     dt_checks(&fails);             /* 14 (timing: drums stopped cost nothing; drums playing on a heavy preset stay under the overload guard) */
+    gc_self = argv[0];
+    gate_checks(&fails);           /* 15 (the GATE PATTERN: gatepat.c, and the engine's GATE 1 / 2 sources) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

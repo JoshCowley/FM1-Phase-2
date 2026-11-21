@@ -1,0 +1,112 @@
+# sim_pageorder: the menus' pages after the Nov 2026 reorganisation (SELECT turns pages and wraps round, so the count is read off the wrap).
+# SEL 4 pages: SCALE + CHORD, KEYS + STRUM, STYLE, FEEL. ARP 4: ARPEGGIATOR, HOLD + TURING, RHYTHM: WHICH STEPS, CHANCE: HOW OFTEN.
+# GLO 10: SETTINGS PLAYING TUNING MIDI MASTER SYSTEM CLICK DISPLAY, LAYER MIDI CH, CHORD + ARP. LFO 11: LFO 1-3, their 3 TARGET pages, GATE PATTERN, GATE: CHANCE.
+wait 500
+tap HOME
+wait 400
+tap SEL
+wait 400
+expect page 11
+expect sub 0
+turn SELECT -1
+wait 300
+expect sub 3
+turn SELECT 1
+wait 300
+expect sub 0
+turn SELECT 2
+wait 300
+expect sub 2
+shot po_sel_style.png
+turn SELECT -2
+wait 300
+expect sub 0
+turn SELECT 3
+wait 300
+expect sub 3
+shot po_sel_feel.png
+turn SELECT -3
+wait 300
+expect sub 0
+tap HOME
+wait 400
+tap ARP
+wait 400
+expect page 13
+expect sub 0
+turn SELECT -1
+wait 300
+expect sub 3
+turn SELECT 1
+wait 300
+expect sub 0
+turn SELECT 2
+wait 300
+expect sub 2
+shot po_arp_rhythm.png
+turn SELECT -2
+wait 300
+expect sub 0
+turn SELECT 3
+wait 300
+expect sub 3
+shot po_arp_chance.png
+turn SELECT -3
+wait 300
+expect sub 0
+tap HOME
+wait 400
+tap GLO
+wait 400
+expect page 12
+expect sub 0
+turn SELECT -1
+wait 300
+expect sub 9
+turn SELECT 1
+wait 300
+expect sub 0
+turn SELECT 8
+wait 300
+expect sub 8
+shot po_glo_layers.png
+turn SELECT -8
+wait 300
+expect sub 0
+turn SELECT 9
+wait 300
+expect sub 9
+shot po_glo_chordarp.png
+turn SELECT -9
+wait 300
+expect sub 0
+tap HOME
+wait 400
+tap LFO
+wait 400
+tap LFO
+wait 400
+tap LFO
+wait 400
+expect page 9
+expect sub 0
+turn SELECT -1
+wait 300
+expect sub 10
+turn SELECT 1
+wait 300
+expect sub 0
+turn SELECT 9
+wait 300
+expect sub 9
+shot po_lfo_gate.png
+turn SELECT -9
+wait 300
+expect sub 0
+turn SELECT 10
+wait 300
+expect sub 10
+shot po_lfo_gate_chance.png
+turn SELECT -10
+wait 300
+expect sub 0

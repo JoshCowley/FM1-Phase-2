@@ -21,7 +21,9 @@ enum { A_MODE, A_RATE, A_OCT, A_GATE, A_HOLD, A_MUT, A_LOOP, A_SWING,
        A_LBS,                                     /* the bass on the FM-1 */
        A_LCH, A_SCH, A_LAR, A_SAR,                /* CHORD + ARP: each on the FM-1, each sent (update 36) */
        A_HUM,                                     /* FEEL: HUMAN (update 43) */
-       A_RGEN, A_R0, NA = A_R0 + 18 };            /* RHYTHM (update 48): the generator shown, then 6 values each */
+       A_RGEN, A_R0,                              /* RHYTHM (update 48): the generator shown, then 6 values each */
+       A_G0 = A_R0 + 18,                          /* GATE PATTERN (21 Nov 2026, the LFO menu): two more generators, 6 values each, */
+       A_GSEL = A_G0 + 12, NA };                  /* then the lane shown */
 enum { RF_HIT, RF_ROT, RF_LEN, RF_MODE, RF_CH, RF_MUT };   /* a generator's values (style_def.py _rg) */
 enum { RM_OFF, RM_STYLE, RM_RING, RM_SAME, RM_ANS };
 #define RP(g, f) set.arp[A_R0 + (g) * 6 + (f)]
@@ -796,16 +798,13 @@ static float step_frames(void)
  * turned ROTATE steps. BASS is the master: the style's own pattern (STYLE) or a ring; CHORD and ARP play a ring of
  * their own, the master's hits (SAME) or the gaps between them (ANSWER), or are off as before. CHANCE thins the hits
  * at random; MUTATE changes the ring a little at the end of a cycle, and now and then puts it back. */
+#include "ringgen.c"                         /* the rings' maths, shared with the GATE PATTERN (gatepat.c, after this) */
 static struct {
-    uint32_t base[3], live[3];                /* the ring as set, and as mutated */
-    uint8_t len[3], pos[3];                   /* its steps; the step it reached last */
-    uint32_t seq[3], rnd;                     /* counted (the picture's flash); the dice */
-} rg = {{0}, {0}, {16, 16, 16}, {0}, {0}, 0x9E3779B9u};
-static float rg_rand(void)
-{
-    rg.rnd ^= rg.rnd << 13; rg.rnd ^= rg.rnd >> 17; rg.rnd ^= rg.rnd << 5;
-    return (float)(rg.rnd >> 8) * (1.0f / 16777216.0f);
-}
+    uint32_t base[3], live[3];          /* the ring as set, and as mutated */
+    uint8_t len[3], pos[3];             /* its steps; the step it reached last */
+    uint32_t seq[3];                          /* counted (the picture's flash) */
+} rg = {{0}, {0}, {16, 16, 16}, {0}, {0}};
+static float rg_rand(void) { return rgn_rand(); }   /* (the dice: ringgen.c) */
 static int rg_mode(int g)
 {
     int m = (int)(RP(g, RF_MODE) + 0.5f);
@@ -813,12 +812,6 @@ static int rg_mode(int g)
     return m == RM_STYLE ? RM_OFF : m;
 }
 static int rg_chord_on(void) { return style_on() && AI(A_STYLE) >= 2 && rg_mode(1) != RM_OFF; }
-static uint32_t rg_rot(uint32_t m, int n, int r)   /* turned r steps later round n */
-{
-    uint32_t all = n >= 32 ? 0xFFFFFFFFu : (1u << n) - 1u;
-    r %= n;
-    return r ? ((m << r) | (m >> (n - r))) & all : m & all;
-}
 static const style_t *st_style(void);
 static void rg_build(int g)                   /* the ring as set; a change starts it afresh */
 {
@@ -833,11 +826,9 @@ static void rg_build(int g)                   /* the ring as set; a change start
         n = (int)(RP(g, RF_LEN) + 0.5f);
         h = (int)(RP(g, RF_HIT) + 0.5f);
         n = n < 2 ? 2 : n > 32 ? 32 : n;
-        h = h > n ? n : h;
-        for (i = 0; i < n; i++)
-            if ((i * h) % n < h) m |= 1u << i;
+        m = rgn_euclid(n, h);
     }
-    m = rg_rot(m, n, (int)(RP(g, RF_ROT) + 0.5f));
+    m = rgn_rot(m, n, (int)(RP(g, RF_ROT) + 0.5f));
     if (m != rg.base[g] || n != rg.len[g]) {
         rg.base[g] = rg.live[g] = m;
         rg.len[g] = (uint8_t)n;
@@ -845,19 +836,7 @@ static void rg_build(int g)                   /* the ring as set; a change start
 }
 static void rg_mutate(int g)                  /* the end of a cycle: perhaps a change */
 {
-    int n = rg.len[g], i;
-    if (rg_rand() >= RP(g, RF_MUT))
-        return;
-    i = (int)(rg_rand() * 4.0f);
-    if (i == 0) {
-        rg.live[g] = rg.base[g];              /* back to the pattern as set */
-    } else if (i == 1) {
-        rg.live[g] = rg_rot(rg.live[g], n, rg_rand() < 0.5f ? 1 : n - 1);
-    } else {
-        uint32_t b = 1u << (int)(rg_rand() * (float)n);
-        if (!(rg.live[g] & b) || (rg.live[g] & ~b))   /* (the last hit stays) */
-            rg.live[g] ^= b;
-    }
+    rgn_mutate(&rg.live[g], rg.base[g], rg.len[g], RP(g, RF_MUT));
 }
 /* the ring (and its steps) a generator plays: its own, or the master's, or the master's gaps */
 static uint32_t rg_ring(int g, int *n)
@@ -881,7 +860,7 @@ static int rg_hit(int g, uint32_t k)
     m = rg_ring(g, &n);
     rg.pos[g] = (uint8_t)i;
     rg.seq[g]++;
-    return (m >> i & 1u) && (RP(g, RF_CH) >= 0.999f || rg_rand() < RP(g, RF_CH));
+    return (m >> i & 1u) && rgn_chance(RP(g, RF_CH));
 }
 static int rg_gap(int g, int i)               /* steps from hit i to the next (the note's length) */
 {
@@ -891,6 +870,27 @@ static int rg_gap(int g, int i)               /* steps from hit i to the next (t
         if (m >> ((i + k) % n) & 1u) return k;
     return n;
 }
+
+/* ------------------------------------------------------------------ GATE PATTERN (gatepat.c) --- */
+#include "gatepat.c"
+static void gt_params(void)                   /* the settings' values (A_G0: HITS, TURN, STEPS, RATE, CHANCE, MUTATE) for each lane */
+{
+    int L;
+    for (L = 0; L < 2; L++) {
+        const float *a = &set.arp[A_G0 + L * 6];
+        gp_set_t v;
+        v.hits = (uint8_t)(a[RF_HIT] + 0.5f);
+        v.rot = (uint8_t)(a[RF_ROT] + 0.5f);
+        v.steps = (uint8_t)(a[RF_LEN] + 0.5f);
+        v.rate = (uint8_t)(a[RF_MODE] + 0.5f > 6.0f ? 6 : a[RF_MODE] + 0.5f);
+        v.chance = a[RF_CH];
+        v.mut = a[RF_MUT];
+        gp_set(L, &v);
+    }
+}
+static float gt_tick_frames(void) { return ck.lock ? ck.per : pa.tick_frames; }
+static void gt_block(uint32_t n) { gt_params(); gp_block(pl_now, n, tempo_bpm(), GI(G_CLOCK) == 1, gt_tick_frames()); }
+static void gt_tick(uint32_t at) { gt_params(); gp_tick(at, tempo_bpm(), gt_tick_frames()); }
 
 static void arp_step(uint32_t at)             /* a step at frame at: its notes on, and off after GATE */
 {
@@ -1227,6 +1227,7 @@ static void pl_clock_tick(void)
     pl_tick_at = at;
     sq_clock_tick();
     dr_clock_tick();
+    gt_tick(at);
     if (GI(G_CLOCK) == 1 && st.on && st_style()) {   /* STYLE on MIDI clock: a step every 6 ticks (8: triplets) */
         if (!st.running) { st.running = 1; st.step = 0; st.ticks = 0; }
         if (st.ticks++ % (st_style()->div == 3 ? 8u : 6u) == 0u)
@@ -1237,7 +1238,7 @@ static void pl_clock_tick(void)
     if (pa.ticks++ % ARP_TICKS[AI(A_RATE) > 5 ? 5 : AI(A_RATE)] == 0u)
         arp_step(at);
 }
-static void pl_clock_start(void) { pa.ticks = 0; pa.idx = 0; pa.step = 0; st.ticks = 0; st.step = 0; ck.lock = 0; }
+static void pl_clock_start(void) { pa.ticks = 0; pa.idx = 0; pa.step = 0; st.ticks = 0; st.step = 0; ck.lock = 0; gp_restart(); }
 
 /* each block (the interrupt, before the render): the arp's steps on the internal clock, then what falls due */
 /* The engine's voices hold a gate only for a note counted in pl_snd (every note reaches the engine through snd_on). Gates
@@ -1277,6 +1278,7 @@ static void pl_block(uint32_t n)
         return;
     pl_watchdog();
     jam_block((float)n / PL_HZ, jam_f16(), (float)n);   /* JAM's moves: the offsets for this block */
+    gt_block(n);                              /* GATE PATTERN: its gates for this block */
     if (AI(A_MODE) != AM_OFF && pa.count && GI(G_CLOCK) != 1) {
         float d = step_frames();
         if (!pa.running || (int32_t)(pa.next_at - pl_now) < -(int32_t)d) {

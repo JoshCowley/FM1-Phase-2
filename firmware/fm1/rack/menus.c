@@ -73,8 +73,8 @@ static const uint8_t MOD_CH[] = {20, 21, 23, 24, 0};
 static const uint8_t FX_CH[] = {30, 31, 32, 33, 0};
 static const char *const SRC_NAMES[] = {"-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1",
                                         "A OUT 2", "B OUT 1", "B OUT 2", "LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1",
-                                        "SEQ 2", "SEQ 3", "SEQ 4"};
-#define NSRC_UI 21
+                                        "SEQ 2", "SEQ 3", "SEQ 4", "WHEEL", "PRESS", "GATE 1", "GATE 2"};
+#define NSRC_UI 25                            /* (21 Nov 2026: + GATE 1 and GATE 2, the GATE PATTERN's lanes; WHEEL and PRESS are not offered) */
 
 static const ui_mod_t *ui_mod(int id)
 {
@@ -195,13 +195,15 @@ static uint16_t kc(int pi, uint16_t c)        /* parameter pi's knob's colour wh
     int k = vk_on ? page_knob(vk_m, vk_sub, pi) : -1;
     return k >= 0 && k < vk_n ? KNOB_C[k] : c;
 }
+#define GATE_PAGES 2                          /* the LFO menu's GATE PATTERN pages, after the LFOs' three TARGET pages */
+static int is_gate_sub(int pg) { return pg == PG_LFO && mn.sub >= UI_LFO.npages + 3; }
 static int npages(int pg)
 {
     const ui_mod_t *m = page_mod(pg);
     if (pg == PG_SEL) return SEL_OWN + (int)sizeof SEL_PG_MAP;
     if (pg == PG_GLO) return GLO_OWN + 2;
     if (pg == PG_ARP) return ARP_OWN + 2;
-    return m ? m->npages + (pg == PG_LFO ? 3 : 0) + (has_mod_page(pg) ? MOD_ROWS : 0) : 1;
+    return m ? m->npages + (pg == PG_LFO ? 3 + GATE_PAGES : 0) + (has_mod_page(pg) ? MOD_ROWS : 0) : 1;
 }
 static int is_mod_sub(int pg) { const ui_mod_t *m = page_mod(pg); return m && has_mod_page(pg) && mn.sub >= m->npages; }
 
@@ -348,6 +350,8 @@ static void route_set(int i, int src, uint16_t dst, float amt, int via)
 static int src_ok(int s)                      /* a source the patch has: a modulator's outputs only when loaded */
 {
     const ui_mod_t *m;
+    if (s == 21 || s == 22)
+        return 0;                             /* (the engine's WHEEL and PRESS: nothing on the FM-1 feeds them) */
     if (s < 9 || s > 12)
         return 1;
     m = ui_mod(rc_patch.mod[s < 11 ? RS_MODA : RS_MODB]);
@@ -377,6 +381,7 @@ static uint16_t src_colour(int s)             /* the colour a modulation source 
     if (s >= 9 && s <= 12) return MC_MOD;      /* MOD A and B's outputs: orange */
     if (s >= 13 && s <= 15) return MC_LFO;    /* the LFOs: violet */
     if (s >= 17 && s <= 20) return MC_MSEQ;    /* MSEQ's lanes: pink */
+    if (s >= 23) return K_GOLD;                /* the GATE PATTERN's lanes: gold */
     return K_DIM;
 }
 /* the colour of the first route into (slot, param), 0 none: a dial shows its modulation in it */
@@ -568,7 +573,7 @@ static int picture_first(int pg)              /* (13 Nov 2026: every page with a
     if (is_mod_sub(pg))
         return 0;
     if (pg == PG_LFO)
-        return mn.sub < UI_LFO.npages;
+        return mn.sub < UI_LFO.npages || is_gate_sub(pg);
     if (is_fixed(pg))
         return !(pg == PG_GLO && mn.sub == 5);
     return pg == PG_AMP || pg == PG_OSC || pg == PG_FLT || (pg >= PG_SRC && pg <= PG_FX2 && page_mod(pg));
@@ -620,6 +625,7 @@ static void big_well_h(int pg, const ui_mod_t *m, uint16_t c, int32_t wh)
             vm_sx = 1.0f;
             vm_sy = (float)wh / (float)VH;
             if (is_fixed(pg)) vis_fixed(pg, mn.sub, c);
+            else if (is_gate_sub(pg)) vis_gate(c);
             else if (pg == PG_OSC) vis_osc(c);
             else if (pg == PG_FLT) vis_filter(rk_monitor(RS_GLO), c);
             else vis_draw(slot, id, mn.sub, c);
@@ -990,6 +996,7 @@ static void draw_mod_page(int pg)
         help("SELECT: ROW  K1 SRC K2 TARGET K3 AMT K4 VIA");
 }
 
+static void gate_controls(void);
 /* a fixed page's one-line help (the line under the controls) */
 static const char *fixed_help(int pg)
 {
@@ -1037,6 +1044,13 @@ static void draw_param_page(int pg)
         help(fixed_help(pg));
         return;
     }
+    if (is_gate_sub(pg)) {                    /* GATE PATTERN (21 Nov 2026): the rhythm rings as two gates */
+        header("LFO", c, mn.sub == m->npages + 3 ? "GATE PATTERN" : "GATE: CHANCE", IC_LFO, npages(pg), mn.sub);
+        page_well(pg);
+        gate_controls();
+        help(mn.sub == m->npages + 3 ? "HITS FIRE A GATE: RETRIG LFO, ENV, MATRIX" : "TURN MOVES HITS  CHANCE: ODDS OF EACH HIT");
+        return;
+    }
     if (pg == PG_LFO && mn.sub >= m->npages) {
         cat(title, "LFO ");
         title[4] = (char)('1' + mn.sub - m->npages);
@@ -1071,6 +1085,22 @@ static void draw_param_page(int pg)
          : "SELECT: PAGE   K1-K4: VALUES   ALGO: MODULE");
 }
 
+/* GATE PATTERN's controls: K1 the lane (GATE 1 / 2, set.arp[A_GSEL]), then its values: page 1 RATE, HITS, STEPS; page 2
+ * TURN, CHANCE, MUTATE. The values sit in set.arp as a rhythm generator's do (play.c A_G0: HITS, TURN, STEPS, RATE, CHANCE, MUTATE) */
+static int gate_pi(int k)
+{
+    static const uint8_t GK[2][3] = {{RF_MODE, RF_HIT, RF_LEN}, {RF_ROT, RF_CH, RF_MUT}};
+    int L = (int)(set.arp[A_GSEL] + 0.5f) & 1;
+    return k == 0 ? A_GSEL : k > 3 ? -1 : A_G0 + L * 6 + GK[mn.sub - UI_LFO.npages - 3][k - 1];
+}
+static void gate_controls(void)
+{
+    int i;
+    for (i = 0; i < 4; i++) {
+        int pi = gate_pi(i);
+        gauge(i, &UI_ARP.p[pi], set.arp[pi], set.arp[pi], 0);
+    }
+}
 /* a fixed page's four controls (GLOBAL, SEL, ARP: their values in set.*), also each frame while the sound moves */
 static void fixed_controls(int pg)
 {
@@ -1633,6 +1663,19 @@ static void knob(int k, int32_t e)
         }
         if (fv[pi] != old)
             fixed_changed(dp, pi, old, fv[pi]);
+        ui.redraw = 1;
+        return;
+    }
+    if (is_gate_sub(mn.page)) {
+        int pi = gate_pi(k);
+        float old;
+        if (pi < 0)
+            return;
+        old = set.arp[pi];
+        undo_note(UN_FIXED, PG_ARP, pi, old, 0, 0, 0);
+        set.arp[pi] = step(&UI_ARP.p[pi], old, e);
+        if (set.arp[pi] != old)
+            fixed_changed(PG_ARP, pi, old, set.arp[pi]);
         ui.redraw = 1;
         return;
     }

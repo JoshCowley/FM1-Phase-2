@@ -197,8 +197,13 @@ def main():
     CAP = {p["name"]: p["fm1"]["fm1_voices"] for p in data if p.get("fm1", {}).get("fm1_voices")}
     meta = meta_table(data)
     from func_def import FUNC_ID, func_meta     # FUNC: the firmware's own module: its ranges as func_def has them
-    if meta.setdefault(FUNC_ID, func_meta()) != func_meta():
-        raise SystemExit("make_presets: FUNC's ranges differ from func_def's")
+    # 21 Nov 2026 (GATE PATTERN): the lists that gained GATE 1 / GATE 2 have wider ranges than the page's data (tests/presets-fm1-calls.json)
+    # gives them: FUNC's TRIG lists, LFO RETRIG 1-3 (OFF, KEY, GATE 1, GATE 2), PEAKS' and TIDES' GATE (+ 2). No preset uses the new values.
+    meta[FUNC_ID] = func_meta()
+    for lp in (3, 7, 11):
+        meta[108][lp] = (0, 3, 3)
+    meta[20][3] = (0, 7, 7)
+    meta[21][6] = (0, 7, 7)
     from clouds_def import CLOUDS_ID, clouds_meta   # CLOUDS (step 5): no preset uses it yet, so its ranges are added here
     meta.setdefault(CLOUDS_ID, clouds_meta())
     byname = {p["name"]: p for p in data}

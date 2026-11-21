@@ -71,6 +71,15 @@ def _rg(g):
     return [_I("HITS", 0, 32, h), _I("TURN", 0, 31, r), _I("STEPS", 2, 32, n), _L("PATTERN", RMODES, m),
             _n("CHANCE", 1.0), _n("MUTATE", 0.0)]
 
+# GATE PATTERN (21 Nov 2026, the LFO menu): two more generators of the same six values, HITS, TURN, STEPS, RATE (in
+# MODE's place: OFF, or a note value of the tempo), CHANCE, MUTATE; then the lane shown (LANE)
+GRATES = ["OFF", "1/4", "1/8", "1/8T", "1/16", "1/16T", "1/32"]
+_GDEF = [(4, 16), (3, 8)]
+def _gg(g):
+    h, n = _GDEF[g]
+    return [_I("HITS", 0, 32, h), _I("TURN", 0, 31, 0), _I("STEPS", 2, 32, n), _L("RATE", GRATES, 0),
+            _n("CHANCE", 1.0), _n("MUTATE", 0.0)]
+
 # the ARP pages after the arpeggiator's two: STYLE, the layers' MIDI channels (+ the bass on the FM-1), CHORD + ARP
 ARP_EXTRA = [
     [_L("STYLE", ["OFF", "HELD"] + [s[0] for s in STYLES], 0), _I("BASS OCT", -2, 1, 0), _n("ACCENT", 0.6),
@@ -91,6 +100,7 @@ ARP_EXTRA = [
 ] + [
     [_L("LAYER", ["BASS", "CHORD", "ARP"], 0)] + _rg(0)[:3], _rg(0)[3:],
     _rg(1)[:3], _rg(1)[3:], _rg(2)[:3], _rg(2)[3:],
+    _gg(0)[:3], _gg(0)[3:], _gg(1)[:3], _gg(1)[3:], [_L("LANE", ["GATE 1", "GATE 2"], 0)],
 ]
 
 

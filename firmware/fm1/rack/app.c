@@ -15,7 +15,8 @@
 #define RC_IN_UNITY
 #include "rack_core.c"
 
-#define SET_MAGIC 0x524B4C39u                 /* "RKL9": the settings record; "RKL1" (stage 2) keeps its first three */
+#define SET_MAGIC 0x524B4C41u                 /* "RKLA": the settings record; "RKL1" (stage 2) keeps its first three */
+#define SET_MAGIC9 0x524B4C39u                /* "RKL9" (updates 55-62): ARP 40 values (no GATE PATTERN) */
 #define SET_MAGIC8 0x524B4C38u                /* "RKL8" (updates 48-54): GLOBAL 23 values (no DISPLAY) */
 #define SET_MAGIC7 0x524B4C37u                /* "RKL7" (updates 43-47): ARP 21 values (no RHYTHM) */
 #define SET_MAGIC6 0x524B4C36u                /* "RKL6" (updates 40-42): ARP 20 values (no HUMAN) */
@@ -30,7 +31,7 @@ typedef struct {
     int8_t octave;
     uint8_t voices;                           /* 0: the preset's own (GLOBAL > VOICES AUTO) */
     uint8_t rsv;
-    float glo[24], sel[8], arp[40];           /* the GLOBAL, SEL and ARP pages (play.c G_*, C_*, A_*); GLOBAL 19-22: CLICK,
+    float glo[24], sel[8], arp[53];           /* the GLOBAL, SEL and ARP pages (play.c G_*, C_*, A_*); GLOBAL 19-22: CLICK,
                                                  23: DISPLAY (update 55) */
 } settings_t;
 static settings_t set;
@@ -44,6 +45,7 @@ typedef struct {
     uint8_t rsv;
     float glo[23], sel[8], arp[40];
 } settings8_t;
+#define SZ9 ((int)sizeof set - 13 * (int)sizeof(float))   /* RKL9's record: 13 ARP values fewer (the GATE PATTERN's) */
 /* a moment as a button's "went down at" (0 means "not down"): now, or 1 at the clock's very start. Until update 38 it
  * was plat_ms() | 1, a millisecond in the future half the time: a hold test in the same frame then saw ~49 days held,
  * took the tap for a hold, and the tap did nothing (EDIT, SEL, ARP, SEQ, HOME, FX: "needs several tries") */
@@ -1223,6 +1225,12 @@ void app_init(void)
         rk_set_ticks(plat_ticks24);               /* update 10: a clock for the engine to see which core is the slow one (the overload guard) */
     }
     n = plat_store_load(OBJ_SETTINGS, &set, sizeof set);
+    if (n == SZ9 && set.magic == SET_MAGIC9) {   /* RKL9: everything kept (its record is the new one's first part), the GATE PATTERN at its defaults */
+        for (i = 40; i < NA; i++)
+            set.arp[i] = UP_ARP[i].def;
+        set.magic = SET_MAGIC;
+        n = (int)sizeof set;
+    }
     if (!(n == (int)sizeof set && set.magic == SET_MAGIC)) {   /* an older record: up to RKL8 in its own layout */
     static settings8_t old;
     const int NG8 = 23;
@@ -1260,7 +1268,7 @@ void app_init(void)
         n = SZ6;
     }
     if (n == SZ6 - (int)(12u * sizeof(float)) && set.magic == SET_MAGIC2) {   /* RKL2: the same, shorter */
-        for (i = A_STYLE; i < NA; i++)
+        for (i = A_STYLE; i < 40; i++)        /* (RKL8's 40 ARP values: the layout these steps are written for) */
             set.arp[i] = UP_ARP[i].def;
         set.magic = SET_MAGIC5;
         n = SZ6;
@@ -1273,7 +1281,7 @@ void app_init(void)
         n = SZ7;
     }
     if (n == SZ7 && set.magic == SET_MAGIC7) {   /* RKL7: RHYTHM at its defaults (BASS: the style's own pattern) */
-        for (i = A_RGEN; i < NA; i++)
+        for (i = A_RGEN; i < 40; i++)
             set.arp[i] = UP_ARP[i].def;
         set.magic = SET_MAGIC;
         n = (int)sizeof set;
@@ -1290,7 +1298,9 @@ void app_init(void)
         memcpy(set.glo, old.glo, sizeof old.glo);
         set.glo[G_DISP] = UP_GLO[G_DISP].def;
         memcpy(set.sel, old.sel, sizeof set.sel);
-        memcpy(set.arp, old.arp, sizeof set.arp);
+        memcpy(set.arp, old.arp, sizeof old.arp);
+        for (i = (int)(sizeof old.arp / sizeof(float)); i < NA; i++)
+            set.arp[i] = UP_ARP[i].def;   /* (the GATE PATTERN at its defaults: its RATE OFF) */
         n = (int)sizeof set;
     } else {
         set.magic = old.magic;                /* (stage 2's record: its first three kept, below) */
@@ -1384,6 +1394,18 @@ int app_expect(const char *what, int *got)
     }
     if (same(what, "jam_level_off")) {        /* the VOICES' LEVEL offset x 100 (the stutters' gate) */
         *got = (int)(jam_off[T_LEVEL] * 100.0f + (jam_off[T_LEVEL] < 0.0f ? -0.5f : 0.5f));
+        return 1;
+    }
+    if (what[0] == 'g' && what[1] == 'a' && what[2] == 't' && what[3] == 'e' && what[4] == '_' && what[5] && what[5] != '_') {   /* the GATE PATTERN (sim_gate.txt): hitsN, stepsN, onN, rateN (N 1 or 2), lane */
+        int L = 0, n = 0;
+        while (what[n]) n++;
+        L = what[n - 1] == '2';
+        if (same(what, "gate_lane")) *got = (int)(set.arp[A_GSEL] + 0.5f);
+        else if (what[5] == 'h') *got = (int)gp_hits_total[L];
+        else if (what[5] == 's') *got = (int)gp[L].seq;
+        else if (what[5] == 'o') *got = gp[L].on;
+        else if (what[5] == 'r') *got = (int)(set.arp[A_G0 + L * 6 + RF_MODE] + 0.5f);   /* RATE as set (0 OFF) */
+        else return 0;
         return 1;
     }
     if (same(what, "entry")) {                /* the preset playing: 0-45 factory, 46 and on user slots */
