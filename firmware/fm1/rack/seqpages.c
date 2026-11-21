@@ -11,6 +11,9 @@
  * values, drawn as dials. The pages draw a 94-row area in three bands (the canvas holds 40 rows). */
 
 enum { SQP_NOTES, SQP_PATTERN, SQP_SPICE, SQP_GEN, SQP_BANKS, SQP_SONG, SQP_DRUM, SQP_DKIT, SQP_DSOUND, SQP_DMIX, SQP_DFEEL, SQP_DGEN, SQP_DMIDI, SQP_N };   /* (the drum pages: DRUM on; 2.34: DRUM and KIT first, then the lane pages, then GEN and MIDI) */
+/* (2.34) SEQ's groups, a tap of SEQ goes to the next: the note pages, DRUM + KIT, LANE SOUND + MIX + TIMING, DRUM GENERATE + MIDI */
+static const uint8_t SQG_LO[5] = {0, SQP_DRUM, SQP_DSOUND, SQP_DGEN, SQP_N};
+static int sq_group(int sub) { int g = 0; while (g < 3 && sub >= SQG_LO[g + 1]) g++; return g; }
 static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE + CHANCE", "GENERATE", "BANKS", "SONG", "DRUM GRID", "KIT + PATTERNS", "LANE SOUND", "LANE MIX", "LANE TIMING", "DRUM GENERATE", "DRUM MIDI"};
 static const char *const GEN_TOOLS[] = {"EUCLID", "RANDOM", "ACID", "ARP UP", "ARP UPDN", "BERLIN", "OCTAVES", "OFFBEAT",
                                         "ROLLING", "STABS", "PROGRESS", "GATES", "SHIFT >", "SHIFT <", "REVERSE", "DOUBLE",
@@ -31,7 +34,7 @@ static struct {
     int lasso, lasso_a, lasso_b;              /* NOTES (update 38): hold SEL + turn K1, steps lasso_a..lasso_b picked */
     uint32_t save_at;                         /* SAVE went down on a sequencer page (held on NOTES: copy / paste) */
     int save_long;
-    int seq_mem[2];                           /* (2.34) the page last on in each group: the notes pages (0), the drum pages (1: 0 = DRUM) */
+    int seq_mem[4];                           /* (2.34) the page last on in each of SEQ's groups (SQG_LO), counted from its first */
 } sp = {0, 0, 50, 30, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #define SQ_CLIP 32
 static sq_step_t sq_clip[SQ_CLIP];            /* the steps hold SAVE copied (at most two pages of 16) */
@@ -467,7 +470,7 @@ static void draw_seq_page(void)
     }
     if (mn.sub >= SQP_DRUM)
         drum_header_text(t, state);
-    header(SQP_NAME[mn.sub], sq.armed || (sq.rec && sq.run) ? K_WARN : K_SEQC, t, IC_SEQ, mn.sub >= SQP_DRUM ? SQP_N - SQP_DRUM : SQP_DRUM, mn.sub >= SQP_DRUM ? mn.sub - SQP_DRUM : mn.sub);   /* (the drum pages are a group of their own: their own dots) */
+    header(SQP_NAME[mn.sub], sq.armed || (sq.rec && sq.run) ? K_WARN : K_SEQC, t, IC_SEQ, SQG_LO[sq_group(mn.sub) + 1] - SQG_LO[sq_group(mn.sub)], mn.sub - SQG_LO[sq_group(mn.sub)]);   /* (2.34: the group's own dots) */
     seq_area();
     switch (mn.sub) {
     case SQP_NOTES: {
@@ -1067,10 +1070,10 @@ static void seq_buttons(uint32_t press, uint32_t btn)
         } else if (mn.page != PG_SEQ) {       /* to the sequencer: the page it was on */
             go(PG_SEQ);
             mn.sub = sp.seq_sub;
-        } else {                              /* (2.34) tapped again: the other group (NOTES pages / DRUM pages), on the page it was last on */
-            int g = mn.sub >= SQP_DRUM;
-            sp.seq_mem[g] = g ? mn.sub - SQP_DRUM : mn.sub;
-            mn.sub = sp.seq_sub = sp.seq_mem[!g] + (g ? 0 : SQP_DRUM);
+        } else {                              /* (2.34) tapped again: the next group, on the page it was last on */
+            int g = sq_group(mn.sub), g2 = (g + 1) % 4;
+            sp.seq_mem[g] = mn.sub - SQG_LO[g];
+            mn.sub = sp.seq_sub = SQG_LO[g2] + sp.seq_mem[g2];
             sp.lasso = 0;
             ui.clear = 1;
         }

@@ -88,7 +88,7 @@ These steps come from fm1-base and Felucca. None has been needed with FM1 Rack s
 
 Each page button opens its first page. **Tap it again for the button's next group of pages; SELECT turns the pages inside the group** (the dots in the header; a module's MOD page counts as one). After the last group the next tap comes back to the first (2.34; before that a tap turned one dot at a time, which took 8 taps to reach the FILTER). A button with one group (SEL, ARP, GLO) stays where it is when you tap it again. A button counts as held only after 0.6 s, so a quick press is never taken for a hold.
 
-**Where the taps go** (from HOME): FILTER is **ENV, ENV**; GATE PATTERN is **LFO, LFO**; JAM is **FX, FX, FX**; the DRUM grid is **SEQ, SEQ**; the SAVE page is **SAVE**; a preset change is one turn of PRESET.
+**Where the taps go** (from HOME): FILTER is **ENV, ENV**; GATE PATTERN is **LFO, LFO**; JAM is **FX, FX, FX**; the DRUM grid is **SEQ, SEQ**; LANE SOUND is **SEQ x3**; the SAVE page is **SAVE**; a preset change is one turn of PRESET.
 
 | Button | Tap | Tap again | Hold, or two or three quick taps |
 | --- | --- | --- | --- |
@@ -101,7 +101,7 @@ Each page button opens its first page. **Tap it again for the button's next grou
 | **SEL** | scale and chord | (SELECT turns its pages: KEYS + STRUM, BASS STYLE, then HUMANISE) | **Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on** (section 10). **Hold SEL and EDIT together (half a second): LEARN on or off** (section 8) |
 | **GLO** | GLOBAL, TEMPO + VOICES | (SELECT turns its ten pages; the last two are LAYER MIDI CH and CHORD + ARP) | **Two taps (or hold): DAYLIGHT on or off** (for the sun) |
 | **SAVE** | the SAVE page | SAVE again stores the preset | On a sequencer page: stores the sequencer |
-| **SEQ** | the sequencer, at the page you last used | the other group: the note pages (NOTES to SONG) or the drum pages (DRUM GRID on), each at the page you last used there | **Hold: the step layer** (section 11) |
+| **SEQ** | the sequencer, at the page you last used | the next group: the note pages (NOTES to SONG), then three groups of drum pages (DRUM GRID + KIT; LANE SOUND, MIX, TIMING; DRUM GENERATE + MIDI), each at the page you last used there | **Hold: the step layer** (section 11) |
 | **PLAY** | start or stop the sequencer | | |
 | **REC** | stopped: REC READY (then PLAY: a bar's count-in, then recording); playing: recording on or off | | |
 | **OCT− / OCT+** | octave down or up | | On SAVE: OCT+ opens the library. In the step layer: the previous or next 16 steps |
@@ -673,7 +673,7 @@ On a Mac it may take unplugging and plugging back in the first time, for the com
 
 ## 11. The sequencer
 
-Tap **SEQ** to open it; it remembers the page you were on. It has two groups: the note pages and the drum pages. **SELECT** turns the six note pages: **NOTES, PATTERN, SPICE + CHANCE, GENERATE, BANKS, SONG**. **Tap SEQ again** to go to the drum pages (the seven of DRUMS below, DRUM GRID first), and again to come back, each at the page you last used there. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.
+Tap **SEQ** to open it; it remembers the page you were on. It has two groups: the note pages and the drum pages. **SELECT** turns the six note pages: **NOTES, PATTERN, SPICE + CHANCE, GENERATE, BANKS, SONG**. **Tap SEQ again** for the drum pages, in three groups (DRUM GRID + KIT, then LANE SOUND + MIX + TIMING, then DRUM GENERATE + MIDI; see DRUMS below), and again to come round to the notes, each group at the page you last used there. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.
 
 - **PLAY** starts and stops it from any page. Stopping also ends held notes (latched chords and the arpeggiator's HOLD).
 - It plays at GLOBAL › TEMPO or on MIDI clock, and sends its notes to MIDI out when that's on.
@@ -762,7 +762,7 @@ Let go of SEQ to play again.
 
 Six drum lanes (**KICK, SNARE, C HAT, O HAT, CLAP, PERC**) of 16 steps play beside the note sequencer, on four voices of the FM-1's own processor (the two hats share one voice, and the clap and perc share one). They start and stop with **PLAY**, at the same tempo or MIDI clock, and each lane's SEND sets how much of it goes through the FX chain. Seven more pages follow SONG when you tap SEQ: **DRUM, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT** (they have their own row of dots).
 
-- On the drum pages SELECT is the step or the lane, so **hold SEL and turn SELECT** to turn the drum pages: DRUM GRID, KIT + PATTERNS, LANE SOUND, LANE MIX, LANE TIMING, DRUM GENERATE, DRUM MIDI.
+- On the drum pages SELECT is the step or the lane, so **hold SEL and turn SELECT** to turn the pages inside a group: DRUM GRID and KIT + PATTERNS; LANE SOUND, LANE MIX and LANE TIMING; DRUM GENERATE and DRUM MIDI.
 - **DRUM** (DRUM GRID) is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint **SEL+ALGO: LOAD BEAT**: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.
 - **LANE SOUND** gives the lane a model from a list that shows what each costs in CPU points, and relabels TONE and COLOUR for that model; K4 is the PITCH. **SEL + ALGO** loads a whole kit: **909 ISH, 808 ISH, LO-FI, SPARSE**. Turning anything plays the lane once, so you hear it.
 - **LANE MIX**: DECAY, LEVEL, PAN and SEND (how much goes to the FX).

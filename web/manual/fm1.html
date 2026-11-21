@@ -95,7 +95,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h2 id="3-the-panel">3. The panel</h2>
 <h3 id="buttons">Buttons</h3>
 <p>Each page button opens its first page. <strong>Tap it again for the button's next group of pages; SELECT turns the pages inside the group</strong> (the dots in the header; a module's MOD page counts as one). After the last group the next tap comes back to the first (2.34; before that a tap turned one dot at a time, which took 8 taps to reach the FILTER). A button with one group (SEL, ARP, GLO) stays where it is when you tap it again. A button counts as held only after 0.6 s, so a quick press is never taken for a hold.</p>
-<p><strong>Where the taps go</strong> (from HOME): FILTER is <strong>ENV, ENV</strong>; GATE PATTERN is <strong>LFO, LFO</strong>; JAM is <strong>FX, FX, FX</strong>; the DRUM grid is <strong>SEQ, SEQ</strong>; the SAVE page is <strong>SAVE</strong>; a preset change is one turn of PRESET.</p>
+<p><strong>Where the taps go</strong> (from HOME): FILTER is <strong>ENV, ENV</strong>; GATE PATTERN is <strong>LFO, LFO</strong>; JAM is <strong>FX, FX, FX</strong>; the DRUM grid is <strong>SEQ, SEQ</strong>; LANE SOUND is <strong>SEQ x3</strong>; the SAVE page is <strong>SAVE</strong>; a preset change is one turn of PRESET.</p>
 <table>
 <thead>
 <tr class="header">
@@ -163,7 +163,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="even">
 <td><strong>SEQ</strong></td>
 <td>the sequencer, at the page you last used</td>
-<td>the other group: the note pages (NOTES to SONG) or the drum pages (DRUM GRID on), each at the page you last used there</td>
+<td>the next group: the note pages (NOTES to SONG), then three groups of drum pages (DRUM GRID + KIT; LANE SOUND, MIX, TIMING; DRUM GENERATE + MIDI), each at the page you last used there</td>
 <td><strong>Hold: the step layer</strong> (section 11)</td>
 </tr>
 <tr class="odd">
@@ -1002,7 +1002,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li>with +CC, the macros as CC 21–24.</li>
 </ul>
 <h2 id="11-the-sequencer">11. The sequencer</h2>
-<p>Tap <strong>SEQ</strong> to open it; it remembers the page you were on. It has two groups: the note pages and the drum pages. <strong>SELECT</strong> turns the six note pages: <strong>NOTES, PATTERN, SPICE + CHANCE, GENERATE, BANKS, SONG</strong>. <strong>Tap SEQ again</strong> to go to the drum pages (the seven of DRUMS below, DRUM GRID first), and again to come back, each at the page you last used there. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.</p>
+<p>Tap <strong>SEQ</strong> to open it; it remembers the page you were on. It has two groups: the note pages and the drum pages. <strong>SELECT</strong> turns the six note pages: <strong>NOTES, PATTERN, SPICE + CHANCE, GENERATE, BANKS, SONG</strong>. <strong>Tap SEQ again</strong> for the drum pages, in three groups (DRUM GRID + KIT, then LANE SOUND + MIX + TIMING, then DRUM GENERATE + MIDI; see DRUMS below), and again to come round to the notes, each group at the page you last used there. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.</p>
 <ul>
 <li><strong>PLAY</strong> starts and stops it from any page. Stopping also ends held notes (latched chords and the arpeggiator's HOLD).</li>
 <li>It plays at GLOBAL › TEMPO or on MIDI clock, and sends its notes to MIDI out when that's on.</li>
@@ -1075,7 +1075,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h3 id="drums">DRUMS</h3>
 <p>Six drum lanes (<strong>KICK, SNARE, C HAT, O HAT, CLAP, PERC</strong>) of 16 steps play beside the note sequencer, on four voices of the FM-1's own processor (the two hats share one voice, and the clap and perc share one). They start and stop with <strong>PLAY</strong>, at the same tempo or MIDI clock, and each lane's SEND sets how much of it goes through the FX chain. Seven more pages follow SONG when you tap SEQ: <strong>DRUM, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT</strong> (they have their own row of dots).</p>
 <ul>
-<li>On the drum pages SELECT is the step or the lane, so <strong>hold SEL and turn SELECT</strong> to turn the drum pages: DRUM GRID, KIT + PATTERNS, LANE SOUND, LANE MIX, LANE TIMING, DRUM GENERATE, DRUM MIDI.</li>
+<li>On the drum pages SELECT is the step or the lane, so <strong>hold SEL and turn SELECT</strong> to turn the pages inside a group: DRUM GRID and KIT + PATTERNS; LANE SOUND, LANE MIX and LANE TIMING; DRUM GENERATE and DRUM MIDI.</li>
 <li><strong>DRUM</strong> (DRUM GRID) is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint <strong>SEL+ALGO: LOAD BEAT</strong>: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.</li>
 <li><strong>LANE SOUND</strong> gives the lane a model from a list that shows what each costs in CPU points, and relabels TONE and COLOUR for that model; K4 is the PITCH. <strong>SEL + ALGO</strong> loads a whole kit: <strong>909 ISH, 808 ISH, LO-FI, SPARSE</strong>. Turning anything plays the lane once, so you hear it.</li>
 <li><strong>LANE MIX</strong>: DECAY, LEVEL, PAN and SEND (how much goes to the FX).</li>

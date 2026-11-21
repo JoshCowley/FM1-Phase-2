@@ -19,18 +19,7 @@ expect sub 6
 expect drum_any 0
 shot drum_hint.png
 # LANE SOUND: the KICK, 909 ISH, the kick model
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
+tap SEQ
 wait 300
 expect sub 8
 expect drum_lane 0
@@ -154,30 +143,23 @@ turn SELECT 1
 wait 100
 release SEL
 wait 100
+tap SEQ
 press SEL
 wait 100
 turn SELECT 1
 wait 100
 release SEL
 wait 100
+tap SEQ
+tap SEQ
 press SEL
 wait 100
 turn SELECT 1
 wait 100
 release SEL
 wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
+tap SEQ
+tap SEQ
 tap SEQ
 turn SELECT 1
 wait 100
@@ -192,36 +174,6 @@ wait 100
 turn SELECT 1
 wait 100
 tap SEQ
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
 press SEL
 wait 100
 turn SELECT 1

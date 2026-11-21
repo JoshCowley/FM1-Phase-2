@@ -1,4 +1,4 @@
-# The drum track, step 2: the DRUM page (SEQ tapped twice: the notes group, then the drum group), step entry, mute, PLAY, MIDI out.
+# The drum track, step 2: the DRUM page (SEQ tapped twice: the notes group, then the first drum group), step entry, mute, PLAY, MIDI out.
 # Stopped, nothing queued and nothing rendered; the kick's four on the floor with the white keys, a snare with
 # SELECT + EDIT and the knobs, a muted lane, then PLAY with GLOBAL > MIDI OUT on: notes on channel 10 (0x99), GM
 # kick 36 (0x24), snare 38 (0x26), hat 42 (0x2A), velocities 80 (NORM), 105 (HARD), and the notes end.
@@ -137,19 +137,8 @@ turn ALGO -1
 wait 100
 expect drum_cnt0 0
 expect drum_on 6
-# the sequencer's other pages are still there: SEL held + SELECT goes on through the drum pages (DRUM KIT, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI), SEQ tapped again goes back to NOTES
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
+# the sequencer's other pages are still there: SEQ goes on through the drum groups (DRUM + KIT, LANE SOUND + MIX + TIMING, DRUM GENERATE + MIDI), then round to NOTES; SEL held + SELECT turns the pages inside a group
+tap SEQ
 wait 200
 expect sub 8
 press SEL
@@ -166,30 +155,23 @@ turn SELECT 1
 wait 100
 release SEL
 wait 100
+tap SEQ
 press SEL
 wait 100
 turn SELECT 1
 wait 100
 release SEL
 wait 100
+tap SEQ
+tap SEQ
 press SEL
 wait 100
 turn SELECT 1
 wait 100
 release SEL
 wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
+tap SEQ
+tap SEQ
 tap SEQ
 turn SELECT 1
 wait 100
@@ -217,36 +199,6 @@ wait 100
 turn SELECT 1
 wait 100
 tap SEQ
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
-press SEL
-wait 100
-turn SELECT 1
-wait 100
-release SEL
-wait 100
 press SEL
 wait 100
 turn SELECT 1

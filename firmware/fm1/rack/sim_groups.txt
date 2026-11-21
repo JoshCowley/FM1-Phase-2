@@ -112,7 +112,7 @@ wait 400
 expect page 2
 tap HOME
 wait 400
-# SEQ: the notes pages, then the drum pages (two taps to the DRUM grid); SELECT turns the notes pages round without reaching the drums
+# SEQ: the notes pages, then the drum groups (two taps to the DRUM grid); SELECT turns the notes pages round without reaching the drums
 tap SEQ
 wait 400
 expect page 15
@@ -127,7 +127,7 @@ tap SEQ
 wait 400
 expect page 15
 expect sub 6
-# on the drum pages SELECT is the step: SEL held + SELECT turns the drum pages (DRUM, KIT, LANE SOUND, LANE MIX, LANE TIMING, DRUM GENERATE, DRUM MIDI)
+# on the drum pages SELECT is the step or the lane: SEL held + SELECT turns the pages inside the group (DRUM, KIT), round
 press SEL
 wait 100
 turn SELECT 1
@@ -137,19 +137,43 @@ wait 400
 expect sub 7
 press SEL
 wait 100
-turn SELECT -1
+turn SELECT 1
 wait 100
 release SEL
 wait 400
 expect sub 6
+press SEL
+wait 100
+turn SELECT -1
+wait 100
+release SEL
+wait 400
+expect sub 7
 expect page 15
-# tapped again: back to the notes group (the page it was on)
+# tapped again: LANE SOUND + MIX + TIMING (8-10), then DRUM GENERATE + MIDI (11-12), then the notes group (the page it was on)
+tap SEQ
+wait 400
+expect sub 8
+press SEL
+wait 100
+turn SELECT -1
+wait 100
+release SEL
+wait 400
+expect sub 10
+tap SEQ
+wait 400
+expect sub 11
 tap SEQ
 wait 400
 expect sub 0
+# and round to the drum groups: each at the page it was last on
 tap SEQ
 wait 400
-expect sub 6
+expect sub 7
+tap SEQ
+wait 400
+expect sub 10
 tap HOME
 wait 400
 # one-group buttons stay where they are when tapped again; SELECT turns their pages
