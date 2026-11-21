@@ -48,7 +48,7 @@ wait 400
 shot u_glo_chordarp.png
 tap ARP
 wait 500
-turn SELECT 4
+turn SELECT 3
 wait 400
 shot u_arp_last.png
 tap HOME

@@ -11,9 +11,9 @@ turn SELECT 8
 wait 300
 turn K4 1
 wait 300
-tap SEL
+tap ARP
 wait 500
-turn SELECT 4
+turn SELECT 2
 wait 300
 shot r_ring_bass.png
 wav r_rhythm.wav
@@ -35,7 +35,7 @@ turn SELECT -1
 wait 300
 turn K2 -1
 wait 300
-turn K4 3
+turn K3 3
 wait 2000
 shot r_chord_euclid.png
 turn K1 -1

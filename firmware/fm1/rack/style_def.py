@@ -68,7 +68,7 @@ RMODES = ["OFF", "STYLE", "RING", "SAME", "ANSWER"]
 _RDEF = [(5, 0, 16, 1), (4, 2, 16, 0), (11, 0, 16, 0)]
 def _rg(g):
     h, r, n, m = _RDEF[g]
-    return [_I("HITS", 0, 32, h), _I("ROTATE", 0, 31, r), _I("STEPS", 2, 32, n), _L("MODE", RMODES, m),
+    return [_I("HITS", 0, 32, h), _I("TURN", 0, 31, r), _I("STEPS", 2, 32, n), _L("PATTERN", RMODES, m),
             _n("CHANCE", 1.0), _n("MUTATE", 0.0)]
 
 # the ARP pages after the arpeggiator's two: STYLE, the layers' MIDI channels (+ the bass on the FM-1), CHORD + ARP
@@ -82,14 +82,14 @@ ARP_EXTRA = [
     # FEEL (update 43): HUMAN, each chord note a little early or late at random (and its force a little off), on the
     # keys and in the sequencer
     [_n("HUMAN", 0.0)],
-    # RHYTHM (update 48): a ring generator for each layer, BASS (the master), CHORD, ARP. SEL shows two pages, K1 the
-    # generator to see and set (GEN), K2-K4 its values; its other values sit on pages SEL does not show (menus.c
-    # rhy_pi maps the knobs to the generator chosen). MODE: STYLE the style's own pattern (BASS only), RING the
-    # generator's hits spread evenly (Euclidean) round its STEPS, turned by ROTATE; SAME / ANSWER (CHORD, ARP) the
+    # RHYTHM (update 48): a ring generator for each layer, BASS (the master), CHORD, ARP. ARP shows two pages (Nov 2026; SEL showed them
+    # before), K1 the layer to see and set (LAYER), K2-K4 its values; its other values sit on pages not shown (menus.c
+    # rhy_pi maps the knobs to the generator chosen). PATTERN (MODE): STYLE the style's own pattern (BASS only), RING the
+    # generator's hits spread evenly (Euclidean) round its STEPS, turned by TURN; SAME / ANSWER (CHORD, ARP) the
     # master's hits, or the gaps between them. CHANCE: each hit's chance to play. MUTATE: each cycle's chance to turn
     # or gain or lose a hit (a quarter of the time: back to the pattern as set)
 ] + [
-    [_L("GEN", ["BASS M", "CHORD", "ARP"], 0)] + _rg(0)[:3], _rg(0)[3:],
+    [_L("LAYER", ["BASS", "CHORD", "ARP"], 0)] + _rg(0)[:3], _rg(0)[3:],
     _rg(1)[:3], _rg(1)[3:], _rg(2)[:3], _rg(2)[3:],
 ]
 

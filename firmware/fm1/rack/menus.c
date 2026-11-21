@@ -95,7 +95,7 @@ static int is_fixed(int pg) { return (pg >= PG_SEL && pg <= PG_ARP) || pg == PG_
 #define GLO_OWN 8                             /* GLOBAL's own pages; LAYER MIDI CH and CHORD + ARP follow */
 #define ARP_OWN 2                             /* ARP's own pages; RHYTHM and CHANCE follow */
 #define RHY_PG 6                              /* ARP's table pages 6-7: the rhythm rings' */
-static const uint8_t SEL_PG_MAP[] = {2, 5, 6, 7};   /* SEL's pages past its own: STYLE, FEEL, RHYTHM, RHYTHM CHANCE */
+static const uint8_t SEL_PG_MAP[] = {2, 5};   /* SEL's pages past its own: STYLE, FEEL */
 static int data_sub(int pg, int sub)
 {
     if (pg == PG_SEL && sub >= SEL_OWN) return SEL_PG_MAP[sub - SEL_OWN];
@@ -116,7 +116,10 @@ static int rhy_pi(int pg, int sub, int k)
         return A_RGEN;
     if (k > 3)
         return -1;
-    return A_R0 + g * 6 + (data_sub(pg, sub) == RHY_PG ? 0 : 3) + k - 1;
+    {   /* page 1: HITS, STEPS, TURN (the values' places in a generator: 0 HITS, 1 TURN, 2 STEPS); page 2: PATTERN, CHANCE, MUTATE */
+        static const uint8_t RK[2][3] = {{RF_HIT, RF_LEN, RF_ROT}, {RF_MODE, RF_CH, RF_MUT}};
+        return A_R0 + g * 6 + RK[data_sub(pg, sub) - RHY_PG][k - 1];
+    }
 }
 static float *page_vals(int pg) { return pg == PG_GLO ? set.glo : pg == PG_SEL ? set.sel : pg == PG_ARP ? set.arp : pg == PG_JAM ? jam_v : 0; }
 static uint16_t fixed_colour(int pg) { return pg == PG_GLO ? K_GLO : pg == PG_SEL ? K_CHD : pg == PG_JAM ? K_FX : K_ARP; }
@@ -197,7 +200,7 @@ static int npages(int pg)
     const ui_mod_t *m = page_mod(pg);
     if (pg == PG_SEL) return SEL_OWN + (int)sizeof SEL_PG_MAP;
     if (pg == PG_GLO) return GLO_OWN + 2;
-    if (pg == PG_ARP) return 2;
+    if (pg == PG_ARP) return ARP_OWN + 2;
     return m ? m->npages + (pg == PG_LFO ? 3 : 0) + (has_mod_page(pg) ? MOD_ROWS : 0) : 1;
 }
 static int is_mod_sub(int pg) { const ui_mod_t *m = page_mod(pg); return m && has_mod_page(pg) && mn.sub >= m->npages; }
@@ -987,6 +990,17 @@ static void draw_mod_page(int pg)
         help("SELECT: ROW  K1 SRC K2 TARGET K3 AMT K4 VIA");
 }
 
+/* a fixed page's one-line help (the line under the controls) */
+static const char *fixed_help(int pg)
+{
+    if (pg == PG_GLO && mn.sub == 5) return "SELECT: PAGE   (MEASURED LIVE)";
+    if (rhy_pi(pg, mn.sub, 0) >= 0)
+        return data_sub(pg, mn.sub) == RHY_PG ? "HITS SPREAD EVENLY; TURN MOVES THEM" : "PATTERN: WHAT PLAYS  CHANCE: PER HIT";
+    if (pg == PG_GLO && mn.sub == 8) return "EACH LAYER'S MIDI CHANNEL: OFF OR 1-16";
+    if (pg == PG_GLO && mn.sub == 9) return "WHERE CHORDS AND ARP SOUND: FM-1, MIDI";
+    if (pg == PG_JAM) return "SELECT: PAGE   K1-K4: VALUES   FX FX: ON/OFF";
+    return "SELECT: PAGE   K1-K4: VALUES";
+}
 static void draw_param_page(int pg)
 {
     const ui_mod_t *m = page_mod(pg);
@@ -1010,18 +1024,17 @@ static void draw_param_page(int pg)
     title[0] = 0;
     if (is_fixed(pg)) {
         static const char *const GT[] = {"SETTINGS", "PLAYING", "TUNING", "MIDI", "MASTER", "SYSTEM", "CLICK", "DISPLAY", "LAYER MIDI CH", "CHORD + ARP"};
-        static const char *const ST[] = {"SCALE + CHORD", "KEYS + STRUM", "STYLE", "FEEL", "RHYTHM", "RHYTHM CHANCE"},
-                          *const AT[] = {"ARPEGGIATOR", "HOLD + TURING"};
+        static const char *const ST[] = {"SCALE + CHORD", "KEYS + STRUM", "STYLE", "FEEL"},
+                          *const AT[] = {"ARPEGGIATOR", "HOLD + TURING", "RHYTHM: WHICH STEPS", "CHANCE: HOW OFTEN"};
         int ic = pg == PG_GLO ? (mn.sub == 3 || mn.sub == 8 ? IC_MIDI : mn.sub == 4 ? IC_OUT : IC_GLOBAL) : pg == PG_SEL ? (mn.sub ? IC_SCALE : IC_CHORD) : IC_ARP;
-        header(pg == PG_JAM ? "JAM" : pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_JAM ? JAM_PAGE[mn.sub % 7] : pg == PG_GLO ? GT[mn.sub % 10] : pg == PG_SEL ? ST[mn.sub % 6] : AT[mn.sub & 1],
+        header(pg == PG_JAM ? "JAM" : pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_JAM ? JAM_PAGE[mn.sub % 7] : pg == PG_GLO ? GT[mn.sub % 10] : pg == PG_SEL ? ST[mn.sub % 4] : AT[mn.sub & 3],
                pg == PG_JAM ? IC_KNOB : ic, npages(pg), mn.sub);
         page_well(pg);
         if (pg == PG_GLO && mn.sub == 5)
             system_cells(c);
         else
             fixed_controls(pg);
-        help(pg == PG_GLO && mn.sub == 5 ? "SELECT: PAGE   (MEASURED LIVE)" : rhy_pi(pg, mn.sub, 0) >= 0 ? "K1: GENERATOR   K2-K4: ITS VALUES" : pg == PG_JAM ? "SELECT: PAGE   K1-K4: VALUES   FX FX: ON/OFF" : pg == PG_ARP ? "SELECT: PAGE   K1-K4: VALUES"
-             : "SELECT: PAGE   K1-K4: VALUES");
+        help(fixed_help(pg));
         return;
     }
     if (pg == PG_LFO && mn.sub >= m->npages) {
