@@ -50,16 +50,10 @@ expect page 0
 turn K1 3
 wait 200
 expect flt_sweep -10
-# a tap on ENV still turns its page (on letting go): AMP, then on to its pages, the MOD page, then the FILTER page
+# a tap on ENV still turns its page (on letting go): AMP, then the FILTER page (2.34: a tap is a group)
 tap ENV
 wait 300
 expect page 8
-tap ENV
-tap ENV
-tap ENV
-tap ENV
-tap ENV
-tap ENV
 tap ENV
 wait 300
 expect page 17
@@ -92,8 +86,6 @@ wait 200
 expect page 17
 expect flt_sweep -20
 # the shaper after it: Rings or empty, no FILTER in its picker
-tap ENV
-wait 200
 tap ENV
 wait 300
 expect page 3

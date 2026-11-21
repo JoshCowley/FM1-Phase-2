@@ -1,0 +1,199 @@
+# sim_groups (2.34, after Josh): tap again = the next GROUP of pages; SELECT = the next page inside the group. Gestures from HOME to each place,
+# with the pause between taps longer than the 0.3 s double-tap window (a quicker second tap is a double tap: FX = JAM on / off, LFO = MATRIX).
+# Gestures (2.33 -> 2.34): FILTER 8 -> 2, GATE PATTERN 12 -> 2, DRUM grid 7 -> 2, JAM page 7 -> 3, SAVE page 1 -> 1, preset change 1 -> 1.
+# Page numbers (menus.c PG_*): 0 HOME, 2 SRC, 3 SHP, 4 MOD A, 5 MOD B, 6 FX 1, 7 FX 2, 8 AMP, 9 LFO, 10 MATRIX, 14 OSC, 15 SEQ, 16 MSEQ, 17 FILTER, 18 JAM.
+listen
+wait 500
+expect page 0
+# FILTER: ENV, ENV (AMP, then FILTER)
+tap ENV
+wait 400
+expect page 8
+expect sub 0
+tap ENV
+wait 400
+expect page 17
+expect sub 0
+tap ENV
+wait 400
+expect page 3
+tap ENV
+wait 400
+expect page 8
+# SELECT steps the pages inside AMP (never leaves it), and wraps
+turn SELECT 1
+wait 200
+expect page 8
+expect sub 1
+turn SELECT -2
+wait 200
+expect page 8
+tap HOME
+wait 400
+expect page 0
+# the LFO button opens the LFO page first; GATE PATTERN is its second group
+tap LFO
+wait 400
+expect page 9
+expect sub 0
+tap LFO
+wait 400
+expect page 9
+expect sub 9
+# SELECT inside GATE PATTERN: its two pages, round
+turn SELECT 1
+wait 200
+expect sub 10
+turn SELECT 1
+wait 200
+expect sub 9
+tap LFO
+wait 400
+expect page 4
+tap LFO
+wait 400
+expect page 5
+tap LFO
+wait 400
+expect page 16
+tap LFO
+wait 400
+expect page 10
+tap LFO
+wait 400
+expect page 9
+expect sub 0
+# SELECT inside the LFO group (3 LFOs, their 3 target pages: 9 pages) does not reach GATE PATTERN
+turn SELECT -1
+wait 200
+expect sub 8
+turn SELECT 1
+wait 200
+expect sub 0
+# a quick double tap is still the MATRIX
+tap HOME
+wait 400
+tap LFO
+wait 100
+tap LFO
+wait 450
+expect page 10
+tap HOME
+wait 400
+# FX: FX 1, FX 2, JAM (three taps); the quick double tap is still JAM on / off, from the page you were on
+tap FX
+wait 400
+expect page 6
+tap FX
+wait 400
+expect page 7
+tap FX
+wait 400
+expect page 18
+expect sub 0
+turn SELECT 1
+wait 200
+expect page 18
+expect sub 1
+tap FX
+wait 400
+expect page 6
+tap HOME
+wait 400
+# EDIT: SOURCE, then OSC / MIXER
+tap EDIT
+wait 400
+expect page 2
+tap EDIT
+wait 400
+expect page 14
+tap EDIT
+wait 400
+expect page 2
+tap HOME
+wait 400
+# SEQ: the notes pages, then the drum pages (two taps to the DRUM grid); SELECT turns the notes pages round without reaching the drums
+tap SEQ
+wait 400
+expect page 15
+expect sub 0
+turn SELECT -1
+wait 200
+expect sub 5
+turn SELECT 1
+wait 200
+expect sub 0
+tap SEQ
+wait 400
+expect page 15
+expect sub 6
+# on the drum pages SELECT is the step: SEL held + SELECT turns the drum pages (DRUM, KIT, LANE SOUND, LANE MIX, LANE TIMING, DRUM GENERATE, DRUM MIDI)
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 400
+expect sub 7
+press SEL
+wait 100
+turn SELECT -1
+wait 100
+release SEL
+wait 400
+expect sub 6
+expect page 15
+# tapped again: back to the notes group (the page it was on)
+tap SEQ
+wait 400
+expect sub 0
+tap SEQ
+wait 400
+expect sub 6
+tap HOME
+wait 400
+# one-group buttons stay where they are when tapped again; SELECT turns their pages
+tap SEL
+wait 400
+expect page 11
+turn SELECT 2
+wait 200
+expect sub 2
+tap SEL
+wait 400
+expect page 11
+expect sub 2
+tap HOME
+wait 400
+# the filter's ADSR page is only there while ENV SRC is OWN: FILTER has 3 pages, SELECT passes it
+tap ENV
+wait 400
+tap ENV
+wait 400
+expect page 17
+turn SELECT 1
+wait 200
+expect sub 1
+turn SELECT 1
+wait 200
+expect sub 3
+turn SELECT -1
+wait 200
+expect sub 1
+# ENV SRC to OWN: the ADSR page is there
+turn K4 1
+wait 200
+turn SELECT 1
+wait 200
+expect sub 2
+tap HOME
+wait 400
+# SAVE: one tap opens it; a preset change: one turn
+tap SAVE
+wait 400
+shot groups_save.png
+tap HOME
+wait 400
+turn PRESET 1
+wait 800
+expect entry 1

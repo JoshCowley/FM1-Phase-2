@@ -3,20 +3,36 @@
 wait 500
 tap SEQ
 wait 200
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
 tap SEQ
 wait 300
 expect sub 6
 expect drum_any 0
 shot drum_hint.png
 # LANE SOUND: the KICK, 909 ISH, the kick model
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 300
-expect sub 7
+expect sub 8
 expect drum_lane 0
 expect drum_model 0
 expect drum_kit 0
@@ -95,9 +111,14 @@ wait 100
 expect drum_kit 0
 expect drum_model 6
 # LANE MIX: DECAY, LEVEL, PAN, SEND of the lane (O HAT)
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 300
-expect sub 8
+expect sub 9
 expect drum_lane 3
 expect drum_decay 35
 turn K1 5
@@ -127,17 +148,86 @@ wait 100
 expect drum_lane 2
 expect drum_level 54
 # the grid keeps its hint until a beat is loaded; then it is gone
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 tap SEQ
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
 tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 300
 expect sub 6
 press SEL

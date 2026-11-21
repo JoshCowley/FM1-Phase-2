@@ -1,4 +1,4 @@
-# The drum track, step 2: the DRUM page (the SEQ button's seventh page), step entry, mute, PLAY, MIDI out.
+# The drum track, step 2: the DRUM page (SEQ tapped twice: the notes group, then the drum group), step entry, mute, PLAY, MIDI out.
 # Stopped, nothing queued and nothing rendered; the kick's four on the floor with the white keys, a snare with
 # SELECT + EDIT and the knobs, a muted lane, then PLAY with GLOBAL > MIDI OUT on: notes on channel 10 (0x99), GM
 # kick 36 (0x24), snare 38 (0x26), hat 42 (0x2A), velocities 80 (NORM), 105 (HARD), and the notes end.
@@ -6,11 +6,16 @@ wait 500
 tap SEQ
 wait 200
 expect sub 0
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
 tap SEQ
 wait 300
 expect sub 6
@@ -132,18 +137,62 @@ turn ALGO -1
 wait 100
 expect drum_cnt0 0
 expect drum_on 6
-# the sequencer's other pages are still there: SEQ goes on through the drum pages (LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT), then round to NOTES
-tap SEQ
-wait 200
-expect sub 7
-tap SEQ
+# the sequencer's other pages are still there: SEL held + SELECT goes on through the drum pages (DRUM KIT, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI), SEQ tapped again goes back to NOTES
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 200
 expect sub 8
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+wait 200
+expect sub 9
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+turn SELECT 1
+wait 100
 wait 200
 expect sub 0
 # GLOBAL > MIDI OUT on (the MIDI page, the fourth: K2)
@@ -157,12 +206,53 @@ tap HOME
 wait 300
 # PLAY from the DRUM page: the drums follow the sequencer's PLAY
 tap SEQ
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
 tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 200
 expect sub 6
 out

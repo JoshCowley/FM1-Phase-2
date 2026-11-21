@@ -52,6 +52,7 @@ static struct {
     uint32_t combo_at;                        /* SEL + EDIT both went down (held: LEARN on or off), 0 both up */
     int combo_done;
     uint32_t lfo_at;                          /* LFO tapped, waiting for a second tap (two taps: the MATRIX) */
+    int lfo_pend;                             /* (2.34) that tap was on an LFO page: its group step waits for the 0.3 s */
     uint32_t sel_tap, arp_tap, arp_at;        /* SEL / ARP let go, waiting for another tap; ARP went down */
     int sel_n, arp_n, arp_long;               /* taps so far: 1 the page, 2 and 3 their toggles */
     int tap_pg, tap_sub;                      /* the page before a first tap opened SEL / ARP (two or three: back to it) */
@@ -205,6 +206,8 @@ static int npages(int pg)
     if (pg == PG_ARP) return ARP_OWN + 2;
     return m ? m->npages + (pg == PG_LFO ? 3 + GATE_PAGES : 0) + (has_mod_page(pg) ? MOD_ROWS : 0) : 1;
 }
+/* (2.34) the FILTER's ADSR page (F ATK-F REL) is only there while ENV SRC is OWN (the other sources have none of their own) */
+static int sub_hidden(int pg, int sub) { return pg == PG_FLT && sub == 2 && (int)(rk_get_param(RS_GLO, FLT_P0 + 7) + 0.5f) != 1; }
 static int is_mod_sub(int pg) { const ui_mod_t *m = page_mod(pg); return m && has_mod_page(pg) && mn.sub >= m->npages; }
 
 /* ---------------------------------------------------------- values as the page shows them */
@@ -1045,7 +1048,7 @@ static void draw_param_page(int pg)
         return;
     }
     if (is_gate_sub(pg)) {                    /* GATE PATTERN (21 Nov 2026): the rhythm rings as two gates */
-        header("LFO", c, mn.sub == m->npages + 3 ? "GATE PATTERN" : "GATE: CHANCE", IC_LFO, npages(pg), mn.sub);
+        header("LFO", c, mn.sub == m->npages + 3 ? "GATE PATTERN" : "GATE: CHANCE", IC_LFO, GATE_PAGES, mn.sub - m->npages - 3);
         page_well(pg);
         gate_controls();
         help(mn.sub == m->npages + 3 ? "HITS FIRE A GATE: RETRIG LFO, ENV, MATRIX" : "TURN MOVES HITS  CHANCE: ODDS OF EACH HIT");
@@ -1067,6 +1070,8 @@ static void draw_param_page(int pg)
     {
         int np = npages(pg), sb = mn.sub;
         if (has_mod_page(pg)) { np -= MOD_ROWS - 1; if (sb > m->npages) sb = m->npages; }   /* the MOD page: one dot */
+        if (pg == PG_LFO) np = m->npages + 3;     /* (2.34) the LFO group; GATE PATTERN has its own dots */
+        if (pg == PG_FLT && sub_hidden(pg, 2)) { np--; if (sb > 2) sb--; }
         header(pg == PG_OSC ? "OSC" : pg == PG_FLT ? "FLT" : SLOT_TAG[slot], c, is_mod_sub(pg) ? title : pg == PG_OSC ? (mn.sub ? "MIXER" : "OSCILLATOR") : title,
                pg == PG_AMP ? IC_AMP : pg == PG_LFO ? IC_LFO : pg == PG_OSC ? IC_KNOB : module_icon(m->id), np, sb);
     }
@@ -1417,38 +1422,29 @@ static void load_module(void)
     }
 }
 
-/* a page button: the pages it cycles through, as the page's resolve(); a second press on the picker's slot loads */
+/* a page button (2.34, after Josh: tap again = the next GROUP, SELECT = the next page inside the group): the groups it cycles
+ * through, as the page's resolve(); a second press on the picker's slot loads. A cycle entry is a page, or (PB_GATE) the LFO
+ * page's GATE PATTERN pages, which are a group of their own. A button of one group stays where it is when tapped again */
+#define PB_GATE 0x80u
 static void page_button(const uint8_t *cyc, int n)
 {
-    int i, at = -1;
+    int i, at = -1, cur = mn.page | (is_gate_sub(mn.page) ? PB_GATE : 0);
     if (mn.pick)
         for (i = 0; i < n; i++)
-            if (cyc[i] == mn.page) {
+            if ((cyc[i] & 0x7fu) == mn.page) {
                 load_module();
                 ui.redraw = 1;
                 return;
             }
     for (i = 0; i < n; i++)
-        if (cyc[i] == mn.page)
+        if (cyc[i] == cur)
             at = i;
-    if (at >= 0) {                            /* (update 51, after Josh: a menu button pressed again turns its pages)
-                                                 on one of its pages: the next page dot, then the next of its pages */
-        const ui_mod_t *m = page_mod(mn.page);
-        int last = npages(mn.page) - 1;
-        if (has_mod_page(mn.page) && m)
-            last = m->npages;                 /* (the MOD page: one stop, not its four rows) */
-        if (mn.sub < last) {
-            mn.sub = is_mod_sub(mn.page) ? last : mn.sub + 1;
-            ui.redraw = 1;
-            return;
-        }
-        if (n == 1) {                         /* its one page: round to the first dot */
-            mn.sub = 0;
-            ui.redraw = 1;
-            return;
-        }
-    }
-    go(cyc[at < 0 ? 0 : (at + 1) % n]);
+    if (at >= 0 && n == 1)
+        return;
+    i = cyc[at < 0 ? 0 : (at + 1) % n];
+    go(i & 0x7f);
+    if (i & PB_GATE)
+        mn.sub = UI_LFO.npages + 3;
 }
 
 static void edited(void)
@@ -1899,7 +1895,7 @@ static int menu_input(uint32_t press, uint32_t btn)
         }
         cp.oct_both = oc;
     }
-    static const uint8_t ENV_CYC[] = {PG_AMP, PG_FLT, PG_SHP}, LFO_CYC[] = {PG_MODA, PG_MODB, PG_LFO, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2, PG_JAM};
+    static const uint8_t ENV_CYC[] = {PG_AMP, PG_FLT, PG_SHP}, LFO_CYC[] = {PG_LFO, PG_LFO | PB_GATE, PG_MODA, PG_MODB, PG_MSEQ, PG_MATRIX}, FX_CYC[] = {PG_FX1, PG_FX2, PG_JAM};
     static const uint8_t SRC_CYC[] = {PG_SRC, PG_OSC}, ARP_CYC[] = {PG_ARP}, SEL_CYC[] = {PG_SEL}, GLO_CYC[] = {PG_GLO};
     int32_t e;
     int k, both = (btn >> B_EDIT & 1u) && (btn >> B_SEL & 1u);
@@ -1942,15 +1938,25 @@ static int menu_input(uint32_t press, uint32_t btn)
             page_button(ENV_CYC, 3);
         mn.env_at = 0;
     }
-    /* LFO (update 38): a tap turns the page at once; a second tap within 0.3 s: the MATRIX */
+    /* LFO (update 38; 2.34): a tap on another page opens the LFO page at once; a second tap within 0.3 s: the MATRIX; a tap on one of
+     * the LFO button's own pages waits that 0.3 s, then goes to the next group (so a double tap is only ever the MATRIX) */
     if (press >> B_LFO & 1u) {
         if (mn.lfo_at && plat_ms() - mn.lfo_at < EDIT_DOUBLE_MS) {
             mn.lfo_at = 0;
+            mn.lfo_pend = 0;
             go(PG_MATRIX);
         } else {
+            int here = mn.page == PG_LFO || mn.page == PG_MODA || mn.page == PG_MODB || mn.page == PG_MSEQ || mn.page == PG_MATRIX;
             mn.lfo_at = ms_stamp();
-            page_button(LFO_CYC, 5);
+            if (here && !mn.pick)
+                mn.lfo_pend = 1;
+            else
+                page_button(LFO_CYC, 6);
         }
+    }
+    if (mn.lfo_pend && !(btn >> B_LFO & 1u) && plat_ms() - mn.lfo_at >= EDIT_DOUBLE_MS) {
+        mn.lfo_pend = 0;
+        page_button(LFO_CYC, 6);
     }
     /* FX (14 Nov 2026): a tap turns the page when let go; held, FX on/off is armed: then one tap FX 1, two taps FX 2 */
     if (press >> B_FX & 1u) {
@@ -2147,8 +2153,14 @@ static int menu_input(uint32_t press, uint32_t btn)
         } else if (mn.page == PG_MATRIX) {
             mn.row = (mn.row + (e > 0 ? 1 : -1) + 12) % 12;   /* round (all pages loop) */
         } else if (!mn.pick) {
-            int np = npages(mn.page);
-            mn.sub = (mn.sub + (e > 0 ? 1 : -1) + np) % np;
+            int lo = 0, n = npages(mn.page), d = e > 0 ? 1 : -1;   /* (2.34) round the page's group; the filter's hidden ADSR page is passed */
+            if (mn.page == PG_LFO) {
+                lo = is_gate_sub(PG_LFO) ? UI_LFO.npages + 3 : 0;
+                n = is_gate_sub(PG_LFO) ? GATE_PAGES : UI_LFO.npages + 3;
+            }
+            do
+                mn.sub = lo + (mn.sub - lo + d + n) % n;
+            while (sub_hidden(mn.page, mn.sub));
         }
         ui.redraw = 1;
     }

@@ -129,23 +129,13 @@ expect jam_moves 1
 key 17 up
 wait 1500
 expect jam_level_off 0
-# the JAM page in the FX menu: FX taps go FX 1, FX 2, then JAM (WARM PAD: three, four, then the JAM pages)
+# the JAM page in the FX menu: FX taps go FX 1, FX 2, then JAM (2.34: a tap is a group, one tap each)
 tap FX
 wait 500
 expect page 6
 tap FX
 wait 500
-tap FX
-wait 500
-tap FX
-wait 500
 expect page 7
-tap FX
-wait 500
-tap FX
-wait 500
-tap FX
-wait 500
 tap FX
 wait 500
 expect page 18
@@ -265,4 +255,4 @@ wait 500
 said FX 1
 tap FX
 wait 600
-expect page 6
+expect page 7

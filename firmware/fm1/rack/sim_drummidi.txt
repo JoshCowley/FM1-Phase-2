@@ -3,22 +3,58 @@
 wait 500
 tap SEQ
 wait 200
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
 tap SEQ
 wait 300
 expect sub 6
 # DRUM MIDI: the kick's GM defaults (note 36, channel 10, ALSO, IN on)
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 300
-expect sub 11
+expect sub 12
 expect drum_out 2
 expect drum_ch 10
 expect drum_note 36
@@ -84,9 +120,20 @@ expect drum_out 2
 turn SELECT -1
 wait 100
 # DRUM KIT: the chips, the queue (stopped: at once), the kit, swing, IF BUSY
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 300
-expect sub 12
+expect sub 7
 expect drum_pc 0
 expect drum_pat 0
 expect drum_kit 0
@@ -157,7 +204,7 @@ expect drum_swing 55
 expect drum_kit 0
 power
 wait 1500
-expect sub 12
+expect sub 7
 expect drum_swing 65
 expect drum_kit 1
 expect drum_busy 1
@@ -165,19 +212,93 @@ expect drum_style 0
 expect drum_dirty 0
 expect drum_pat 2
 tap SEQ
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
 tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
-tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
 wait 200
-expect sub 11
+expect sub 12
 expect drum_out 0
 expect drum_ch 4
 expect drum_note 60

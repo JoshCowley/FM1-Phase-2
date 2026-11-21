@@ -620,6 +620,14 @@ static const char *drum_help(void)
 static void drum_encoders(const int32_t *e)   /* e: SELECT, ALGO, K1-K4 */
 {
     int d;
+    if (e[0] && (in_btn >> B_SEL & 1u)) {          /* (2.34) SEL held + SELECT: the drum group's next page (SELECT alone is the step or the lane here) */
+        mn.sub = sp.seq_sub = SQP_DRUM + (mn.sub - SQP_DRUM + (e[0] > 0 ? 1 : SQP_N - SQP_DRUM - 1)) % (SQP_N - SQP_DRUM);
+        mn.sel_long = 1;
+        mn.sel_n = 0;
+        ui.clear = 1;
+        ui.redraw = 1;
+        return;
+    }
     if (mn.sub == SQP_DSOUND) { drum_enc_sound(e); return; }
     if (mn.sub == SQP_DMIX) { drum_enc_mix(e); return; }
     if (mn.sub == SQP_DFEEL) { drum_enc_feel(e); return; }

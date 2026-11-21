@@ -1,4 +1,4 @@
-# sim_gate: the LFO menu's GATE PATTERN (21 Nov 2026). The LFO button's third page is the LFOs; SELECT back from the first page reaches
+# sim_gate: the LFO menu's GATE PATTERN (21 Nov 2026). The LFO button opens the LFOs; tapped again (after the 0.3 s double-tap window) it goes to its second group,
 # GATE PATTERN (RATE, HITS, STEPS) and GATE: CHANCE (TURN, CHANCE, MUTATE), K1 the lane. At 112 bpm a 1/16 step is 134 ms: 4 hits of 16
 # fall on steps 0, 4, 8, 12, so 1.9 s after RATE is turned up four hits have fired (steps 0-14). Then CHANCE 0 fires none, a lane OFF
 # runs nothing, lane 2 runs on its own, a setting survives a power cycle, GATE 1 / GATE 2 are sources in the matrix and the LFO's RETRIG.
@@ -7,12 +7,7 @@ tap LFO
 wait 400
 tap LFO
 wait 400
-tap LFO
-wait 400
 expect page 9
-expect sub 0
-turn SELECT -2
-wait 300
 expect sub 9
 expect gate_lane 0
 expect gate_hits1 0
