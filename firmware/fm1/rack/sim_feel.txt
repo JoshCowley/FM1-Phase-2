@@ -15,7 +15,7 @@ turn K3 1
 wait 200
 turn K4 30
 wait 200
-turn SELECT 4
+turn SELECT 2
 wait 300
 turn K1 60
 wait 300

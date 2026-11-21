@@ -88,24 +88,35 @@ static const ui_mod_t *ui_mod(int id)
 static int page_slot(int pg) { return pg >= PG_SRC && pg <= PG_FX2 ? pg - PG_SRC : pg == PG_AMP || pg == PG_OSC ? RS_AMP : pg == PG_LFO ? RS_LFO : pg == PG_FLT ? RS_GLO : -1; }
 static int pofs(int pg) { return pg == PG_OSC ? OSC_P0 : pg == PG_FLT ? FLT_P0 : 0; }   /* the page's first parameter in its slot */
 static int is_fixed(int pg) { return (pg >= PG_SEL && pg <= PG_ARP) || pg == PG_JAM; }
-/* SEL's pages 3-5 (update 38: the MIDI controller pages, STYLE, LAYER MIDI CH, CHORD + ARP, moved from ARP) show
- * ARP's settings 3-5: the page whose values a fixed page shows */
-#define SEL_OWN 2                             /* SEL's own pages; ARP keeps 2 */
-static int data_pg(int pg) { return pg == PG_SEL && mn.sub >= SEL_OWN ? PG_ARP : pg; }
-/* RHYTHM (update 48): SEL's pages 7-8 are ARP's 6-7; K1 the generator shown (GEN), K2-K4 its values (the CHORD's and
- * the ARP's sit on ARP pages 8-11, never shown): the parameter knob k sets there, or -1 */
-#define RHY_PG 6
+/* Where the values of SEL's, GLOBAL's and ARP's pages sit (Nov 2026, after Josh: LAYER MIDI CH and CHORD + ARP in GLOBAL,
+ * the rhythm in ARP): a page past the menu's own pages shows ARP's table (set.arp: the values and what is saved are
+ * unchanged); data_sub() is the page of that table. */
+#define SEL_OWN 2                             /* SEL's own pages (SCALE + CHORD, KEYS + STRUM) */
+#define GLO_OWN 8                             /* GLOBAL's own pages; LAYER MIDI CH and CHORD + ARP follow */
+#define ARP_OWN 2                             /* ARP's own pages; RHYTHM and CHANCE follow */
+#define RHY_PG 6                              /* ARP's table pages 6-7: the rhythm rings' */
+static const uint8_t SEL_PG_MAP[] = {2, 5, 6, 7};   /* SEL's pages past its own: STYLE, FEEL, RHYTHM, RHYTHM CHANCE */
+static int data_sub(int pg, int sub)
+{
+    if (pg == PG_SEL && sub >= SEL_OWN) return SEL_PG_MAP[sub - SEL_OWN];
+    if (pg == PG_GLO && sub >= GLO_OWN) return sub - GLO_OWN + 3;
+    if (pg == PG_ARP && sub >= ARP_OWN) return sub - ARP_OWN + RHY_PG;
+    return sub;
+}
+static int data_pg(int pg) { return (pg == PG_SEL && mn.sub >= SEL_OWN) || (pg == PG_GLO && mn.sub >= GLO_OWN) ? PG_ARP : pg; }
+/* RHYTHM: K1 the generator shown (GEN), K2-K4 its values (the CHORD's and the ARP's sit on ARP table pages 8-11, never
+ * shown): the parameter knob k sets there, or -1 */
 static void fixed_controls(int pg);
 static int rhy_pi(int pg, int sub, int k)
 {
     int g = (int)(set.arp[A_RGEN] + 0.5f);
-    if (pg != PG_SEL || (sub != RHY_PG && sub != RHY_PG + 1))
+    if ((pg != PG_SEL && pg != PG_ARP) || data_sub(pg, sub) < RHY_PG)
         return -2;                            /* not a RHYTHM page */
     if (k == 0)
         return A_RGEN;
     if (k > 3)
         return -1;
-    return A_R0 + g * 6 + (sub == RHY_PG ? 0 : 3) + k - 1;
+    return A_R0 + g * 6 + (data_sub(pg, sub) == RHY_PG ? 0 : 3) + k - 1;
 }
 static float *page_vals(int pg) { return pg == PG_GLO ? set.glo : pg == PG_SEL ? set.sel : pg == PG_ARP ? set.arp : pg == PG_JAM ? jam_v : 0; }
 static uint16_t fixed_colour(int pg) { return pg == PG_GLO ? K_GLO : pg == PG_SEL ? K_CHD : pg == PG_JAM ? K_FX : K_ARP; }
@@ -184,7 +195,8 @@ static uint16_t kc(int pi, uint16_t c)        /* parameter pi's knob's colour wh
 static int npages(int pg)
 {
     const ui_mod_t *m = page_mod(pg);
-    if (pg == PG_SEL) return SEL_OWN + 6;
+    if (pg == PG_SEL) return SEL_OWN + (int)sizeof SEL_PG_MAP;
+    if (pg == PG_GLO) return GLO_OWN + 2;
     if (pg == PG_ARP) return 2;
     return m ? m->npages + (pg == PG_LFO ? 3 : 0) + (has_mod_page(pg) ? MOD_ROWS : 0) : 1;
 }
@@ -997,12 +1009,11 @@ static void draw_param_page(int pg)
     }
     title[0] = 0;
     if (is_fixed(pg)) {
-        static const char *const GT[] = {"SETTINGS", "PLAYING", "TUNING", "MIDI", "MASTER", "SYSTEM", "CLICK", "DISPLAY"};
-        static const char *const ST[] = {"SCALE + CHORD", "KEYS + STRUM", "STYLE", "LAYER MIDI CH", "CHORD + ARP", "FEEL",
-                                         "RHYTHM", "RHYTHM CHANCE"},
+        static const char *const GT[] = {"SETTINGS", "PLAYING", "TUNING", "MIDI", "MASTER", "SYSTEM", "CLICK", "DISPLAY", "LAYER MIDI CH", "CHORD + ARP"};
+        static const char *const ST[] = {"SCALE + CHORD", "KEYS + STRUM", "STYLE", "FEEL", "RHYTHM", "RHYTHM CHANCE"},
                           *const AT[] = {"ARPEGGIATOR", "HOLD + TURING"};
-        int ic = pg == PG_GLO ? (mn.sub == 3 ? IC_MIDI : mn.sub == 4 ? IC_OUT : IC_GLOBAL) : pg == PG_SEL ? (mn.sub ? IC_SCALE : IC_CHORD) : IC_ARP;
-        header(pg == PG_JAM ? "JAM" : pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_JAM ? JAM_PAGE[mn.sub % 7] : pg == PG_GLO ? GT[mn.sub % 8] : pg == PG_SEL ? ST[mn.sub % 8] : AT[mn.sub & 1],
+        int ic = pg == PG_GLO ? (mn.sub == 3 || mn.sub == 8 ? IC_MIDI : mn.sub == 4 ? IC_OUT : IC_GLOBAL) : pg == PG_SEL ? (mn.sub ? IC_SCALE : IC_CHORD) : IC_ARP;
+        header(pg == PG_JAM ? "JAM" : pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_JAM ? JAM_PAGE[mn.sub % 7] : pg == PG_GLO ? GT[mn.sub % 10] : pg == PG_SEL ? ST[mn.sub % 6] : AT[mn.sub & 1],
                pg == PG_JAM ? IC_KNOB : ic, npages(pg), mn.sub);
         page_well(pg);
         if (pg == PG_GLO && mn.sub == 5)
@@ -1052,14 +1063,15 @@ static void fixed_controls(int pg)
 {
     const ui_mod_t *m = page_mod(data_pg(pg));
     float *fv = page_vals(data_pg(pg));
-    int i, off;
+    int i, off, ds;
     uint16_t c = page_colour(pg);
     if (!m || mn.sub >= npages(pg) || (pg == PG_GLO && mn.sub == 5))
         return;
-    off = page_first(m, mn.sub);
+    ds = data_sub(pg, mn.sub);
+    off = page_first(m, ds);
     for (i = 0; i < 4; i++) {
         int ri = rhy_pi(pg, mn.sub, i), pi = ri == -2 ? off + i : ri;
-        const ui_param_t *p = ri == -2 ? (i < m->pages[mn.sub] ? &m->p[off + i] : 0) : ri >= 0 ? &m->p[ri] : 0;
+        const ui_param_t *p = ri == -2 ? (i < m->pages[ds] ? &m->p[off + i] : 0) : ri >= 0 ? &m->p[ri] : 0;
         if (picture_first(pg))
             gauge(i, p, p ? fv[pi] : 0.0f, p ? fv[pi] : 0.0f, 0);
         else
@@ -1592,9 +1604,10 @@ static void knob(int k, int32_t e)
         if (pi == -1)
             return;
         if (pi == -2) {
-            if (k >= m->pages[mn.sub])
+            int ds = data_sub(mn.page, mn.sub);
+            if (k >= m->pages[ds])
                 return;
-            pi = page_ix(m, mn.sub, k);
+            pi = page_ix(m, ds, k);
         }
         old = fv[pi];
         undo_note(UN_FIXED, dp, pi, old, 0, 0, 0);

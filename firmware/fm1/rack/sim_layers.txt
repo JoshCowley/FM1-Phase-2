@@ -5,9 +5,9 @@ turn SELECT 3
 wait 300
 turn K2 1
 wait 300
-tap SEL
+tap GLO
 wait 600
-turn SELECT 4
+turn SELECT 9
 wait 400
 shot y_chordarp.png
 tap HOME
@@ -18,9 +18,9 @@ key w1 down 100
 wait 300
 key w1 up
 wait 300
-tap SEL
+tap GLO
 wait 500
-turn SELECT 4
+turn SELECT 9
 wait 300
 turn K1 -1
 wait 300
@@ -50,9 +50,9 @@ tap SEL
 wait 100
 tap SEL
 wait 450
-tap SEL
+tap GLO
 wait 500
-turn SELECT 4
+turn SELECT 9
 wait 300
 turn K1 1
 wait 300
@@ -82,9 +82,9 @@ wait 100
 tap ARP
 wait 450
 shot y_arp_fm1_off.png
-tap SEL
+tap GLO
 wait 600
-turn SELECT 4
+turn SELECT 9
 wait 400
 shot y_layers_page.png
 turn SELECT -1

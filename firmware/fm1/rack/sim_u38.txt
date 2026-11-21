@@ -38,9 +38,14 @@ shot u_quick_tap.png
 turn SELECT 2
 wait 400
 shot u_sel_style.png
-turn SELECT 2
+turn SELECT 1
 wait 400
-shot u_sel_chordarp.png
+shot u_sel_feel.png
+tap GLO
+wait 500
+turn SELECT 9
+wait 400
+shot u_glo_chordarp.png
 tap ARP
 wait 500
 turn SELECT 4

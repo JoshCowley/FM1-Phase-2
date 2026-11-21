@@ -36,7 +36,9 @@ key w4 up
 key w6 up
 key w8 up
 wait 400
-turn SELECT 3
+tap GLO
+wait 500
+turn SELECT 8
 wait 400
 shot s_layers.png
 turn SELECT 1

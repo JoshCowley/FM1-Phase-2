@@ -5,11 +5,15 @@ turn SELECT 2
 wait 300
 turn K1 8
 wait 300
-turn SELECT 1
+tap GLO
+wait 500
+turn SELECT 8
 wait 300
 turn K4 1
 wait 300
-turn SELECT 3
+tap SEL
+wait 500
+turn SELECT 4
 wait 300
 shot r_ring_bass.png
 wav r_rhythm.wav

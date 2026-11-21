@@ -698,12 +698,12 @@ static void vis_fixed(int pg, int sub, uint16_t c)
 {
     if (pg == PG_JAM) {
         vis_jam(c);
-    } else if (pg == PG_SEL && sub == 5) {           /* FEEL (update 43): a chord's notes, strummed and humanised */
-        vis_feel(c);
-    } else if (pg == PG_SEL && sub >= 6) {    /* RHYTHM (update 48): the three generators as rings */
+    } else if ((pg == PG_SEL || pg == PG_ARP) && data_sub(pg, sub) >= 6) {    /* RHYTHM (update 48): the three generators as rings */
         vis_rhythm(c, sub);
-    } else if (pg == PG_SEL && sub >= 2) {    /* SEL's MIDI controller pages (update 38): STYLE and its layers */
-        vis_style(c, sub);
+    } else if (pg == PG_SEL && data_sub(pg, sub) == 5) {           /* FEEL (update 43): a chord's notes, strummed and humanised */
+        vis_feel(c);
+    } else if ((pg == PG_SEL && sub >= 2) || (pg == PG_GLO && sub >= 8)) {    /* the MIDI controller pages (update 38): STYLE and its layers (now on GLOBAL) */
+        vis_style(c, data_sub(pg, sub));
     } else if (pg == PG_SEL) {                /* the keyboards: drawn solid, as before */
         vf_keep = 2;
         if (sub == 0) vis_sel_chord(c);
