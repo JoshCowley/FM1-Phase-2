@@ -94,7 +94,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p>These steps come from fm1-base and Felucca. None has been needed with FM1 Rack so far.</p>
 <h2 id="3-the-panel">3. The panel</h2>
 <h3 id="buttons">Buttons</h3>
-<p>Each page button opens its first page. <strong>Tap it again to turn through that page's pages</strong> (the dots in the header), one tap a dot; after the last dot (a module's MOD page counts as one) the next tap goes on to the button's next page, and after the last it comes back to the first (update 51). SELECT still turns the dots either way. A button counts as held only after 0.6 s, so a quick press is never taken for a hold.</p>
+<p>Each page button opens its first page. <strong>Tap it again for the button's next group of pages; SELECT turns the pages inside the group</strong> (the dots in the header; a module's MOD page counts as one). After the last group the next tap comes back to the first (2.34; before that a tap turned one dot at a time, which took 8 taps to reach the FILTER). A button with one group (SEL, ARP, GLO) stays where it is when you tap it again. A button counts as held only after 0.6 s, so a quick press is never taken for a hold.</p>
+<p><strong>Where the taps go</strong> (from HOME): FILTER is <strong>ENV, ENV</strong>; GATE PATTERN is <strong>LFO, LFO</strong>; JAM is <strong>FX, FX, FX</strong>; the DRUM grid is <strong>SEQ, SEQ</strong>; the SAVE page is <strong>SAVE</strong>; a preset change is one turn of PRESET.</p>
 <table>
 <thead>
 <tr class="header">
@@ -113,44 +114,44 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tr>
 <tr class="even">
 <td><strong>EDIT</strong></td>
-<td>the source (Plaits or Braids)</td>
-<td>OSC, the second oscillator and mixer</td>
+<td>the source (Braids)</td>
+<td>OSC, the second oscillator and mixer (then back to the source)</td>
 <td><strong>Hold: UNDO</strong> the last change; hold again to go further back (up to 16). With SEL: LEARN. On the sequencer's NOTES: <strong>delete</strong> (section 11)</td>
 </tr>
 <tr class="odd">
 <td><strong>ENV</strong></td>
 <td>AMP (envelopes, voice mode)</td>
-<td>the FILTER, then the shaper (Rings or empty)</td>
+<td>the FILTER, then the shaper (Rings or empty), then AMP again</td>
 <td><strong>Hold ENV and turn K1, on any page: the filter's SWEEP</strong> (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned)</td>
 </tr>
 <tr class="even">
 <td><strong>LFO</strong></td>
-<td>MOD A</td>
-<td>MOD B, the LFOs (with their targets, then the GATE PATTERN), MSEQ, the MATRIX</td>
-<td><strong>Two taps: the MATRIX</strong></td>
+<td>the LFOs (and their targets)</td>
+<td>GATE PATTERN, MOD A, MOD B, MSEQ, the MATRIX</td>
+<td><strong>Two quick taps: the MATRIX.</strong> A tap on one of these pages waits 0.3 s before it moves on, so a quick double tap is only ever the MATRIX</td>
 </tr>
 <tr class="odd">
 <td><strong>FX</strong></td>
 <td>FX 1</td>
-<td>FX 2, then JAM</td>
+<td>FX 2, then JAM, then FX 1</td>
 <td><strong>Two quick taps: JAM on or off, from any page</strong> (update 28, section 10). <strong>Hold, let go, then one tap: FX 1 off or on; two taps: FX 2</strong> (section 10)</td>
 </tr>
 <tr class="even">
 <td><strong>ARP</strong></td>
 <td>the arpeggiator</td>
-<td>HOLD + TURING, then RHYTHM and CHANCE</td>
+<td>(SELECT turns its pages: HOLD + TURING, RHYTHM and CHANCE)</td>
 <td><strong>Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on</strong> (section 10)</td>
 </tr>
 <tr class="odd">
 <td><strong>SEL</strong></td>
 <td>scale and chord</td>
-<td>(SELECT turns its pages: KEYS + STRUM, STYLE, then FEEL)</td>
+<td>(SELECT turns its pages: KEYS + STRUM, BASS STYLE, then HUMANISE)</td>
 <td><strong>Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on</strong> (section 10). <strong>Hold SEL and EDIT together (half a second): LEARN on or off</strong> (section 8)</td>
 </tr>
 <tr class="even">
 <td><strong>GLO</strong></td>
-<td>GLOBAL settings</td>
-<td>its next pages (ten; the last two are LAYER MIDI CH and CHORD + ARP)</td>
+<td>GLOBAL, TEMPO + VOICES</td>
+<td>(SELECT turns its ten pages; the last two are LAYER MIDI CH and CHORD + ARP)</td>
 <td><strong>Two taps (or hold): DAYLIGHT on or off</strong> (for the sun)</td>
 </tr>
 <tr class="odd">
@@ -162,7 +163,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="even">
 <td><strong>SEQ</strong></td>
 <td>the sequencer, at the page you last used</td>
-<td>the next sequencer page</td>
+<td>the other group: the note pages (NOTES to SONG) or the drum pages (DRUM GRID on), each at the page you last used there</td>
 <td><strong>Hold: the step layer</strong> (section 11)</td>
 </tr>
 <tr class="odd">
@@ -462,7 +463,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tbody>
 </table>
 <h3 id="the-filter-and-its-sweep-update-26">The filter and its SWEEP (update 26)</h3>
-<p><strong>The filter is in every voice's chain, always</strong> (after the shaper, before AMP), not a module you load. ENV, then ENV again, opens its page (AMP's pages and its MOD page come first); the shaper (Rings or empty) is the page after it, and its picker no longer offers the filter. Its page has four pages of four: TYPE, CUTOFF, RESO, DRIVE; ENV AMT, KEY TRK, VEL AMT, ENV SRC; F ATK, F DEC, F SUS, F REL; SAT, AUDIO FM, GAIN and <strong>SWEEP</strong>. Every one of them can be a destination of the matrix and of the knob layer, listed as <strong>FLT.</strong> in the destinations (FLT.CUTOFF, FLT.SWEEP, ...).</p>
+<p><strong>The filter is in every voice's chain, always</strong> (after the shaper, before AMP), not a module you load. ENV, then ENV again, opens its page (AMP comes first); the shaper (Rings or empty) is the page after it, and its picker no longer offers the filter. Its page has four pages of four: TYPE, CUTOFF, RESO, DRIVE; ENV AMT, KEY TRK, VEL AMT, ENV SRC; F ATK, F DEC, F SUS, F REL; SAT, AUDIO FM, GAIN and <strong>SWEEP</strong>. <strong>The F ATK / F DEC / F SUS / F REL page is only there while ENV SRC is OWN</strong> (with AMP or MOD as the source those four do nothing, so SELECT passes the page by). Every one of them can be a destination of the matrix and of the knob layer, listed as <strong>FLT.</strong> in the destinations (FLT.CUTOFF, FLT.SWEEP, ...).</p>
 <p><strong>A preset with no filter has it open.</strong> A low-pass with no resonance, drive, saturation, audio FM or gain whose cutoff is above the audio band (the CUTOFF at the top of its travel) is transparent: the filter fades out over the last 14 semitones below 21.6 kHz and is then skipped, so a sound that had no filter sounds exactly as it did (every one of the 46 factory presets plays sample for sample as before, with the SWEEP in the centre). The filter every other preset has is the same as it always was.</p>
 <p><strong>SWEEP is for your hand.</strong> It adds to the cutoff, the envelope, the matrix and the knob layer, never replacing them: the centre (0) is the preset's own cutoff; turn it down for darker, up for brighter, in the pitch-like (exponential) scale of the cutoff: the whole travel, <strong>-1 to +1, is 5 octaves each way</strong> (the display shows the octaves). The engine smooths it a block at a time, so a quick sweep does not zipper or click. Three ways to move it:</p>
 <ul>
@@ -472,7 +473,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </ul>
 <p>SWEEP is saved by SAVE in a user slot with the rest of the filter and comes back with it; <strong>loading a factory preset puts it back in the centre</strong>. A user slot saved before update 26 plays as it was saved: its filter (the shaper's module 12) moves into the filter's own page, with the SWEEP in the centre. With Rings in the shaper slot, Rings is shared by the voices and the filter only takes the dry sound.</p>
 <h3 id="module-pages">Module pages</h3>
-<p>Open a slot with its button. <strong>SELECT</strong> turns the pages within the module; <strong>K1–K4</strong> set the four parameters shown.</p>
+<p>Open a slot with its button. <strong>SELECT</strong> turns the pages within the module (tap the button again for the next module or page group); <strong>K1–K4</strong> set the four parameters shown.</p>
 <p><strong>Changing a module</strong>: on its page, turn <strong>ALGORITHM</strong>. The picker opens on the module now loaded. Turn to choose, then press the slot's button again to load it, or HOME to leave it as it was. Loading stops the sound for a moment while memory is laid out again. It then says how many voices fit ("BRAIDS 6 V"), or "NO ROOM".</p>
 <p><img src="img/fm1-picker.png" alt="The module picker" /></p>
 <p><strong>Memory</strong>: some edits need more memory (a longer delay, Rings' STR+VERB, the shimmer reverb). When you stop turning, FM1 Rack lays the memory out again, with a moment's silence, and says <strong>MEMORY FITTED</strong> with the voices.</p>
@@ -572,12 +573,13 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p>LFO steps through <strong>MOD A, MOD B, LFO, MSEQ</strong> and the <strong>MATRIX</strong>. Tap it twice quickly to go straight to the MATRIX.</p>
 <h3 id="lfos">LFOs</h3>
 <p><img src="img/fm1-lfo.png" alt="LFO" /></p>
-<p>The LFO page has eleven pages (SELECT):</p>
+<p>The LFO button opens the LFO page first. It has two groups (tap LFO again to go from one to the other; SELECT turns the pages inside a group): the LFOs, nine pages, then the GATE PATTERN, two pages. MOD A, MOD B, MSEQ and the MATRIX follow as groups of their own.</p>
+<p>The LFOs (SELECT):</p>
 <ul>
 <li>pages 1–3: SHAPE (SINE, TRI, SAW, SQUARE, S&amp;H, DRIFT), RATE, SYNC (FREE, or 1/16 to 2 BARS of the tempo), RETRIG, for LFO 1, 2 and 3;</li>
 <li>pages 4–6: FADE (a fade-in from each note), PHASE, POLAR, 1SHOT, for each;</li>
 <li>pages 7–9: <strong>LFO TARGET</strong>, each LFO's two direct destinations. K1 and K3 choose the destination, K2 and K4 the amount;</li>
-<li>pages 10–11: the <strong>GATE PATTERN</strong> (below).</li>
+<li>the second group, <strong>GATE PATTERN</strong> (two pages, below).</li>
 </ul>
 <h4 id="gate-pattern-a-rhythm-that-fires-triggers">GATE PATTERN: a rhythm that fires triggers</h4>
 <p>LFO pages 10 and 11 are the ARP RHYTHM generator again, but its hits are gates, not notes. Two lanes, <strong>GATE 1</strong> and <strong>GATE 2</strong>, each an Euclidean ring with its own RATE from the tempo (or MIDI clock). Nothing runs while a lane's RATE is OFF (the start), so patches sound as before.</p>
@@ -732,7 +734,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <ul>
 <li><strong>STRUM</strong>: up to 80 ms between the chord's notes, lowest first. It also strums the chords the sequencer plays back (it's applied as they play, so turning it changes recorded chords too).</li>
 </ul>
-<p><strong>Page 4, FEEL</strong>: <strong>HUMAN</strong> (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.</p>
+<p><strong>Page 4, HUMANISE</strong>: <strong>HUMAN</strong> (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.</p>
 <p><img src="img/fm1-feel.png" alt="SEL › FEEL: four notes of a chord as they&#39;d fall" /></p>
 <p>The keys in the scale glow on the keybed.</p>
 <h3 id="arp-the-arpeggiator">ARP: the arpeggiator</h3>
@@ -804,7 +806,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </ul>
 <p>Each layer goes out on its own MIDI channel, and you choose which ones the FM-1 plays itself (the chords and the arpeggio as in the section above). With a layer's FM-1 switch off, you don't hear it on the FM-1: it goes only to the other synth. So the FM-1 can play the chords and the arpeggio while another synth takes the bass, or you can send everything out and let the FM-1 play nothing but what you choose.</p>
 <p><img src="img/fm1-style.png" alt="STYLE playing HOUSE" /> <img src="img/fm1-layers.png" alt="Where each layer goes" /></p>
-<p><strong>Page 3, STYLE</strong>:</p>
+<p><strong>Page 3, BASS STYLE</strong>:</p>
 <ul>
 <li><strong>STYLE</strong>: OFF, HELD (the bass holds the chord's root, with no rhythm) or one of 32 rhythms for the bass (below).</li>
 <li><strong>BASS OCT</strong>: the bass's octave, −2 to +1.</li>
@@ -957,13 +959,13 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h3 id="global">GLOBAL</h3>
 <p>GLO opens ten pages:</p>
 <ol type="1">
-<li><p><strong>SETTINGS</strong>: TEMPO (60–180), MIDI CH (OMNI or 1–16), VOICES (AUTO or 1–6), CLOCK (internal or MIDI)</p></li>
-<li><p><strong>PLAYING</strong>: VEL CURVE, ANIMATION (full, calm, still), LED BRIGHT</p></li>
-<li><p><strong>TUNING</strong>: TUNING (13: equal, just, Pythagorean, meantone, Werckmeister III, Kirnberger III, rast, bayati, slendro, pelog, 19-, 24- and 31-EDO), T ROOT, A4 HZ, BEND (the pitch-bend range)</p></li>
+<li><p><strong>TEMPO + VOICES</strong>: TEMPO (60–180), MIDI CH (OMNI or 1–16), VOICES (AUTO or 1–6), CLOCK (internal or MIDI)</p></li>
+<li><p><strong>TOUCH + LEDS</strong>: VEL CURVE, ANIMATION (full, calm, still), LED BRIGHT</p></li>
+<li><p><strong>TUNING + BEND</strong>: TUNING (13: equal, just, Pythagorean, meantone, Werckmeister III, Kirnberger III, rast, bayati, slendro, pelog, 19-, 24- and 31-EDO), T ROOT, A4 HZ, BEND (the pitch-bend range)</p></li>
 <li><p><strong>MIDI</strong>: PROG CHG, MIDI OUT, OUT CH, LOCAL</p></li>
-<li><p><strong>MASTER</strong>: LOW, MID and HIGH EQ and COMP, over every preset</p></li>
-<li><p><strong>SYSTEM</strong>: measured, not set: CPU history, memory, voices, cores</p></li>
-<li><p><strong>CLICK</strong>: the click track (section 11):</p>
+<li><p><strong>EQ + COMP</strong>: LOW, MID and HIGH EQ and COMP, over every preset</p></li>
+<li><p><strong>CPU + MEMORY</strong>: measured, not set: CPU history, memory, voices, cores</p></li>
+<li><p><strong>CLICK + COUNT IN</strong>: the click track (section 11):</p>
 <ul>
 <li><strong>CLICK</strong>: OFF, REC (a click on every beat while recording; to start with) or REC+PLAY (whenever the sequencer runs);</li>
 <li><strong>COUNT IN</strong>: OFF, 1 BAR (to start with) or 2 BARS;</li>
@@ -1000,7 +1002,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li>with +CC, the macros as CC 21–24.</li>
 </ul>
 <h2 id="11-the-sequencer">11. The sequencer</h2>
-<p>Tap <strong>SEQ</strong> to open it; it remembers the page you were on. Tap SEQ again, or turn <strong>SELECT</strong>, to step through its six pages: <strong>NOTES, PATTERN, SPICE, GEN, BANKS, SONG</strong> (and the seven drum pages after them, see DRUMS below). On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.</p>
+<p>Tap <strong>SEQ</strong> to open it; it remembers the page you were on. It has two groups: the note pages and the drum pages. <strong>SELECT</strong> turns the six note pages: <strong>NOTES, PATTERN, SPICE + CHANCE, GENERATE, BANKS, SONG</strong>. <strong>Tap SEQ again</strong> to go to the drum pages (the seven of DRUMS below, DRUM GRID first), and again to come back, each at the page you last used there. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.</p>
 <ul>
 <li><strong>PLAY</strong> starts and stops it from any page. Stopping also ends held notes (latched chords and the arpeggiator's HOLD).</li>
 <li>It plays at GLOBAL › TEMPO or on MIDI clock, and sends its notes to MIDI out when that's on.</li>
@@ -1041,10 +1043,10 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h3 id="pattern">PATTERN</h3>
 <p><strong>K1</strong> LENGTH (1–64 steps), <strong>K2</strong> DIV (1/4, 1/8, 1/16, 1/32, 8T, 16T, 1/2, 1 BAR, 2 BAR, 4 BAR), <strong>K3</strong> SWING, <strong>K4</strong> GATE. ALGORITHM moves the cursor over the step grid.</p>
 <p><img src="img/fm1-pattern.png" alt="PATTERN" /></p>
-<h3 id="spice">SPICE</h3>
+<h3 id="spice--chance">SPICE + CHANCE</h3>
 <p><strong>K1</strong> SPICE adds random rests, octave jumps and force changes, more as you turn it up. <strong>K2</strong> DICE rolls the same amount differently. <strong>K3</strong> CHANCE sets how often the step under the cursor plays. <strong>K4</strong> FILL: –, FILL (only in a fill) or NO FILL (only outside one).</p>
 <p><img src="img/fm1-spice.png" alt="SPICE" /></p>
-<h3 id="gen-pattern-tools">GEN: pattern tools</h3>
+<h3 id="generate-pattern-tools">GENERATE: pattern tools</h3>
 <p><strong>K1</strong> chooses the tool: EUCLID, RANDOM, ACID, ARP UP, ARP UPDN, BERLIN, OCTAVES, OFFBEAT, ROLLING, STABS, PROGRESS, GATES, SHIFT &gt;, SHIFT &lt;, REVERSE, DOUBLE, HALF or CLEAR. <strong>K2</strong> and <strong>K3</strong> are its two values (for EUCLID, pulses and rotation, with a ring showing the result), and <strong>K4</strong> is the seed. <strong>Turn ALGORITHM right to apply it, left to put the bank back.</strong> New notes follow SEL's scale and key.</p>
 <p><img src="img/fm1-gen.png" alt="GEN" /></p>
 <h3 id="banks">BANKS</h3>
@@ -1073,13 +1075,14 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h3 id="drums">DRUMS</h3>
 <p>Six drum lanes (<strong>KICK, SNARE, C HAT, O HAT, CLAP, PERC</strong>) of 16 steps play beside the note sequencer, on four voices of the FM-1's own processor (the two hats share one voice, and the clap and perc share one). They start and stop with <strong>PLAY</strong>, at the same tempo or MIDI clock, and each lane's SEND sets how much of it goes through the FX chain. Seven more pages follow SONG when you tap SEQ: <strong>DRUM, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT</strong> (they have their own row of dots).</p>
 <ul>
-<li><strong>DRUM</strong> is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint <strong>SEL+ALGO: LOAD BEAT</strong>: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.</li>
+<li>On the drum pages SELECT is the step or the lane, so <strong>hold SEL and turn SELECT</strong> to turn the drum pages: DRUM GRID, KIT + PATTERNS, LANE SOUND, LANE MIX, LANE TIMING, DRUM GENERATE, DRUM MIDI.</li>
+<li><strong>DRUM</strong> (DRUM GRID) is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint <strong>SEL+ALGO: LOAD BEAT</strong>: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.</li>
 <li><strong>LANE SOUND</strong> gives the lane a model from a list that shows what each costs in CPU points, and relabels TONE and COLOUR for that model; K4 is the PITCH. <strong>SEL + ALGO</strong> loads a whole kit: <strong>909 ISH, 808 ISH, LO-FI, SPARSE</strong>. Turning anything plays the lane once, so you hear it.</li>
 <li><strong>LANE MIX</strong>: DECAY, LEVEL, PAN and SEND (how much goes to the FX).</li>
-<li><strong>LANE FEEL</strong>: each lane's LENGTH (1 to 16 steps), DIVIDE (1/8, 1/16, 1/32, 8T, 16T), SHIFT and CHOKE (the lane it cuts when it hits: a closed hat cutting the open one). A lane of 12 against one of 16 drifts and comes back every bar, which is the point.</li>
-<li><strong>DRUM GEN</strong> fills a lane with <strong>EUCLID, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, RANDOM, BREAK</strong> or <strong>CLEAR</strong>: K2 HITS, K3 TURN (rotate), K4 VARY (how many hits get another force). Turn ALGO right to write it; the lane is then edited by hand as any other. There is no undo (it would cost RAM), so write it into a lane you can spare.</li>
+<li><strong>LANE TIMING</strong> (was LANE FEEL): each lane's LENGTH (1 to 16 steps), DIVIDE (1/8, 1/16, 1/32, 8T, 16T), SHIFT and CHOKE (the lane it cuts when it hits: a closed hat cutting the open one). A lane of 12 against one of 16 drifts and comes back every bar, which is the point.</li>
+<li><strong>DRUM GENERATE</strong> fills a lane with <strong>EUCLID, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, RANDOM, BREAK</strong> or <strong>CLEAR</strong>: K2 HITS, K3 TURN (rotate), K4 VARY (how many hits get another force). Turn ALGO right to write it; the lane is then edited by hand as any other. There is no undo (it would cost RAM), so write it into a lane you can spare.</li>
 <li><strong>DRUM MIDI</strong>: per lane OUT (<strong>SOUND</strong>, <strong>MIDI</strong>, <strong>ALSO</strong> or <strong>OFF</strong>), channel and GM note (the defaults are channel 10, kick 36, snare 38, closed hat 42, open hat 46, clap 39, perc 45) and IN. With IN on, a note on that lane's channel and note plays the lane (velocity sets its level) and is not played by the synth; every other note is the synth's.</li>
-<li><strong>DRUM KIT</strong>: the pattern chips <strong>A to H</strong> (turn ALGO right to queue one; while the drums play it takes over at the next bar line and every lane restarts, and an edit before then calls it off; ALGO left calls the queue off), the <strong>KIT</strong>, <strong>SWING</strong> (50 to 75 %, on the 16ths; triplets are not swung) and <strong>IF BUSY</strong>, what the drums do when the processor is short of room: <strong>CLOUD</strong> (the default: Clouds' DENSITY is held at 0.9 while the drums play), <strong>VOICES</strong> (a synth voice is shed) or <strong>NONE</strong>. The page shows the load of the current kit in points. SELECT turns on whether <strong>STYLE</strong> starts and stops the drums with it (on by default).</li>
+<li><strong>KIT + PATTERNS</strong> (DRUM KIT): the pattern chips <strong>A to H</strong> (turn ALGO right to queue one; while the drums play it takes over at the next bar line and every lane restarts, and an edit before then calls it off; ALGO left calls the queue off), the <strong>KIT</strong>, <strong>SWING</strong> (50 to 75 %, on the 16ths; triplets are not swung) and <strong>IF BUSY</strong>, what the drums do when the processor is short of room: <strong>CLOUD</strong> (the default: Clouds' DENSITY is held at 0.9 while the drums play), <strong>VOICES</strong> (a synth voice is shed) or <strong>NONE</strong>. The page shows the load of the current kit in points. SELECT turns on whether <strong>STYLE</strong> starts and stops the drums with it (on by default).</li>
 </ul>
 <p>Changing the pattern while playing is refused when the live pattern has unsaved edits, because it would be lost: press SAVE first.</p>
 <p>The patterns A to H, the kit, the lane sounds, feel, MIDI settings, swing and IF BUSY are kept by <strong>SAVE</strong> on any drum page (they stay in memory until then). An older save with no drums loads as before, with an empty grid.</p>

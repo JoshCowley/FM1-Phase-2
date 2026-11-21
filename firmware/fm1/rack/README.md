@@ -6,6 +6,14 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 58 / release 2.34: tap again = next group (host-tested, NOT run on an FM-1)
+
+- **The rule.** A page button tapped again goes to its next GROUP of pages; SELECT turns the pages inside the group. Groups: ENV AMP / FILTER / SHAPER; LFO: LFO (9 pages), GATE PATTERN (2), MOD A, MOD B, MSEQ, MATRIX; FX: FX 1, FX 2, JAM; EDIT: SOURCE, OSC; SEQ: the note pages, the drum pages. SEL, ARP and GLO are one group each (tapped again they stay). From HOME: FILTER ENV x2 (was 8), GATE PATTERN LFO x2 (12), JAM FX x3 (7), the DRUM grid SEQ x2 (7); SAVE and a preset change as before (1 each). `sim_groups.txt` proves them.
+- **Kept.** The SEL / ARP double and triple taps, FX double tap (JAM), hold FX and taps, ENV + K1 sweep, hold SEQ (the step layer), OCT- + OCT+ read-outs are untouched. LFO double tap (MATRIX) conflicts with tap-again, so a tap on one of LFO's own pages waits the 0.3 s before it moves on: a quick double tap is only ever the MATRIX, a slower second tap is the next group. On the drum pages SELECT is the step or lane, so SEL held + SELECT turns the drum pages.
+- **LFO opens on the LFO page.** FILTER's F ATK-F REL page is hidden unless ENV SRC is OWN. Drum pages in the order DRUM, KIT, LANE SOUND, MIX, TIMING, GENERATE, MIDI.
+- **Renamed:** TEMPO + VOICES, TOUCH + LEDS, TUNING + BEND, EQ + COMP, CPU + MEMORY, CLICK + COUNT IN; BASS STYLE, HUMANISE; SPICE + CHANCE, GENERATE, DRUM GRID, KIT + PATTERNS, LANE TIMING, DRUM GENERATE. Not changed: the sound (all 46 presets render identically), saved data, LAYER MIDI CH and CHORD + ARP (still in GLOBAL).
+- Not done: each group remembering its last page (SEQ does), folding AMP / LFO low-use pages.
+
 ## Update 56: pages moved, merged, and a GATE PATTERN generator (host-tested, NOT run on an FM-1)
 
 - LAYER MIDI CH and CHORD + ARP are now GLOBAL pages 9 and 10 (same params and storage).

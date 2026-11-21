@@ -86,20 +86,22 @@ These steps come from fm1-base and Felucca. None has been needed with FM1 Rack s
 
 ### Buttons
 
-Each page button opens its first page. **Tap it again to turn through that page's pages** (the dots in the header), one tap a dot; after the last dot (a module's MOD page counts as one) the next tap goes on to the button's next page, and after the last it comes back to the first (update 51). SELECT still turns the dots either way. A button counts as held only after 0.6 s, so a quick press is never taken for a hold.
+Each page button opens its first page. **Tap it again for the button's next group of pages; SELECT turns the pages inside the group** (the dots in the header; a module's MOD page counts as one). After the last group the next tap comes back to the first (2.34; before that a tap turned one dot at a time, which took 8 taps to reach the FILTER). A button with one group (SEL, ARP, GLO) stays where it is when you tap it again. A button counts as held only after 0.6 s, so a quick press is never taken for a hold.
+
+**Where the taps go** (from HOME): FILTER is **ENV, ENV**; GATE PATTERN is **LFO, LFO**; JAM is **FX, FX, FX**; the DRUM grid is **SEQ, SEQ**; the SAVE page is **SAVE**; a preset change is one turn of PRESET.
 
 | Button | Tap | Tap again | Hold, or two or three quick taps |
 | --- | --- | --- | --- |
 | **HOME** | HOME | RACK, an overview of every slot; once more, HOME with all notes off | Also closes the module picker, the SAVE page and LEARN |
-| **EDIT** | the source (Plaits or Braids) | OSC, the second oscillator and mixer | **Hold: UNDO** the last change; hold again to go further back (up to 16). With SEL: LEARN. On the sequencer's NOTES: **delete** (section 11) |
-| **ENV** | AMP (envelopes, voice mode) | the FILTER, then the shaper (Rings or empty) | **Hold ENV and turn K1, on any page: the filter's SWEEP** (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned) |
-| **LFO** | MOD A | MOD B, the LFOs (with their targets, then the GATE PATTERN), MSEQ, the MATRIX | **Two taps: the MATRIX** |
-| **FX** | FX 1 | FX 2, then JAM | **Two quick taps: JAM on or off, from any page** (update 28, section 10). **Hold, let go, then one tap: FX 1 off or on; two taps: FX 2** (section 10) |
-| **ARP** | the arpeggiator | HOLD + TURING, then RHYTHM and CHANCE | **Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on** (section 10) |
-| **SEL** | scale and chord | (SELECT turns its pages: KEYS + STRUM, STYLE, then FEEL) | **Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on** (section 10). **Hold SEL and EDIT together (half a second): LEARN on or off** (section 8) |
-| **GLO** | GLOBAL settings | its next pages (ten; the last two are LAYER MIDI CH and CHORD + ARP) | **Two taps (or hold): DAYLIGHT on or off** (for the sun) |
+| **EDIT** | the source (Braids) | OSC, the second oscillator and mixer (then back to the source) | **Hold: UNDO** the last change; hold again to go further back (up to 16). With SEL: LEARN. On the sequencer's NOTES: **delete** (section 11) |
+| **ENV** | AMP (envelopes, voice mode) | the FILTER, then the shaper (Rings or empty), then AMP again | **Hold ENV and turn K1, on any page: the filter's SWEEP** (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned) |
+| **LFO** | the LFOs (and their targets) | GATE PATTERN, MOD A, MOD B, MSEQ, the MATRIX | **Two quick taps: the MATRIX.** A tap on one of these pages waits 0.3 s before it moves on, so a quick double tap is only ever the MATRIX |
+| **FX** | FX 1 | FX 2, then JAM, then FX 1 | **Two quick taps: JAM on or off, from any page** (update 28, section 10). **Hold, let go, then one tap: FX 1 off or on; two taps: FX 2** (section 10) |
+| **ARP** | the arpeggiator | (SELECT turns its pages: HOLD + TURING, RHYTHM and CHANCE) | **Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on** (section 10) |
+| **SEL** | scale and chord | (SELECT turns its pages: KEYS + STRUM, BASS STYLE, then HUMANISE) | **Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on** (section 10). **Hold SEL and EDIT together (half a second): LEARN on or off** (section 8) |
+| **GLO** | GLOBAL, TEMPO + VOICES | (SELECT turns its ten pages; the last two are LAYER MIDI CH and CHORD + ARP) | **Two taps (or hold): DAYLIGHT on or off** (for the sun) |
 | **SAVE** | the SAVE page | SAVE again stores the preset | On a sequencer page: stores the sequencer |
-| **SEQ** | the sequencer, at the page you last used | the next sequencer page | **Hold: the step layer** (section 11) |
+| **SEQ** | the sequencer, at the page you last used | the other group: the note pages (NOTES to SONG) or the drum pages (DRUM GRID on), each at the page you last used there | **Hold: the step layer** (section 11) |
 | **PLAY** | start or stop the sequencer | | |
 | **REC** | stopped: REC READY (then PLAY: a bar's count-in, then recording); playing: recording on or off | | |
 | **OCT− / OCT+** | octave down or up | | On SAVE: OCT+ opens the library. In the step layer: the previous or next 16 steps |
@@ -238,7 +240,7 @@ Every voice has its own source, shaper, filter and amplifier. The modulators and
 
 ### The filter and its SWEEP (update 26)
 
-**The filter is in every voice's chain, always** (after the shaper, before AMP), not a module you load. ENV, then ENV again, opens its page (AMP's pages and its MOD page come first); the shaper (Rings or empty) is the page after it, and its picker no longer offers the filter. Its page has four pages of four: TYPE, CUTOFF, RESO, DRIVE; ENV AMT, KEY TRK, VEL AMT, ENV SRC; F ATK, F DEC, F SUS, F REL; SAT, AUDIO FM, GAIN and **SWEEP**. Every one of them can be a destination of the matrix and of the knob layer, listed as **FLT.** in the destinations (FLT.CUTOFF, FLT.SWEEP, ...).
+**The filter is in every voice's chain, always** (after the shaper, before AMP), not a module you load. ENV, then ENV again, opens its page (AMP comes first); the shaper (Rings or empty) is the page after it, and its picker no longer offers the filter. Its page has four pages of four: TYPE, CUTOFF, RESO, DRIVE; ENV AMT, KEY TRK, VEL AMT, ENV SRC; F ATK, F DEC, F SUS, F REL; SAT, AUDIO FM, GAIN and **SWEEP**. **The F ATK / F DEC / F SUS / F REL page is only there while ENV SRC is OWN** (with AMP or MOD as the source those four do nothing, so SELECT passes the page by). Every one of them can be a destination of the matrix and of the knob layer, listed as **FLT.** in the destinations (FLT.CUTOFF, FLT.SWEEP, ...).
 
 **A preset with no filter has it open.** A low-pass with no resonance, drive, saturation, audio FM or gain whose cutoff is above the audio band (the CUTOFF at the top of its travel) is transparent: the filter fades out over the last 14 semitones below 21.6 kHz and is then skipped, so a sound that had no filter sounds exactly as it did (every one of the 46 factory presets plays sample for sample as before, with the SWEEP in the centre). The filter every other preset has is the same as it always was.
 
@@ -252,7 +254,7 @@ SWEEP is saved by SAVE in a user slot with the rest of the filter and comes back
 
 ### Module pages
 
-Open a slot with its button. **SELECT** turns the pages within the module; **K1–K4** set the four parameters shown.
+Open a slot with its button. **SELECT** turns the pages within the module (tap the button again for the next module or page group); **K1–K4** set the four parameters shown.
 
 **Changing a module**: on its page, turn **ALGORITHM**. The picker opens on the module now loaded. Turn to choose, then press the slot's button again to load it, or HOME to leave it as it was. Loading stops the sound for a moment while memory is laid out again. It then says how many voices fit ("BRAIDS 6 V"), or "NO ROOM".
 
@@ -341,12 +343,14 @@ LFO steps through **MOD A, MOD B, LFO, MSEQ** and the **MATRIX**. Tap it twice q
 
 ![LFO](../web/manual/img/fm1-lfo.png)
 
-The LFO page has eleven pages (SELECT):
+The LFO button opens the LFO page first. It has two groups (tap LFO again to go from one to the other; SELECT turns the pages inside a group): the LFOs, nine pages, then the GATE PATTERN, two pages. MOD A, MOD B, MSEQ and the MATRIX follow as groups of their own.
+
+The LFOs (SELECT):
 
 - pages 1–3: SHAPE (SINE, TRI, SAW, SQUARE, S&H, DRIFT), RATE, SYNC (FREE, or 1/16 to 2 BARS of the tempo), RETRIG, for LFO 1, 2 and 3;
 - pages 4–6: FADE (a fade-in from each note), PHASE, POLAR, 1SHOT, for each;
 - pages 7–9: **LFO TARGET**, each LFO's two direct destinations. K1 and K3 choose the destination, K2 and K4 the amount;
-- pages 10–11: the **GATE PATTERN** (below).
+- the second group, **GATE PATTERN** (two pages, below).
 
 #### GATE PATTERN: a rhythm that fires triggers
 
@@ -474,7 +478,7 @@ SEL, ARP and GLOBAL are settings of the instrument, not of a preset. They stay w
 ![SEL › KEYS + STRUM with ZONE on BASS](../web/manual/img/fm1-zone.png)
 - **STRUM**: up to 80 ms between the chord's notes, lowest first. It also strums the chords the sequencer plays back (it's applied as they play, so turning it changes recorded chords too).
 
-**Page 4, FEEL**: **HUMAN** (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.
+**Page 4, HUMANISE**: **HUMAN** (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.
 
 ![SEL › FEEL: four notes of a chord as they'd fall](../web/manual/img/fm1-feel.png)
 
@@ -539,7 +543,7 @@ Each layer goes out on its own MIDI channel, and you choose which ones the FM-1 
 
 ![STYLE playing HOUSE](../web/manual/img/fm1-style.png) ![Where each layer goes](../web/manual/img/fm1-layers.png)
 
-**Page 3, STYLE**:
+**Page 3, BASS STYLE**:
 
 - **STYLE**: OFF, HELD (the bass holds the chord's root, with no rhythm) or one of 32 rhythms for the bass (below).
 - **BASS OCT**: the bass's octave, −2 to +1.
@@ -622,13 +626,13 @@ The **stutters, GLITCH and FILTER RISE are clocked**: they count sixteenths from
 
 GLO opens ten pages:
 
-1. **SETTINGS**: TEMPO (60–180), MIDI CH (OMNI or 1–16), VOICES (AUTO or 1–6), CLOCK (internal or MIDI)
-2. **PLAYING**: VEL CURVE, ANIMATION (full, calm, still), LED BRIGHT
-3. **TUNING**: TUNING (13: equal, just, Pythagorean, meantone, Werckmeister III, Kirnberger III, rast, bayati, slendro, pelog, 19-, 24- and 31-EDO), T ROOT, A4 HZ, BEND (the pitch-bend range)
+1. **TEMPO + VOICES**: TEMPO (60–180), MIDI CH (OMNI or 1–16), VOICES (AUTO or 1–6), CLOCK (internal or MIDI)
+2. **TOUCH + LEDS**: VEL CURVE, ANIMATION (full, calm, still), LED BRIGHT
+3. **TUNING + BEND**: TUNING (13: equal, just, Pythagorean, meantone, Werckmeister III, Kirnberger III, rast, bayati, slendro, pelog, 19-, 24- and 31-EDO), T ROOT, A4 HZ, BEND (the pitch-bend range)
 4. **MIDI**: PROG CHG, MIDI OUT, OUT CH, LOCAL
-5. **MASTER**: LOW, MID and HIGH EQ and COMP, over every preset
-6. **SYSTEM**: measured, not set: CPU history, memory, voices, cores
-7. **CLICK**: the click track (section 11):
+5. **EQ + COMP**: LOW, MID and HIGH EQ and COMP, over every preset
+6. **CPU + MEMORY**: measured, not set: CPU history, memory, voices, cores
+7. **CLICK + COUNT IN**: the click track (section 11):
     - **CLICK**: OFF, REC (a click on every beat while recording; to start with) or REC+PLAY (whenever the sequencer runs);
     - **COUNT IN**: OFF, 1 BAR (to start with) or 2 BARS;
     - **CLICK VOL**: its level (MASTER turns it down too);
@@ -669,7 +673,7 @@ On a Mac it may take unplugging and plugging back in the first time, for the com
 
 ## 11. The sequencer
 
-Tap **SEQ** to open it; it remembers the page you were on. Tap SEQ again, or turn **SELECT**, to step through its six pages: **NOTES, PATTERN, SPICE, GEN, BANKS, SONG** (and the seven drum pages after them, see DRUMS below). On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.
+Tap **SEQ** to open it; it remembers the page you were on. It has two groups: the note pages and the drum pages. **SELECT** turns the six note pages: **NOTES, PATTERN, SPICE + CHANCE, GENERATE, BANKS, SONG**. **Tap SEQ again** to go to the drum pages (the seven of DRUMS below, DRUM GRID first), and again to come back, each at the page you last used there. On each, the four values sit as sliders along the top and the rest of the screen is the piano roll or the page's picture.
 
 - **PLAY** starts and stops it from any page. Stopping also ends held notes (latched chords and the arpeggiator's HOLD).
 - It plays at GLOBAL › TEMPO or on MIDI clock, and sends its notes to MIDI out when that's on.
@@ -710,13 +714,13 @@ Tap **SEQ** to open it; it remembers the page you were on. Tap SEQ again, or tur
 
 ![PATTERN](../web/manual/img/fm1-pattern.png)
 
-### SPICE
+### SPICE + CHANCE
 
 **K1** SPICE adds random rests, octave jumps and force changes, more as you turn it up. **K2** DICE rolls the same amount differently. **K3** CHANCE sets how often the step under the cursor plays. **K4** FILL: –, FILL (only in a fill) or NO FILL (only outside one).
 
 ![SPICE](../web/manual/img/fm1-spice.png)
 
-### GEN: pattern tools
+### GENERATE: pattern tools
 
 **K1** chooses the tool: EUCLID, RANDOM, ACID, ARP UP, ARP UPDN, BERLIN, OCTAVES, OFFBEAT, ROLLING, STABS, PROGRESS, GATES, SHIFT >, SHIFT <, REVERSE, DOUBLE, HALF or CLEAR. **K2** and **K3** are its two values (for EUCLID, pulses and rotation, with a ring showing the result), and **K4** is the seed. **Turn ALGORITHM right to apply it, left to put the bank back.** New notes follow SEL's scale and key.
 
@@ -758,13 +762,14 @@ Let go of SEQ to play again.
 
 Six drum lanes (**KICK, SNARE, C HAT, O HAT, CLAP, PERC**) of 16 steps play beside the note sequencer, on four voices of the FM-1's own processor (the two hats share one voice, and the clap and perc share one). They start and stop with **PLAY**, at the same tempo or MIDI clock, and each lane's SEND sets how much of it goes through the FX chain. Seven more pages follow SONG when you tap SEQ: **DRUM, LANE SOUND, LANE MIX, LANE FEEL, DRUM GEN, DRUM MIDI, DRUM KIT** (they have their own row of dots).
 
-- **DRUM** is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint **SEL+ALGO: LOAD BEAT**: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.
+- On the drum pages SELECT is the step or the lane, so **hold SEL and turn SELECT** to turn the drum pages: DRUM GRID, KIT + PATTERNS, LANE SOUND, LANE MIX, LANE TIMING, DRUM GENERATE, DRUM MIDI.
+- **DRUM** (DRUM GRID) is the grid. SELECT moves along the steps, K1 chooses the lane, EDIT switches a step on or off, and K2, K3 and K4 set the step's force (GHOST to ACCENT), ratchet (1 to 4) and chance. Holding SEQ turns the white keys into the lane's 16 steps; turn a knob while holding a key to set that step, and K4 there is the nudge (a step early or late by up to 3/64). ALGO right mutes the lane; ALGO left clears it. A fresh grid is empty and shows the hint **SEL+ALGO: LOAD BEAT**: hold SEL and turn ALGO left on an empty grid and a basic beat is written (kick on the beats, snare and clap on 2 and 4, hats, a little perc). SEL + K1 chooses the pattern.
 - **LANE SOUND** gives the lane a model from a list that shows what each costs in CPU points, and relabels TONE and COLOUR for that model; K4 is the PITCH. **SEL + ALGO** loads a whole kit: **909 ISH, 808 ISH, LO-FI, SPARSE**. Turning anything plays the lane once, so you hear it.
 - **LANE MIX**: DECAY, LEVEL, PAN and SEND (how much goes to the FX).
-- **LANE FEEL**: each lane's LENGTH (1 to 16 steps), DIVIDE (1/8, 1/16, 1/32, 8T, 16T), SHIFT and CHOKE (the lane it cuts when it hits: a closed hat cutting the open one). A lane of 12 against one of 16 drifts and comes back every bar, which is the point.
-- **DRUM GEN** fills a lane with **EUCLID, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, RANDOM, BREAK** or **CLEAR**: K2 HITS, K3 TURN (rotate), K4 VARY (how many hits get another force). Turn ALGO right to write it; the lane is then edited by hand as any other. There is no undo (it would cost RAM), so write it into a lane you can spare.
+- **LANE TIMING** (was LANE FEEL): each lane's LENGTH (1 to 16 steps), DIVIDE (1/8, 1/16, 1/32, 8T, 16T), SHIFT and CHOKE (the lane it cuts when it hits: a closed hat cutting the open one). A lane of 12 against one of 16 drifts and comes back every bar, which is the point.
+- **DRUM GENERATE** fills a lane with **EUCLID, FOUR FLOOR, BACKBEAT, OFFBEAT, 16THS, RANDOM, BREAK** or **CLEAR**: K2 HITS, K3 TURN (rotate), K4 VARY (how many hits get another force). Turn ALGO right to write it; the lane is then edited by hand as any other. There is no undo (it would cost RAM), so write it into a lane you can spare.
 - **DRUM MIDI**: per lane OUT (**SOUND**, **MIDI**, **ALSO** or **OFF**), channel and GM note (the defaults are channel 10, kick 36, snare 38, closed hat 42, open hat 46, clap 39, perc 45) and IN. With IN on, a note on that lane's channel and note plays the lane (velocity sets its level) and is not played by the synth; every other note is the synth's.
-- **DRUM KIT**: the pattern chips **A to H** (turn ALGO right to queue one; while the drums play it takes over at the next bar line and every lane restarts, and an edit before then calls it off; ALGO left calls the queue off), the **KIT**, **SWING** (50 to 75 %, on the 16ths; triplets are not swung) and **IF BUSY**, what the drums do when the processor is short of room: **CLOUD** (the default: Clouds' DENSITY is held at 0.9 while the drums play), **VOICES** (a synth voice is shed) or **NONE**. The page shows the load of the current kit in points. SELECT turns on whether **STYLE** starts and stops the drums with it (on by default).
+- **KIT + PATTERNS** (DRUM KIT): the pattern chips **A to H** (turn ALGO right to queue one; while the drums play it takes over at the next bar line and every lane restarts, and an edit before then calls it off; ALGO left calls the queue off), the **KIT**, **SWING** (50 to 75 %, on the 16ths; triplets are not swung) and **IF BUSY**, what the drums do when the processor is short of room: **CLOUD** (the default: Clouds' DENSITY is held at 0.9 while the drums play), **VOICES** (a synth voice is shed) or **NONE**. The page shows the load of the current kit in points. SELECT turns on whether **STYLE** starts and stops the drums with it (on by default).
 
 Changing the pattern while playing is refused when the live pattern has unsaved edits, because it would be lost: press SAVE first.
 
