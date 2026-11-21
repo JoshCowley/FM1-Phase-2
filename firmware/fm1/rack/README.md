@@ -6,6 +6,14 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 56: pages moved, merged, and a GATE PATTERN generator (host-tested, NOT run on an FM-1)
+
+- LAYER MIDI CH and CHORD + ARP are now GLOBAL pages 9 and 10 (same params and storage).
+- RHYTHM, RHYTHM CHANCE and the Euclid ring are ARP pages 3 and 4 ("RHYTHM: WHICH STEPS", "CHANCE: HOW OFTEN"; HITS/STEPS/TURN, PATTERN/CHANCE/MUTATE). SEL has 4 pages.
+- LFO gains pages 10 and 11: GATE PATTERN, two Euclid lanes (ringgen.c shared with RHYTHM, gatepat.c). GATE 1/2 are matrix sources (ext lanes 6 and 7), LFO RETRIG, PEAKS/TIDES GATE and FUNC TRIG options.
+- Settings record RKL9 becomes RKLA (arp[40] becomes arp[53]); RKL9 loads and gains defaults.
+- Tests: sim_gate, sim_pageorder, rack_host check 15 (`--gate`).
+
 ## Update 26: the filter is always in the chain, with a SWEEP (host-tested, NOT heard, NOT run on an FM-1)
 
 Josh: "the filter in the signal chain that can be modulated but also controlled by a knob for filter sweeps. Have it always in the chain instead of selectable in the envelope pages."

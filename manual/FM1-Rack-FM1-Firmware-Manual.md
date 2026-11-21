@@ -93,11 +93,11 @@ Each page button opens its first page. **Tap it again to turn through that page'
 | **HOME** | HOME | RACK, an overview of every slot; once more, HOME with all notes off | Also closes the module picker, the SAVE page and LEARN |
 | **EDIT** | the source (Plaits or Braids) | OSC, the second oscillator and mixer | **Hold: UNDO** the last change; hold again to go further back (up to 16). With SEL: LEARN. On the sequencer's NOTES: **delete** (section 11) |
 | **ENV** | AMP (envelopes, voice mode) | the FILTER, then the shaper (Rings or empty) | **Hold ENV and turn K1, on any page: the filter's SWEEP** (section 6; ENV then turns its page when you let go, not when you press, and not at all if K1 was turned) |
-| **LFO** | MOD A | MOD B, the LFOs, MSEQ, the MATRIX | **Two taps: the MATRIX** |
+| **LFO** | MOD A | MOD B, the LFOs (with their targets, then the GATE PATTERN), MSEQ, the MATRIX | **Two taps: the MATRIX** |
 | **FX** | FX 1 | FX 2, then JAM | **Two quick taps: JAM on or off, from any page** (update 28, section 10). **Hold, let go, then one tap: FX 1 off or on; two taps: FX 2** (section 10) |
-| **ARP** | the arpeggiator | HOLD + TURING | **Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on** (section 10) |
-| **SEL** | scale and chord | (SELECT turns its pages: KEYS + STRUM, then the MIDI controller pages STYLE, LAYER MIDI CH, CHORD + ARP, then FEEL, RHYTHM and RHYTHM CHANCE) | **Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on** (section 10). **Hold SEL and EDIT together (half a second): LEARN on or off** (section 8) |
-| **GLO** | GLOBAL settings | its next page | **Two taps (or hold): DAYLIGHT on or off** (for the sun) |
+| **ARP** | the arpeggiator | HOLD + TURING, then RHYTHM and CHANCE | **Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on** (section 10) |
+| **SEL** | scale and chord | (SELECT turns its pages: KEYS + STRUM, STYLE, then FEEL) | **Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on** (section 10). **Hold SEL and EDIT together (half a second): LEARN on or off** (section 8) |
+| **GLO** | GLOBAL settings | its next pages (ten; the last two are LAYER MIDI CH and CHORD + ARP) | **Two taps (or hold): DAYLIGHT on or off** (for the sun) |
 | **SAVE** | the SAVE page | SAVE again stores the preset | On a sequencer page: stores the sequencer |
 | **SEQ** | the sequencer, at the page you last used | the next sequencer page | **Hold: the step layer** (section 11) |
 | **PLAY** | start or stop the sequencer | | |
@@ -198,7 +198,7 @@ HOME shows the preset's category, name and number (or its user slot), the sound'
     - A red tile is a module the preset needs that didn't fit in memory.
 - **The modulators** loaded in MOD A and MOD B sit under the path; small arrows pulse up from them as their outputs move.
 - **The macros**: each with its value (0–100), a slider in its knob's colour (moving with the sound, as on the pages), and what it moves (the first destination, "+2" if more), or **UNSET**. K1–K4 turn them; so do MIDI CC 20–23.
-- **The tabs** along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, **KEYS: FM-1 OFF** (or **ARP: FM-1 OFF**), means the keys or the arpeggio aren't playing the FM-1's sound (SEL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)
+- **The tabs** along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, **KEYS: FM-1 OFF** (or **ARP: FM-1 OFF**), means the keys or the arpeggio aren't playing the FM-1's sound (GLOBAL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)
 
 **PRESET** chooses the preset, **ALGORITHM** jumps a category and **SELECT** sets the voices (1–6). Changing preset, or loading a module into a slot, fades the sound out over a few milliseconds and the new one in, so it doesn't click; nothing of the old sound (its echoes, its last few samples) carries into the new one. Knobs glide to their new values over a few milliseconds too, so a level, a cutoff or a chorus turned quickly doesn't click or zipper; a choice from a list (a model, a type) still changes at once. Tap HOME again for **RACK**, a list of every slot, AMP, the outputs and how many matrix routes are set.
 
@@ -341,11 +341,28 @@ LFO steps through **MOD A, MOD B, LFO, MSEQ** and the **MATRIX**. Tap it twice q
 
 ![LFO](../web/manual/img/fm1-lfo.png)
 
-The LFO page has nine pages (SELECT):
+The LFO page has eleven pages (SELECT):
 
 - pages 1–3: SHAPE (SINE, TRI, SAW, SQUARE, S&H, DRIFT), RATE, SYNC (FREE, or 1/16 to 2 BARS of the tempo), RETRIG, for LFO 1, 2 and 3;
 - pages 4–6: FADE (a fade-in from each note), PHASE, POLAR, 1SHOT, for each;
-- pages 7–9: **LFO TARGET**, each LFO's two direct destinations. K1 and K3 choose the destination, K2 and K4 the amount.
+- pages 7–9: **LFO TARGET**, each LFO's two direct destinations. K1 and K3 choose the destination, K2 and K4 the amount;
+- pages 10–11: the **GATE PATTERN** (below).
+
+#### GATE PATTERN: a rhythm that fires triggers
+
+LFO pages 10 and 11 are the ARP RHYTHM generator again, but its hits are gates, not notes. Two lanes, **GATE 1** and **GATE 2**, each an Euclidean ring with its own RATE from the tempo (or MIDI clock). Nothing runs while a lane's RATE is OFF (the start), so patches sound as before.
+
+- **Page 10, GATE PATTERN**: **LANE** (GATE 1 or 2), **RATE** (OFF, 1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32), **HITS**, **STEPS**. Help line: HITS FIRE A GATE: RETRIG LFO, ENV, MATRIX.
+- **Page 11, GATE: CHANCE**: **LANE**, **TURN**, **CHANCE** (odds of each hit), **MUTATE**.
+
+Each hit raises the lane's gate for half a step. What listens:
+
+- **The matrix**: GATE 1 and GATE 2 are sources (1 while the gate is up, else 0).
+- **LFO RETRIG**: OFF, KEY, GATE 1, GATE 2; the LFO restarts on each hit.
+- **PEAKS and TIDES**: their GATE choice includes GATE 1 and GATE 2.
+- **FUNC**: TRIG includes GATE 1 and GATE 2.
+
+The voices' own AMP and filter envelopes still start on notes; the gate retriggers the LFOs and the MOD slots' envelopes. The macros (knob layer) have no source list, so a gate reaches them only through a matrix row.
 
 RATE runs from about 0.03 Hz to 30 Hz; at 75 it is about 5 Hz, a singer's vibrato.
 
@@ -457,18 +474,9 @@ SEL, ARP and GLOBAL are settings of the instrument, not of a preset. They stay w
 ![SEL › KEYS + STRUM with ZONE on BASS](../web/manual/img/fm1-zone.png)
 - **STRUM**: up to 80 ms between the chord's notes, lowest first. It also strums the chords the sequencer plays back (it's applied as they play, so turning it changes recorded chords too).
 
-**Page 6, FEEL**: **HUMAN** (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.
+**Page 4, FEEL**: **HUMAN** (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.
 
 ![SEL › FEEL: four notes of a chord as they'd fall](../web/manual/img/fm1-feel.png)
-
-**Pages 7–8, RHYTHM and RHYTHM CHANCE** (update 48): a ring generator for each layer. K1 (**GEN**) picks the generator to see and set: **BASS M** (the master), **CHORD** or **ARP**; K2–K4 set its values. All three are drawn over each other round one centre (BASS outside, CHORD, ARP inside), the one picked bright and on top, the others dimmed behind; a legend beside them gives each one's mode and hits. Steps are dots round the ring, the hits are joined into a shape, and a hand sweeps round as it plays.
-
-- **RHYTHM**: **HITS** (how many), **ROTATE** (turns the pattern round), **STEPS** (the ring's length, 2–32).
-- **RHYTHM CHANCE**: **MODE**, **CHANCE** (each hit's chance to play, 100% to start with), **MUTATE** (at the end of each cycle, the chance the ring turns a step or gains or loses a hit; a quarter of the time it goes back to the pattern as set).
-- **MODE**, BASS: **STYLE** (the style's own pattern, as before; ROTATE still turns it) or **RING** (HITS spread as evenly as possible round STEPS). CHORD and ARP: **OFF** (as before), **RING** (their own), **SAME** (the bass's hits) or **ANSWER** (the gaps between the bass's hits: call and response).
-![SEL › RHYTHM: the CHORD ring, the bass and arp rings beside it](../web/manual/img/fm1-rhythm.png)
-
-- With CHORD on, the chord you hold is struck in the ring's rhythm instead of held. With ARP on, the arp rests on the ring's empty steps. BASS and CHORD need a STYLE on; ARP works whenever the arp runs.
 
 The keys in the scale glow on the keybed.
 
@@ -481,6 +489,17 @@ The keys in the scale glow on the keybed.
 
 It follows the tempo (GLOBAL › TEMPO) or MIDI clock, and the picture shows the pattern and the step playing.
 
+**Pages 3 and 4, RHYTHM and CHANCE** (update 48; moved here from SEL, with plainer names): a ring generator for each layer. K1 (**LAYER**) picks the one to see and set: **BASS** (the master), **CHORD** or **ARP**; K2–K4 set its values. All three are drawn over each other round one centre (BASS outside, CHORD, ARP inside), the one picked bright and on top, the others dimmed behind; a legend beside them gives each one's pattern and hits. Steps are dots round the ring, the hits are joined into a shape, and a hand sweeps round as it plays. Each page has a one-line help on screen. The saved values are the same as before (the old ROTATE is now TURN, MODE is PATTERN, GEN is LAYER).
+
+- **Page 3, RHYTHM: WHICH STEPS**: **HITS** (how many), **STEPS** (the ring's length, 2–32), **TURN** (turns the pattern round). Hits are spread as evenly as they go (a Euclidean rhythm).
+- **Page 4, CHANCE: HOW OFTEN**: **PATTERN**, **CHANCE** (each hit's chance to play, 100% to start with), **MUTATE** (at the end of each cycle, the chance the ring turns a step or gains or loses a hit; a quarter of the time it goes back to the pattern as set).
+- **PATTERN**, BASS: **STYLE** (the style's own pattern, as before; TURN still turns it) or **RING** (HITS spread as evenly as possible round STEPS). CHORD and ARP: **OFF** (as before), **RING** (their own), **SAME** (the bass's hits) or **ANSWER** (the gaps between the bass's hits: call and response).
+
+![ARP › RHYTHM: the CHORD ring, the bass and arp rings beside it](../web/manual/img/fm1-rhythm.png)
+
+- With CHORD on, the chord you hold is struck in the ring's rhythm instead of held. With ARP on, the arp rests on the ring's empty steps. BASS and CHORD need a STYLE on; ARP works whenever the arp runs.
+
+
 **HOLD as a chord latch**: with HOLD on and MODE OFF, notes and chords keep sounding after you let go. Playing again once every key is up replaces them; keys added while others are held add to them. Turning HOLD off, changing MODE, or stopping the sequencer with PLAY ends them.
 
 ### Chords and arpeggio: on the FM-1, and sent
@@ -488,9 +507,9 @@ It follows the tempo (GLOBAL › TEMPO) or MIDI clock, and the picture shows the
 What you play on the keys (a chord, or a single note with chords off) and what the arpeggiator plays each have two stages, switched separately:
 
 - **ON FM-1**: you hear it on the FM-1's own sound;
-- **SEND**: it goes out over MIDI on its own channel, SEL › LAYER MIDI CH › **CHORD CH** (1 to start with) or **ARP CH** (3), so another synth can play it.
+- **SEND**: it goes out over MIDI on its own channel, GLOBAL › LAYER MIDI CH › **CHORD CH** (1 to start with) or **ARP CH** (3), so another synth can play it.
 
-All four are on to start with. Switch them on SEL's last page, **CHORD + ARP**, or with quick taps:
+All four are on to start with. Switch them on GLOBAL's last page, **CHORD + ARP**, or with quick taps:
 
 ![CHORD + ARP: each stage's switch, and where each layer goes](../web/manual/img/fm1-chordarp.png)
 
@@ -527,9 +546,9 @@ Each layer goes out on its own MIDI channel, and you choose which ones the FM-1 
 - **ACCENT**: how much louder the accented bass notes (the roots marked as accents) are than the others.
 - **BASS LEN**: the bass notes' length, from short and punchy to legato.
 
-**Page 4, LAYER MIDI CH**: **CHORD CH**, **BASS CH** and **ARP CH**, each OFF or 1–16 (1, 2 and 3 to start with), and **BASS FM1**: ON (you hear the bass on the FM-1, and it goes out too) or OFF (it goes out only, to start with). The bass is sent whenever its channel is set.
+**GLOBAL page 9, LAYER MIDI CH** (moved from SEL): **CHORD CH**, **BASS CH** and **ARP CH**, each OFF or 1–16 (1, 2 and 3 to start with), and **BASS FM1**: ON (you hear the bass on the FM-1, and it goes out too) or OFF (it goes out only, to start with). The bass is sent whenever its channel is set.
 
-**Page 5, CHORD + ARP**: the chords' and the arpeggio's FM-1 and SEND switches (above). (If you saved your settings with update 34 or 35, ARP FM-1 may still be OFF: two taps on ARP turn it on.)
+**GLOBAL page 10, CHORD + ARP** (moved from SEL): the chords' and the arpeggio's FM-1 and SEND switches (above). (If you saved your settings with update 34 or 35, ARP FM-1 may still be OFF: two taps on ARP turn it on.)
 
 How it plays:
 
@@ -601,7 +620,7 @@ The **stutters, GLITCH and FILTER RISE are clocked**: they count sixteenths from
 
 ### GLOBAL
 
-GLO opens seven pages:
+GLO opens ten pages:
 
 1. **SETTINGS**: TEMPO (60–180), MIDI CH (OMNI or 1–16), VOICES (AUTO or 1–6), CLOCK (internal or MIDI)
 2. **PLAYING**: VEL CURVE, ANIMATION (full, calm, still), LED BRIGHT
@@ -617,6 +636,8 @@ GLO opens seven pages:
 8. **DISPLAY** (update 55): **NORMAL** (the quiet look) or **DAYLIGHT**, for a screen read in the sun: true black, white words, the knobs' and sections' colours at full strength, nothing see-through, lines two pixels thick, solid slider bars and bold values. **Tap GLO twice** (within 0.3 s) on any page to switch between them, staying on the page you were on (update 56); holding GLO does the same. The choice is kept.
 
     ![DAYLIGHT on the source page](../web/manual/img/fm1-daylight.png)
+9. **LAYER MIDI CH**: each layer's MIDI channel and the bass's FM-1 switch (see STYLE, section 10)
+10. **CHORD + ARP**: where chords and arpeggio sound: on the FM-1, sent over MIDI (section 10)
 
 ![GLOBAL](../web/manual/img/fm1-glo.png)
 
@@ -887,8 +908,8 @@ Nothing in this bank has been heard on an FM-1: every figure behind it is a desk
 | **SHED n** on the status strip | Voices were dropped for time. Play fewer notes, lower the voices, switch an effect off, or choose lighter modules |
 | No effect on a preset | It may be switched off: hold FX, let go, then one or two taps; or check the HOME tile for OFF |
 | Chords or the arpeggiator won't stop | PLAY ends latched notes; ARP › MODE OFF stops the arpeggiator |
-| The keys are silent (except while recording), or HOME shows **KEYS: FM-1 OFF** | The chords' FM-1 stage is off: SEL › CHORD + ARP › CHD FM-1 ON (update 38 turns it back on once). Also check GLOBAL › MIDI › LOCAL is ON |
-| The arpeggio is silent, or HOME shows **ARP: FM-1 OFF** | Two quick taps on ARP (or SEL › CHORD + ARP › ARP FM-1) |
+| The keys are silent (except while recording), or HOME shows **KEYS: FM-1 OFF** | The chords' FM-1 stage is off: GLOBAL › CHORD + ARP › CHD FM-1 ON (update 38 turns it back on once). Also check GLOBAL › MIDI › LOCAL is ON |
+| The arpeggio is silent, or HOME shows **ARP: FM-1 OFF** | Two quick taps on ARP (or GLOBAL › CHORD + ARP › ARP FM-1) |
 | Another synth gets nothing | GLOBAL › MIDI OUT on; three quick taps on SEL or ARP turn SEND on; check CHORD CH / ARP CH |
 | A moment of silence when loading a module or editing a delay or reverb | Normal: memory is being laid out again (**MEMORY FITTED**) |
 | A short gap when pressing SAVE on a sequencer page | Normal: the flash is being written |

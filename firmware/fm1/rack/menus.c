@@ -1812,7 +1812,7 @@ static void fixed_toggle(int pg, int pi, float *mem, const char *what)
     ui.redraw = 1;
 }
 /* Two taps on ARP: the arp on the FM-1's sound on or off; three taps on SEL / ARP: the chords' / the arp's SEND to
- * their MIDI channel on or off (update 36). As turning the switch on ARP > CHORD + ARP does (UNDO, saved with the settings) */
+ * their MIDI channel on or off (update 36). As turning the switch on GLOBAL > CHORD + ARP does (UNDO, saved with the settings) */
 static void layer_toggle(int pi, const char *title)
 {
     float *fv = page_vals(PG_ARP), old = fv[pi];

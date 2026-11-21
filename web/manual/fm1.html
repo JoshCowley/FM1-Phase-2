@@ -126,7 +126,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="even">
 <td><strong>LFO</strong></td>
 <td>MOD A</td>
-<td>MOD B, the LFOs, MSEQ, the MATRIX</td>
+<td>MOD B, the LFOs (with their targets, then the GATE PATTERN), MSEQ, the MATRIX</td>
 <td><strong>Two taps: the MATRIX</strong></td>
 </tr>
 <tr class="odd">
@@ -138,19 +138,19 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="even">
 <td><strong>ARP</strong></td>
 <td>the arpeggiator</td>
-<td>HOLD + TURING</td>
+<td>HOLD + TURING, then RHYTHM and CHANCE</td>
 <td><strong>Two taps: the arpeggio on the FM-1 off or on. Three taps: its send off or on</strong> (section 10)</td>
 </tr>
 <tr class="odd">
 <td><strong>SEL</strong></td>
 <td>scale and chord</td>
-<td>(SELECT turns its pages: KEYS + STRUM, then the MIDI controller pages STYLE, LAYER MIDI CH, CHORD + ARP, then FEEL, RHYTHM and RHYTHM CHANCE)</td>
+<td>(SELECT turns its pages: KEYS + STRUM, STYLE, then FEEL)</td>
 <td><strong>Two taps: chords off (the keys play single notes) or back on. Three taps: the chords' send off or on</strong> (section 10). <strong>Hold SEL and EDIT together (half a second): LEARN on or off</strong> (section 8)</td>
 </tr>
 <tr class="even">
 <td><strong>GLO</strong></td>
 <td>GLOBAL settings</td>
-<td>its next page</td>
+<td>its next pages (ten; the last two are LAYER MIDI CH and CHORD + ARP)</td>
 <td><strong>Two taps (or hold): DAYLIGHT on or off</strong> (for the sun)</td>
 </tr>
 <tr class="odd">
@@ -341,7 +341,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </ul></li>
 <li><strong>The modulators</strong> loaded in MOD A and MOD B sit under the path; small arrows pulse up from them as their outputs move.</li>
 <li><strong>The macros</strong>: each with its value (0–100), a slider in its knob's colour (moving with the sound, as on the pages), and what it moves (the first destination, "+2" if more), or <strong>UNSET</strong>. K1–K4 turn them; so do MIDI CC 20–23.</li>
-<li><strong>The tabs</strong> along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, <strong>KEYS: FM-1 OFF</strong> (or <strong>ARP: FM-1 OFF</strong>), means the keys or the arpeggio aren't playing the FM-1's sound (SEL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)</li>
+<li><strong>The tabs</strong> along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, <strong>KEYS: FM-1 OFF</strong> (or <strong>ARP: FM-1 OFF</strong>), means the keys or the arpeggio aren't playing the FM-1's sound (GLOBAL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)</li>
 </ul>
 <p><strong>PRESET</strong> chooses the preset, <strong>ALGORITHM</strong> jumps a category and <strong>SELECT</strong> sets the voices (1–6). Changing preset, or loading a module into a slot, fades the sound out over a few milliseconds and the new one in, so it doesn't click; nothing of the old sound (its echoes, its last few samples) carries into the new one. Knobs glide to their new values over a few milliseconds too, so a level, a cutoff or a chorus turned quickly doesn't click or zipper; a choice from a list (a model, a type) still changes at once. Tap HOME again for <strong>RACK</strong>, a list of every slot, AMP, the outputs and how many matrix routes are set.</p>
 <p><img src="img/fm1-rack.png" alt="RACK" /></p>
@@ -572,12 +572,27 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p>LFO steps through <strong>MOD A, MOD B, LFO, MSEQ</strong> and the <strong>MATRIX</strong>. Tap it twice quickly to go straight to the MATRIX.</p>
 <h3 id="lfos">LFOs</h3>
 <p><img src="img/fm1-lfo.png" alt="LFO" /></p>
-<p>The LFO page has nine pages (SELECT):</p>
+<p>The LFO page has eleven pages (SELECT):</p>
 <ul>
 <li>pages 1–3: SHAPE (SINE, TRI, SAW, SQUARE, S&amp;H, DRIFT), RATE, SYNC (FREE, or 1/16 to 2 BARS of the tempo), RETRIG, for LFO 1, 2 and 3;</li>
 <li>pages 4–6: FADE (a fade-in from each note), PHASE, POLAR, 1SHOT, for each;</li>
-<li>pages 7–9: <strong>LFO TARGET</strong>, each LFO's two direct destinations. K1 and K3 choose the destination, K2 and K4 the amount.</li>
+<li>pages 7–9: <strong>LFO TARGET</strong>, each LFO's two direct destinations. K1 and K3 choose the destination, K2 and K4 the amount;</li>
+<li>pages 10–11: the <strong>GATE PATTERN</strong> (below).</li>
 </ul>
+<h4 id="gate-pattern-a-rhythm-that-fires-triggers">GATE PATTERN: a rhythm that fires triggers</h4>
+<p>LFO pages 10 and 11 are the ARP RHYTHM generator again, but its hits are gates, not notes. Two lanes, <strong>GATE 1</strong> and <strong>GATE 2</strong>, each an Euclidean ring with its own RATE from the tempo (or MIDI clock). Nothing runs while a lane's RATE is OFF (the start), so patches sound as before.</p>
+<ul>
+<li><strong>Page 10, GATE PATTERN</strong>: <strong>LANE</strong> (GATE 1 or 2), <strong>RATE</strong> (OFF, 1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32), <strong>HITS</strong>, <strong>STEPS</strong>. Help line: HITS FIRE A GATE: RETRIG LFO, ENV, MATRIX.</li>
+<li><strong>Page 11, GATE: CHANCE</strong>: <strong>LANE</strong>, <strong>TURN</strong>, <strong>CHANCE</strong> (odds of each hit), <strong>MUTATE</strong>.</li>
+</ul>
+<p>Each hit raises the lane's gate for half a step. What listens:</p>
+<ul>
+<li><strong>The matrix</strong>: GATE 1 and GATE 2 are sources (1 while the gate is up, else 0).</li>
+<li><strong>LFO RETRIG</strong>: OFF, KEY, GATE 1, GATE 2; the LFO restarts on each hit.</li>
+<li><strong>PEAKS and TIDES</strong>: their GATE choice includes GATE 1 and GATE 2.</li>
+<li><strong>FUNC</strong>: TRIG includes GATE 1 and GATE 2.</li>
+</ul>
+<p>The voices' own AMP and filter envelopes still start on notes; the gate retriggers the LFOs and the MOD slots' envelopes. The macros (knob layer) have no source list, so a gate reaches them only through a matrix row.</p>
 <p>RATE runs from about 0.03 Hz to 30 Hz; at 75 it is about 5 Hz, a singer's vibrato.</p>
 <p><img src="img/fm1-lfotgt.png" alt="An LFO&#39;s targets" /></p>
 <h3 id="the-matrix">The matrix</h3>
@@ -717,15 +732,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <ul>
 <li><strong>STRUM</strong>: up to 80 ms between the chord's notes, lowest first. It also strums the chords the sequencer plays back (it's applied as they play, so turning it changes recorded chords too).</li>
 </ul>
-<p><strong>Page 6, FEEL</strong>: <strong>HUMAN</strong> (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.</p>
+<p><strong>Page 4, FEEL</strong>: <strong>HUMAN</strong> (0–100, 0 to start with): each note of a chord comes a little late at random (up to 35 ms at 100) and a little softer or louder, so chords sound played rather than machine-tight. It works on the keys and on the chords the sequencer plays, together with STRUM, and is different every time.</p>
 <p><img src="img/fm1-feel.png" alt="SEL › FEEL: four notes of a chord as they&#39;d fall" /></p>
-<p><strong>Pages 7–8, RHYTHM and RHYTHM CHANCE</strong> (update 48): a ring generator for each layer. K1 (<strong>GEN</strong>) picks the generator to see and set: <strong>BASS M</strong> (the master), <strong>CHORD</strong> or <strong>ARP</strong>; K2–K4 set its values. All three are drawn over each other round one centre (BASS outside, CHORD, ARP inside), the one picked bright and on top, the others dimmed behind; a legend beside them gives each one's mode and hits. Steps are dots round the ring, the hits are joined into a shape, and a hand sweeps round as it plays.</p>
-<ul>
-<li><p><strong>RHYTHM</strong>: <strong>HITS</strong> (how many), <strong>ROTATE</strong> (turns the pattern round), <strong>STEPS</strong> (the ring's length, 2–32).</p></li>
-<li><p><strong>RHYTHM CHANCE</strong>: <strong>MODE</strong>, <strong>CHANCE</strong> (each hit's chance to play, 100% to start with), <strong>MUTATE</strong> (at the end of each cycle, the chance the ring turns a step or gains or loses a hit; a quarter of the time it goes back to the pattern as set).</p></li>
-<li><p><strong>MODE</strong>, BASS: <strong>STYLE</strong> (the style's own pattern, as before; ROTATE still turns it) or <strong>RING</strong> (HITS spread as evenly as possible round STEPS). CHORD and ARP: <strong>OFF</strong> (as before), <strong>RING</strong> (their own), <strong>SAME</strong> (the bass's hits) or <strong>ANSWER</strong> (the gaps between the bass's hits: call and response). <img src="img/fm1-rhythm.png" alt="SEL › RHYTHM: the CHORD ring, the bass and arp rings beside it" /></p></li>
-<li><p>With CHORD on, the chord you hold is struck in the ring's rhythm instead of held. With ARP on, the arp rests on the ring's empty steps. BASS and CHORD need a STYLE on; ARP works whenever the arp runs.</p></li>
-</ul>
 <p>The keys in the scale glow on the keybed.</p>
 <h3 id="arp-the-arpeggiator">ARP: the arpeggiator</h3>
 <p><img src="img/fm1-arp.png" alt="ARP" /></p>
@@ -734,14 +742,24 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li><strong>Page 2</strong>: HOLD (latch), MUTATE and LOOP (for TURING, a looping random pattern), SWING.</li>
 </ul>
 <p>It follows the tempo (GLOBAL › TEMPO) or MIDI clock, and the picture shows the pattern and the step playing.</p>
+<p><strong>Pages 3 and 4, RHYTHM and CHANCE</strong> (update 48; moved here from SEL, with plainer names): a ring generator for each layer. K1 (<strong>LAYER</strong>) picks the one to see and set: <strong>BASS</strong> (the master), <strong>CHORD</strong> or <strong>ARP</strong>; K2–K4 set its values. All three are drawn over each other round one centre (BASS outside, CHORD, ARP inside), the one picked bright and on top, the others dimmed behind; a legend beside them gives each one's pattern and hits. Steps are dots round the ring, the hits are joined into a shape, and a hand sweeps round as it plays. Each page has a one-line help on screen. The saved values are the same as before (the old ROTATE is now TURN, MODE is PATTERN, GEN is LAYER).</p>
+<ul>
+<li><strong>Page 3, RHYTHM: WHICH STEPS</strong>: <strong>HITS</strong> (how many), <strong>STEPS</strong> (the ring's length, 2–32), <strong>TURN</strong> (turns the pattern round). Hits are spread as evenly as they go (a Euclidean rhythm).</li>
+<li><strong>Page 4, CHANCE: HOW OFTEN</strong>: <strong>PATTERN</strong>, <strong>CHANCE</strong> (each hit's chance to play, 100% to start with), <strong>MUTATE</strong> (at the end of each cycle, the chance the ring turns a step or gains or loses a hit; a quarter of the time it goes back to the pattern as set).</li>
+<li><strong>PATTERN</strong>, BASS: <strong>STYLE</strong> (the style's own pattern, as before; TURN still turns it) or <strong>RING</strong> (HITS spread as evenly as possible round STEPS). CHORD and ARP: <strong>OFF</strong> (as before), <strong>RING</strong> (their own), <strong>SAME</strong> (the bass's hits) or <strong>ANSWER</strong> (the gaps between the bass's hits: call and response).</li>
+</ul>
+<p><img src="img/fm1-rhythm.png" alt="ARP › RHYTHM: the CHORD ring, the bass and arp rings beside it" /></p>
+<ul>
+<li>With CHORD on, the chord you hold is struck in the ring's rhythm instead of held. With ARP on, the arp rests on the ring's empty steps. BASS and CHORD need a STYLE on; ARP works whenever the arp runs.</li>
+</ul>
 <p><strong>HOLD as a chord latch</strong>: with HOLD on and MODE OFF, notes and chords keep sounding after you let go. Playing again once every key is up replaces them; keys added while others are held add to them. Turning HOLD off, changing MODE, or stopping the sequencer with PLAY ends them.</p>
 <h3 id="chords-and-arpeggio-on-the-fm-1-and-sent">Chords and arpeggio: on the FM-1, and sent</h3>
 <p>What you play on the keys (a chord, or a single note with chords off) and what the arpeggiator plays each have two stages, switched separately:</p>
 <ul>
 <li><strong>ON FM-1</strong>: you hear it on the FM-1's own sound;</li>
-<li><strong>SEND</strong>: it goes out over MIDI on its own channel, SEL › LAYER MIDI CH › <strong>CHORD CH</strong> (1 to start with) or <strong>ARP CH</strong> (3), so another synth can play it.</li>
+<li><strong>SEND</strong>: it goes out over MIDI on its own channel, GLOBAL › LAYER MIDI CH › <strong>CHORD CH</strong> (1 to start with) or <strong>ARP CH</strong> (3), so another synth can play it.</li>
 </ul>
-<p>All four are on to start with. Switch them on SEL's last page, <strong>CHORD + ARP</strong>, or with quick taps:</p>
+<p>All four are on to start with. Switch them on GLOBAL's last page, <strong>CHORD + ARP</strong>, or with quick taps:</p>
 <p><img src="img/fm1-chordarp.png" alt="CHORD + ARP: each stage&#39;s switch, and where each layer goes" /></p>
 <table>
 <thead>
@@ -793,8 +811,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li><strong>ACCENT</strong>: how much louder the accented bass notes (the roots marked as accents) are than the others.</li>
 <li><strong>BASS LEN</strong>: the bass notes' length, from short and punchy to legato.</li>
 </ul>
-<p><strong>Page 4, LAYER MIDI CH</strong>: <strong>CHORD CH</strong>, <strong>BASS CH</strong> and <strong>ARP CH</strong>, each OFF or 1–16 (1, 2 and 3 to start with), and <strong>BASS FM1</strong>: ON (you hear the bass on the FM-1, and it goes out too) or OFF (it goes out only, to start with). The bass is sent whenever its channel is set.</p>
-<p><strong>Page 5, CHORD + ARP</strong>: the chords' and the arpeggio's FM-1 and SEND switches (above). (If you saved your settings with update 34 or 35, ARP FM-1 may still be OFF: two taps on ARP turn it on.)</p>
+<p><strong>GLOBAL page 9, LAYER MIDI CH</strong> (moved from SEL): <strong>CHORD CH</strong>, <strong>BASS CH</strong> and <strong>ARP CH</strong>, each OFF or 1–16 (1, 2 and 3 to start with), and <strong>BASS FM1</strong>: ON (you hear the bass on the FM-1, and it goes out too) or OFF (it goes out only, to start with). The bass is sent whenever its channel is set.</p>
+<p><strong>GLOBAL page 10, CHORD + ARP</strong> (moved from SEL): the chords' and the arpeggio's FM-1 and SEND switches (above). (If you saved your settings with update 34 or 35, ARP FM-1 may still be OFF: two taps on ARP turn it on.)</p>
 <p>How it plays:</p>
 <ul>
 <li>The bass rhythm starts from its first step when you press a chord with nothing held, at the tempo (GLOBAL › TEMPO) or on MIDI clock, and stops when you let go. With ARP › HOLD on, the bass keeps playing the last chord's root until you press another, stop with PLAY, or change a STYLE setting.</li>
@@ -937,7 +955,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p><strong>Letting go.</strong> A move glides in and out at a speed of its own (the stutters in 8 ms, the filter dive over about half a second, TAPE STOP's fall over a second or so, a wash out over 0.6 s). When it has gone, <strong>every parameter is exactly the sound's own again</strong>, not nearly. Turning JAM off, <strong>loading another preset</strong>, changing the SPLIT KEY or a move's HOLD or LATCH switch ends every move at once (a latched move included); loading a preset leaves JAM on. Nothing JAM does is written into the preset: a knob you turn meanwhile, SAVE, the matrix and the knob layer see the preset's own values.</p>
 <p><strong>The JAM page.</strong> Page 1: <strong>JAM</strong> (ON or OFF) and <strong>SPLIT KEY</strong>. Pages 2 to 7: two moves to a page, each its <strong>AMOUNT</strong> and its <strong>KEY</strong> (HOLD or LATCH), named in the header (GRAIN + STUT 8, STUT 16 + 32, SCRUB + TAPE, WASH + FREEZE, GLITCH + DIVE, RISE + CRUSH). The picture shows the twelve moves, each as a bar that rises while it is on, a tick at its amount, and a gold dot under a latched one. UNDO takes back a JAM setting like any other. <strong>JAM's settings are not kept across a power-up</strong> (JAM starts off, SPLIT KEY 15, the default amounts). It was tested on a computer and not yet heard on an FM-1.</p>
 <h3 id="global">GLOBAL</h3>
-<p>GLO opens seven pages:</p>
+<p>GLO opens ten pages:</p>
 <ol type="1">
 <li><p><strong>SETTINGS</strong>: TEMPO (60–180), MIDI CH (OMNI or 1–16), VOICES (AUTO or 1–6), CLOCK (internal or MIDI)</p></li>
 <li><p><strong>PLAYING</strong>: VEL CURVE, ANIMATION (full, calm, still), LED BRIGHT</p></li>
@@ -954,6 +972,8 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </ul></li>
 <li><p><strong>DISPLAY</strong> (update 55): <strong>NORMAL</strong> (the quiet look) or <strong>DAYLIGHT</strong>, for a screen read in the sun: true black, white words, the knobs' and sections' colours at full strength, nothing see-through, lines two pixels thick, solid slider bars and bold values. <strong>Tap GLO twice</strong> (within 0.3 s) on any page to switch between them, staying on the page you were on (update 56); holding GLO does the same. The choice is kept.</p>
 <p><img src="img/fm1-daylight.png" alt="DAYLIGHT on the source page" /></p></li>
+<li><p><strong>LAYER MIDI CH</strong>: each layer's MIDI channel and the bass's FM-1 switch (see STYLE, section 10)</p></li>
+<li><p><strong>CHORD + ARP</strong>: where chords and arpeggio sound: on the FM-1, sent over MIDI (section 10)</p></li>
 </ol>
 <p><img src="img/fm1-glo.png" alt="GLOBAL" /></p>
 <h3 id="usb-audio-update-57">USB audio (update 57)</h3>
@@ -1553,11 +1573,11 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tr>
 <tr class="odd">
 <td>The keys are silent (except while recording), or HOME shows <strong>KEYS: FM-1 OFF</strong></td>
-<td>The chords' FM-1 stage is off: SEL › CHORD + ARP › CHD FM-1 ON (update 38 turns it back on once). Also check GLOBAL › MIDI › LOCAL is ON</td>
+<td>The chords' FM-1 stage is off: GLOBAL › CHORD + ARP › CHD FM-1 ON (update 38 turns it back on once). Also check GLOBAL › MIDI › LOCAL is ON</td>
 </tr>
 <tr class="even">
 <td>The arpeggio is silent, or HOME shows <strong>ARP: FM-1 OFF</strong></td>
-<td>Two quick taps on ARP (or SEL › CHORD + ARP › ARP FM-1)</td>
+<td>Two quick taps on ARP (or GLOBAL › CHORD + ARP › ARP FM-1)</td>
 </tr>
 <tr class="odd">
 <td>Another synth gets nothing</td>
