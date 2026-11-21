@@ -230,6 +230,26 @@ static void drum_checks(const char *self, int *fails)
             rk_all_off();
         }
         hc2_stop();
+        /* 12i  at most 3 voices sound at once: four hit together, 100 ms on (the fourth's victim has faded in 8 ms) 3 sound; a hit on a sounding voice leaves no step:
+         * the first frame it arrives at is within 0.08 of the frame before (a kick at full level struck over the tail of another) */
+        {
+            int v, n3;
+            float pre = 0, first = 0, sx;
+            rk_seed(0x21u); rk_set_worker(0, 0); cl_patch(0, 0, 0); rk_all_off(); rk_drum_off(); rk_drum_run(1);
+            for (v = 0; v < 4; v++) rk_drum_hit(v, 0, 36.0f + (float)v, 0.5f, 0.5f, 1.5f, 0.8f, 0.0f, 0.2f);
+            for (i = 0; i < 100; i++) rk_render(DC_BLK);
+            n3 = rk_drum_status(0);
+            if (n3 > 3) { bad12++; printf("12i four hits at once: %d voices sounding after 100 ms   FAIL\n", n3); }
+            rk_drum_off(); rk_drum_hit(0, 0, 40.0f, 0.5f, 0.5f, 1.5f, 0.9f, 0.0f, 0.0f);
+            for (i = 0; i < 40; i++) rk_render(DC_BLK);
+            rk_render(DC_BLK); pre = rk_out_l()[DC_BLK - 1]; sx = pre;
+            rk_drum_hit(0, 1, 50.0f, 0.5f, 0.5f, 1.5f, 0.9f, 0.0f, 0.0f);
+            rk_render(DC_BLK); rk_render(DC_BLK); first = rk_out_l()[0];
+            (void)sx;
+            { float step = first - pre; if (step < 0) step = -step; if (step > 0.08f) { bad12++; printf("12i a hit over a sounding voice: step %.3f   FAIL\n", step); } }
+            rk_drum_off();
+            printf("12i at most 3 voices sound at once (4 hit together: %d sound); a hit on a sounding voice starts from where it was (no step)\n", n3);
+        }
         nd = nd2 = 0; (void)B; (void)C; (void)A;
         (void)nd; (void)nd2;
     }
