@@ -26,8 +26,8 @@ def round2(pool):
             "ROW @1 .05 .7 1 SL; SRC.BITS -.3 .85 1 T; SRC.DRIFT .4 .3 1 L")]))
 
     a(S("SYMPATH HARP", name="SYMPATH HARP", cat="KEYS", move="medium", level=0.7, rows=[["RANDOM", "PITCH", 0.0]], lfo_set={4: ("AMP.LEVEL", 0.0)},
-        edit={"LFO": {"SHAPE 3": "SQUARE"}}, kind="arp",
-        summary="A harp: a plucked exciter into Rings' sympathetic strings, triggered by Grids for the accents, delay and hall.",
+        edit={"LFO": {"SHAPE 3": "SQUARE"}, "SRC": {"MODEL": "//x3", "TIMBRE": 0.3, "COLOR": 0.7}, "SHP": {"MODEL": "STRING"}}, kind="arp",   # update 61: Braids' PLUK is withdrawn (-> //x3, chosen by measurement), Rings' SYMPATH played STRING already
+        summary="A harp: a bright triple-saw exciter into Rings' strings, triggered by Grids for the accents, delay and hall.",
         k=[("PLUCK", "Muted and woody at 0, a ringing bright pluck at the middle; the top is a hard strum with the strings fully sympathetic.",
             "SHP.STRUCT .3 .6 1 SL; SHP.EXCITE .3 .65 1 SL; SRC.TIMBRE .35 0 1 L; SHP.BRIGHT .3 .3 1 L; SRC.COLOR .2 .5 1 L"),
            ("GRIDS", "The Grids pattern fills in with accents and the LFOs speed up; the top chops the strings into a rapid tremolo.",

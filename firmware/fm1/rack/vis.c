@@ -243,7 +243,7 @@ static void vis_braids(const float *mon, uint16_t c)
     }
     lab[0] = 0;
     if (model >= 0 && model < 47)
-        cat(lab, UI_OPT[UP_BRAIDS[0].opt + model]);
+        cat(lab, UI_OPT[UP_BRAIDS[0].opt + rk_list_map(2, model)]);
     {
         char b[8];
         int_text(bits, b);
@@ -276,7 +276,7 @@ static void vis_rings(const float *mon, uint16_t c)
         }
     }
     if (model >= 0 && model < 6)
-        vlabel(NAME[model]);
+        vlabel(NAME[rk_list_map(10, model)]);
 }
 
 static float fmag(int type, float r, float q, float reso)

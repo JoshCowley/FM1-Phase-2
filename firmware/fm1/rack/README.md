@@ -6,6 +6,21 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 61: Braids and Rings lose what the drum track and the sound no longer need (21 Nov 2026; host-tested, NOT heard, NOT run on an FM-1)
+
+**Withdrawn from the MODEL lists** (the numbers stay Mutable's, so saves, presets, matrix rows, knob targets and MIDI keep working; `engine/rack.cc` `BR_KEPT`, `list_norm`): the five FBFM, PLUK, BOWD, BLOW, FLUT, and Braids' nine drum shapes
+(the drum track has its own trimmed voices, `common/make_drum_osc.py`); Rings MODAL, SYMPATH, SYM QNT (they already played STRING). A withdrawn number is mapped when it is set (`set_param`, `set_param_glide`: a save, a preset, a CC, a patch swap), so the
+page and the patch read the kept shape, and again when a modulated value is read (matrix, knob layer). The menus step over them (`menus.c` `step`, `fmt`); 33 of 47 Braids shapes and 3 of 6 Rings models remain.
+Mapping (nearest by measured spectrum and decay, then by ear; one note, TIMBRE and COLOR 0.5): FBFM -> FM (as asked), PLUK -> CSAW, BOWD -> VOSM, BLOW -> ZLPF, FLUT -> VOWL; BELL -> RING, DRUM -> SIx3, KICK -> FOLD, CYMB -> ////, SNAR -> CLOU,
+NOIS -> TOY*, TWLN -> QPSK, CLKN -> TOY*, PRTC -> QPSK; Rings MODAL, SYMPATH, SYM QNT -> STRING. `fm1_presets.py` refuses a factory preset that names a withdrawn shape or model; rack_host check 16 (`shape_check.c`, `rack_host --shapes`).
+**What was not freed.** The delay lines are one union per voice (`delay_lines_` in Braids' DigitalOscillator, 16,384 bytes) and the biggest member is the COMB FILTER's (`//uu`, 8,192 x 2 B), which stays: so the five shapes' removal frees no memory.
+FBFM itself has no delay line (its state is a few words). The code of the 14 shapes stays in the (unchanged) Mutable class: rack_host's drum identity check (12) compares the drum copy with it. Taking `//uu` out as well would let the union go
+(PLUK's 8,200 B and the waveguides' 5,120 B are all that is left): 16,384 B a voice, 98 KB of the arena at six voices; no factory preset uses `//uu`. Not done: not approved.
+**Re-voiced: SYMPATH HARP** (the only factory preset that used any of these: Braids PLUK into Rings SYMPATH, which played STRING): SRC MODEL PLUK -> `//x3`, TIMBRE 0.3 COLOR 0.7 (best of 22 kept shapes x 16 TIMBRE/COLOR pairs by the band spectrum and the decay of its
+7-second phrase and of the four knobs at both ends); Rings MODEL SYMPATH -> STRING (what played). LEVEL 0.78 -> 0.75 by `fit_levels.py` (RMS 0.0975 as before). Measured: A4 440.76 Hz before, 440.59 after (bin width 0.17); the phrase -22.1 dB rms / peak 0.406 before,
+-23.2 dB / 0.355 after (the fit's own phrase: equal); the knobs' effects within 1.3 dB of the old ones at both ends. The other 45 presets render sample for sample as in update 59.
+**Bench:** the BRAIDS group has 33 cases (was 47), RINGS 3 (was 6) (the modsum1 / k48cap1 packages have the old ones). The manual lists the mapping.
+
 ## Update 60: Clouds at 48 kHz with the ceiling: decided by the bench (21 Nov 2026; host estimate only, NOT run on an FM-1)
 
 The question: does RACK_CLOUDS_32K off (48 kHz, no resampler) + the ceiling 24 fit the same core budget as 32 kHz without it (2.34), worst case two cores RICH x4 D1.0? **The default stays 32 kHz; the bench decides.**
@@ -14,6 +29,7 @@ if a grain costs 1.5 x there) the 48 kHz + 24 case is 103 to 109, below 111.3 (G
 own spread allows (111.3 against 112.8 for the same 32 grains). **Two cores it cannot be estimated:** Clouds on the second core (RACK_FX_CORE2, `cl_pipe_decide`) needs `cl32_on_`, the 32 kHz block; at 48 kHz Clouds stays on the first core
 and the voices and drums are split (update 8's arrangement), so the 2.33 figures (RICH x4 D1.0: C2 97.1; CHEAP x4: 81.9) do not carry over. The bench has both (`fm1bench-k48cap1`, bench/README.md update 59). If 48 kHz is chosen after the run: `-URACK_CLOUDS_32K` in `fm1.toml` and
 `build_host.sh`; the second core's Clouds would need the pipeline made for a 48-frame block of 24-frame Clouds blocks first.
+The device build of that variant (`-DRACK_CLOUDS_32K` taken out of `fm1.toml`; it did not compile before: `drum_account` read `cl_pipe_` without FXC2, fixed) gives image 540,172 B (544,840 with 32 kHz) and static RAM free 3,036 B (780 B with 32 kHz): the resampler's tables and code are the difference.
 
 ## Update 59: Clouds' grain ceiling 24 (21 Nov 2026; host-tested, NOT heard, NOT run on an FM-1)
 

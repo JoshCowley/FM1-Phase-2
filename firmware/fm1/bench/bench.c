@@ -37,6 +37,7 @@ void rk_render(int n);
 float *rk_out_l(void);
 float *rk_out_r(void);
 int rk_fm1_status(int what);
+int rk_list_map(int module, int i);        /* update 61: a Braids shape (2) or Rings model (10) as it plays */
 void rk_fm1_fit(void);
 void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void));
 uint32_t rk_worker_blocks(void);
@@ -263,6 +264,7 @@ static void bench_cases(void)
     bc_change(k, 0, 1, S_SRC, 0, 0);
     /* Braids, each shape, one voice (FOLDED BASS with its filter taken out) */
     for (i = 0; i < 47; i++) {
+        if (rk_list_map(2, i) != i) continue;      /* update 61: the withdrawn shapes (FBFM, PLUK, BOWD, BLOW, FLUT, the nine drum shapes) play as the nearest kept: 33 cases */
         k = bc_add(G_BRAIDS, P_FOLDED_BASS, 1, BRAIDS_MODEL[i]);
         bc_change(k, 0, 1, S_SHP, 0, 0);
         bc_change(k, 1, 2, S_SRC, 0, (float)i);
@@ -273,6 +275,7 @@ static void bench_cases(void)
     bc_change(base, 0, 1, S_FX1, 0, 0);
     bc_change(base, 1, 1, S_SHP, 0, 0);
     for (i = 0; i < 6; i++) {
+        if (rk_list_map(10, i) != i) continue;     /* update 61: MODAL, SYMPATH and SYM QNT are withdrawn (they played STRING): 3 cases */
         k = bc_add(G_RINGS, P_KARPLUS, 1, RINGS_MODEL[i]);
         bc_change(k, 0, 1, S_FX1, 0, 0);
         bc_change(k, 1, 2, S_SHP, 0, (float)i);

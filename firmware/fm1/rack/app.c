@@ -1412,6 +1412,10 @@ int app_expect(const char *what, int *got)
         *got = cur_entry;
         return 1;
     }
+    if (same(what, "src_model") || same(what, "shp_model")) {   /* update 61 (sim_shapes.txt): the source's MODEL (Braids' shape) or the shaper's (Rings' model), as the engine plays it */
+        *got = (int)(rk_get_param(same(what, "src_model") ? RS_SRC : RS_SHP, 0) + 0.5f);
+        return 1;
+    }
     if (same(what, "shp_mod")) {              /* the module in the shaper slot (0 empty, 10 Rings) */
         *got = rc_patch.mod[RS_SHP];
         return 1;

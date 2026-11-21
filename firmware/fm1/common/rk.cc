@@ -50,6 +50,7 @@ int rk_fm1_status(int what) { return fm1_status(what); }
 void rk_fm1_fit(void) { fm1_fit(); }
 float rk_voice_env(int i) { return voice_env(i); }
 int rk_fm1_fit_needed(void) { return fm1_fit_needed(); }
+int rk_list_map(int module, int i) { return list_map(module, i); }   // (update 61)
 float rk_get_param(int slot, int param) { return get_param(slot, param); }
 float rk_get_route(int i, int *out) { return get_route(i, out); }
 float *rk_monitor(int slot) { return monitor(slot); }

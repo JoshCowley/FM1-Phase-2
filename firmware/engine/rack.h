@@ -99,6 +99,7 @@ int fx_core2_active(void);
 // one voice fewer relieves the core that is the slower one (the overload guard asks; always 1 unless Clouds runs on the second core and a clock is set)
 void set_fx_core2_voices(int on);
 int shed_helps(void);
+int list_map(int module, int i);   // (update 61) a Braids shape (module 2) or Rings model (10) as it plays: a withdrawn one gives the nearest kept
 void core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void core_stats_reset(void);
 // FM1 Phase 2 step 1 (drums; built with RACK_DRUMS, else these do nothing): four drum voices of Braids' drum models (rack.cc "DRUMS").

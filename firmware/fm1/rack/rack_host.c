@@ -179,6 +179,7 @@ static void patch_run(int pk, float sw, int clean, int plain, float lfo, int nwi
 }
 
 #include "gate_check.c"
+#include "shape_check.c"
 int main(int argc, char **argv)
 {
     static float a[48000], b[48000];
@@ -215,6 +216,11 @@ int main(int argc, char **argv)
         return drum_demo(argv[2]);
     if (argc == 2 && !strcmp(argv[1], "--dseq")) {    /* section 13 alone */
         dseq_checks(&fails);
+        printf(fails ? "%d FAILED\n" : "all passed\n", fails);
+        return fails != 0;
+    }
+    if (argc == 2 && !strcmp(argv[1], "--shapes")) {   /* section 16 alone */
+        shape_checks(&fails);
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);
         return fails != 0;
     }
@@ -652,6 +658,7 @@ int main(int argc, char **argv)
     dt_checks(&fails);             /* 14 (timing: drums stopped cost nothing; drums playing on a heavy preset stay under the overload guard) */
     gc_self = argv[0];
     gate_checks(&fails);           /* 15 (the GATE PATTERN: gatepat.c, and the engine's GATE 1 / 2 sources) */
+    shape_checks(&fails);          /* 16 (update 61: the withdrawn Braids shapes and Rings models) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

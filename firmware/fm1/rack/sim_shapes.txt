@@ -1,0 +1,35 @@
+# update 61: the SOURCE page's MODEL steps over the Braids shapes that are no longer offered (INIT: FOLD, 3), and a MODEL that names one reads as the shape that plays
+wait 400
+tap EDIT
+wait 350
+expect src_model 3
+turn K1 22
+wait 100
+expect src_model 25
+turn K1 1
+wait 100
+expect src_model 27
+turn K1 1
+wait 100
+expect src_model 37
+turn K1 -1
+wait 100
+expect src_model 27
+turn K1 -1
+wait 100
+expect src_model 25
+turn K1 -20
+wait 100
+expect src_model 5
+turn K1 -50
+wait 100
+expect src_model 0
+turn K1 100
+wait 100
+expect src_model 46
+turn K1 -1
+wait 100
+expect src_model 44
+turn K1 -1
+wait 100
+expect src_model 40

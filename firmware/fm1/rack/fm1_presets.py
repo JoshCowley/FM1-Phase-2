@@ -213,6 +213,15 @@ def main():
             c["fm1"]["mnames"] = pr["bank45"]["labels"]
             c["fm1"]["src"] = pr["bank45"]["src"]      # the older preset it came from (or "new"): save.c and app.c map old numbers to new ones
         out.append(c)
+    # update 61: no factory preset may use a Braids shape or Rings model the firmware has withdrawn (engine/rack.cc BR_KEPT and list_norm: they would play as the nearest kept,
+    # not as written)
+    GONE = {2: {26, 28, 29, 30, 31, 32, 33, 34, 35, 36, 41, 42, 43, 45}, 10: {0, 1, 4}}   # Braids: FBFM PLUK BOWD BLOW FLUT, the nine drum shapes; Rings: MODAL SYMPATH SYM QNT
+    for c in out:
+        mods = {x[1]: x[2] for x in c["calls"] if x[0] == "set_module"}
+        vals = {(x[1], x[2]): x[3] for x in c["calls"] if x[0] == "set_param"}
+        for slot, m in mods.items():
+            if m in GONE and int(vals.get((slot, 0), -1)) in GONE[m]:
+                sys.exit(f"fm1_presets: {c['name']} uses a withdrawn {'Braids shape' if m == 2 else 'Rings model'} ({int(vals[(slot, 0)])}): re-voice it")
     OUT.write_text(json.dumps(out))
     print(f"{OUT.name}: {len(out)} presets")
     from presets_fm1 import macro_test         # not a factory preset: make_presets.py packs it for rack_host's check 8 only

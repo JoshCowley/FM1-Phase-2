@@ -226,7 +226,7 @@ Every voice has its own source, shaper, filter and amplifier. The modulators and
 | Module | What it does | Its main parameters |
 | --- | --- | --- |
 | **Plaits** | A macro oscillator with 24 models: virtual analog, phase distortion, FM, wavetables, chords, speech, swarm, noise, particles, modal and string physics, drums | MODEL, HARMO, TIMBRE, MORPH; LPG and DECAY (its own low-pass gate); ENV>TIMB, ENV>MRPH, ENV>FM; AUX MIX |
-| **Braids** | A macro oscillator with 47 shapes: saws, triple and swarm oscillators, sync, vowels, plucked, bowed and blown models, bit-crushed and noisy shapes | MODEL, TIMBRE, COLOR, DRIFT; BITS and RATE (crushing); its own AD envelope onto TIMBRE, COLOR, pitch or level |
+| **Braids** | A macro oscillator with 33 shapes: saws, triple and swarm oscillators, sync, vowels and formants, FM, wavetables, bit-crushed and noisy shapes (the plucked, bowed, blown and fluted models, feedback FM and Braids' nine drum shapes are not offered: the drum track has its own drums) | MODEL, TIMBRE, COLOR, DRIFT; BITS and RATE (crushing); its own AD envelope onto TIMBRE, COLOR, pitch or level |
 | **Rings** | A resonator that the voices ring; on the FM-1 the models STRING, FM VOICE and STR+VERB | STRUCT, BRIGHT, DAMPING, POSITION, EXCITE, MIX (dry and rung), SPREAD, TUNE, CHORD |
 | **Filter** | A state-variable filter per voice, **always in the chain** (update 26; it is no longer a choice for the shaper slot): LP, BP, HP, LP24, NOTCH, PEAK | TYPE, CUTOFF, RESO, DRIVE; ENV AMT from AMP's envelope, its own (F ATK–F REL) or MOD ENV; KEY TRK, VEL AMT; SAT, AUDIO FM, GAIN; **SWEEP** |
 | **Peaks** | An envelope, LFO or tap-tempo LFO | FUNC, K1, K2, GATE, SUSTAIN, INVERT |
@@ -290,11 +290,27 @@ Clouds plays at most **24 grains** at once (Mutable's own count is 32 at 16 ST, 
 
 WINDOW has to be above 0 for SPEED and JITTER to do anything: the playhead needs a window to travel in. The older SPRAY (a random offset in the whole buffer, per control block) and SCAN (a playhead round the whole buffer) are still there, on the last pages, and add to these. The picture shows the window as two dashed lines with the playhead moving between them. A preset saved before update 27 loads with WINDOW, SPEED and JITTER at 0.
 
+### Braids shapes that are no longer offered (update 61)
+
+The MODEL list steps over 14 of Braids' 47 shapes. A saved sound, a user preset, a MIDI or matrix move that names one plays the nearest kept shape, and the page shows that shape:
+
+| Withdrawn | Plays as | Withdrawn | Plays as |
+|---|---|---|---|
+| FBFM | FM | KICK | FOLD |
+| PLUK | CSAW | CYMB | //// |
+| BOWD | VOSM | SNAR | CLOU |
+| BLOW | ZLPF | NOIS | TOY* |
+| FLUT | VOWL | TWLN | QPSK |
+| BELL | RING | CLKN | TOY* |
+| DRUM | SIx3 | PRTC | QPSK |
+
+The first five (FBFM to FLUT) are feedback FM and the plucked, bowed, blown and fluted models; the nine drum shapes are in the drum track, which keeps its own trimmed drum voices. Rings: MODAL, SYMPATH and SYM QNT load as STRING.
+
 ### Rings on the FM-1
 
 There is **one Rings shared by all the voices**, as on the hardware module. Every voice's sound excites it, and it rings up to two notes at once: each new note takes the next resonator, so a third note cuts off the oldest ring. The dry part of each voice (set by Rings' MIX) plays as well. Rings' parameters follow the last note played.
 
-- **Models**: STRING, FM VOICE and STR+VERB. MODAL, SYMPATH and SYM QNT are too heavy for the FM-1, so a preset asking for one plays STRING. For struck and bell sounds, Plaits' own MODAL and STRING models are the light alternatives.
+- **Models**: STRING, FM VOICE and STR+VERB. MODAL, SYMPATH and SYM QNT are not offered (they were too heavy for the FM-1 and played STRING already): a sound saved with one loads as STRING. For struck and bell sounds, Plaits' own MODAL and STRING models are the light alternatives.
 - **STR+VERB** adds Rings' own reverb to the strings. DAMPING then sets the strings' decay and the reverb's size together. It is much lighter on the processor than a separate reverb module.
 - **Sample rate**: to fit the processor, Rings runs at half the sample rate (24 kHz). Its tuning, decays and tone are kept, but it has nothing above 12 kHz.
 
@@ -858,7 +874,7 @@ Nothing in this bank has been heard on an FM-1: every figure behind it is a desk
 | 15 | ARP PLUCK | A short saw pluck for arpeggios, with a Peaks LFO and a ping-pong delay. | PLUCK · MOTION · ECHO · EDGE | subtle |
 | 16 | FM BELL | A two-operator FM bell: a sharp inharmonic strike that mellows as it rings, Tides breathing the tone, chorus and hall. | STRIKE · SHIMMER · HALO · RUST | subtle |
 | 17 | GLASS BELLS | Glass bells: a bright FM strike with a long, glassy ring, a ping-pong delay into a large hall. | TINE · SHIVER · ROOM · BREAK | subtle |
-| 18 | SYMPATH HARP | A harp: a plucked exciter into Rings' sympathetic strings, triggered by Grids for the accents, delay and hall. | PLUCK · GRIDS · HALL · DRIFT | medium |
+| 18 | SYMPATH HARP | A harp: a bright triple-saw exciter into Rings' strings, triggered by Grids for the accents, delay and hall. | PLUCK · GRIDS · HALL · DRIFT | medium |
 
 ### Thumb pianos (6)
 

@@ -219,6 +219,8 @@ static void fmt(const ui_param_t *p, float v, char *t)
     if (p->t == UT_LIST) {
         if (i < p->lo) i = p->lo;
         if (i > p->hi) i = p->hi;
+        if (p == &UP_BRAIDS[0]) i = rk_list_map(2, i);        /* (update 61) a withdrawn shape or model reads as the one that plays */
+        else if (p == &UP_RINGS[0]) i = rk_list_map(10, i);
         cat(t, p->opt >= JAM_OPT_BASE ? JAM_OPT[p->opt - JAM_OPT_BASE + i] : UI_OPT[p->opt + i]);
     } else if (p->t == UT_INT) {
         int_text(i, t);
@@ -233,6 +235,18 @@ static void fmt(const ui_param_t *p, float v, char *t)
 }
 static float step(const ui_param_t *p, float v, int32_t k)
 {
+    if (p == &UP_BRAIDS[0] || p == &UP_RINGS[0]) {            /* (update 61) the withdrawn shapes and models are stepped over */
+        int mod = p == &UP_BRAIDS[0] ? 2 : 10, d = k < 0 ? -1 : 1, n = k < 0 ? -k : k;
+        int j = rk_list_map(mod, (int)(v < 0.0f ? v - 0.5f : v + 0.5f)), q;
+        if (j < p->lo) j = p->lo;
+        while (n-- > 0) {
+            q = j;
+            do q += d; while (q >= p->lo && q <= p->hi && rk_list_map(mod, q) != q);
+            if (q < p->lo || q > p->hi) break;
+            j = q;
+        }
+        return (float)j;
+    }
     if (p->t == UT_LIST || p->t == UT_INT) {
         int32_t i = (int32_t)(v < 0.0f ? v - 0.5f : v + 0.5f) + k;
         return (float)(i < p->lo ? p->lo : i > p->hi ? p->hi : i);

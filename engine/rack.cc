@@ -764,6 +764,29 @@ static int PI(int slot, int param, const VoiceState* v) {
   return (int)(P(slot, param, v) + 0.5f);
 }
 
+#ifdef RACK_FM1
+// FM1 Phase 2 update 61: Braids shapes and Rings models the firmware no longer offers. The list keeps its numbers (saves, presets, the matrix and MIDI all name a
+// shape by its place in Mutable's list); a number that is withdrawn plays, and reads back as, the nearest one kept. Braids: FBFM -> FM, PLUK -> CSAW, BOWD -> VOSM,
+// BLOW -> ZLPF, FLUT -> VOWL (the five that had delay lines), the nine drum shapes (the drum track has its own trimmed voices): BELL -> RING, DRUM -> SIx3, KICK -> FOLD,
+// CYMB -> ////, SNAR -> CLOU, NOIS -> TOY*, TWLN -> QPSK, CLKN -> TOY*, PRTC -> QPSK. Rings: MODAL, SYMPATH, SYM QNT -> STRING (as they already played).
+static const uint8_t BR_KEPT[47] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+                                    25, 27, 0, 21, 17, 22, 13, 12, 3, 14, 44, 37, 38, 39, 40, 16, 46, 16, 44, 46, 46};
+static int list_norm(int module, int i) {
+  if (module == M_BRAIDS) return i < 0 ? 0 : i > 46 ? 46 : BR_KEPT[i];
+  if (module == M_RINGS) return i == 0 || i == 1 || i == 4 ? 2 : i < 0 ? 0 : i;   // (rings_fm1_model)
+  return i;
+}
+static float param_norm(int slot, int param, float v) {
+  if (param != 0) return v;
+  if (!((slot == S_SRC && mod_id_[slot] == M_BRAIDS) || mod_id_[slot] == M_RINGS)) return v;
+  return (float)list_norm(mod_id_[slot], (int)(v + (v < 0.0f ? -0.5f : 0.5f)));
+}
+EXPORT int list_map(int module, int i) { return list_norm(module, i); }
+#else
+static float param_norm(int, int, float v) { return v; }
+EXPORT int list_map(int, int i) { return i; }
+#endif
+
 // ------------------------------------------------------------------ exports
 EXPORT float* out_l() { return out_l_; }
 EXPORT float* out_r() { return out_r_; }
@@ -780,11 +803,12 @@ static uint32_t glide_[NSLOT];
 EXPORT void set_param(int slot, int param, float value) {
   if (slot < 0 || slot >= NSLOT || param < 0 || param >= NP) return;
   glide_[slot] &= ~(1u << param);
+  value = param_norm(slot, param, value);
   tgt_[slot][param] = value; base_[slot][param] = value;
 }
 EXPORT void set_param_glide(int slot, int param, float value) {
   if (slot < 0 || slot >= NSLOT || param < 0 || param >= NP) return;
-  tgt_[slot][param] = value;
+  tgt_[slot][param] = param_norm(slot, param, value);
   glide_[slot] |= 1u << param;
 }
 EXPORT float get_param(int slot, int param) {
@@ -1899,7 +1923,7 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
 #endif
   if (src == M_BRAIDS) {
     braids::MacroOscillator& b = braids_[i];
-    b.set_shape((braids::MacroOscillatorShape)PI(S_SRC, 0, &v));
+    b.set_shape((braids::MacroOscillatorShape)list_norm(M_BRAIDS, PI(S_SRC, 0, &v)));
     v.drift += (randf() * 2.0f - 1.0f) * 0.02f; v.drift *= 0.995f;
     float n2 = note + v.drift * P(S_SRC, 3, &v) * 0.6f;
     // page 3-4: OCTAVE, FINE, and the internal AD envelope (as Braids' |\ settings) on TIMBRE, COLOR, pitch and level
@@ -2858,7 +2882,11 @@ static void process_block_();
 static void drum_account(uint32_t blk_ticks, bool had_drums) {
   drum_shared_ = drum_shared_ && had_drums;
   if (!had_drums) { drum_slow_ = 0; drum_wait_avg_ = drum_blk_avg_ = 0; return; }
+#ifdef FXC2
   uint32_t w = (cl_pipe_ && cl_due_) ? cl_wait_now_ : drum_wait_now_;
+#else
+  uint32_t w = drum_wait_now_;   // (update 61: Clouds at 48 kHz, RACK_CLOUDS_32K off: Clouds does not go to the second core; this line did not compile without FXC2)
+#endif
   drum_wait_avg_ = (uint32_t)((int32_t)drum_wait_avg_ + ((int32_t)w - (int32_t)drum_wait_avg_) / 16);
   drum_blk_avg_ = (uint32_t)((int32_t)drum_blk_avg_ + ((int32_t)blk_ticks - (int32_t)drum_blk_avg_) / 16);
   if (drum_shared_ && ticks_) {   // the split of the voices: the second core's job against the first core's own work before the join, a voice's worth apart or more moves one

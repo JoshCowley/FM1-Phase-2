@@ -51,6 +51,7 @@ int rk_fm1_status(int what);
 void rk_fm1_fit(void);
 float rk_voice_env(int i);
 int rk_fm1_fit_needed(void);
+int rk_list_map(int module, int i);          /* update 61: a Braids shape (module 2) or Rings model (10) as it plays: a withdrawn one gives the nearest kept */
 float rk_get_param(int slot, int param);
 float rk_get_route(int i, int *out);
 float *rk_monitor(int slot);

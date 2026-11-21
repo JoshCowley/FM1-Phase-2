@@ -31,6 +31,7 @@ void rk_render(int n) { render(n); }
 float *rk_out_l(void) { return out_l(); }
 float *rk_out_r(void) { return out_r(); }
 int rk_fm1_status(int what) { return fm1_status(what); }
+int rk_list_map(int module, int i) { return list_map(module, i); }   // (update 61)
 void rk_fm1_fit(void) { fm1_fit(); }   // as the firmware does after loading a preset (bench.c, the preset cases)
 // the second core (rack.cc set_worker): the 2 CORES cases
 void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void)) { set_worker(run, wait); }

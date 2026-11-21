@@ -448,7 +448,7 @@ static const uint32_t PK_FAM[6] = {0xFFB347u, 0xFF7A66u, 0xFFE070u, 0xB6F06Bu, 0
 #define PK_CHO 0x62F0C0u
 #define PK_RING 0xFFA866u
 
-static int pk_fam(int model) { int f = model * 6 / 47; return f < 0 ? 0 : f > 5 ? 5 : f; }
+static int pk_fam(int model) { int f = (model >= 0 && model < 47 ? rk_list_map(2, model) : model) * 6 / 47; return f < 0 ? 0 : f > 5 ? 5 : f; }
 static uint32_t pk_gates(const float *mon)        /* the voices' gates as bits */
 {
     uint32_t g = 0;
@@ -481,8 +481,8 @@ static const char *pic_sub(int sc, const float *mon)
     int v = (int)(P(mon, 0) + 0.5f);
     const ui_mod_t *m = page_mod(mn.page);
     switch (sc) {
-    case SC_BRAIDS: return v >= 0 && v < 47 ? UI_OPT[UP_BRAIDS[0].opt + v] : "";
-    case SC_RINGS: return v >= 0 && v < 6 ? RN[v] : "";
+    case SC_BRAIDS: return v >= 0 && v < 47 ? UI_OPT[UP_BRAIDS[0].opt + rk_list_map(2, v)] : "";
+    case SC_RINGS: return v >= 0 && v < 6 ? RN[rk_list_map(10, v)] : "";
     case SC_FILTER: return v >= 0 && v < 6 ? FN[v] : "";
     case SC_DELAY: return UI_OPT[UP_DELAY[0].opt + ((int)(P(mon, 0) + 0.5f) & 15) % 9];
     case SC_REVERB: return UI_OPT[UP_REVERB[4].opt + (((int)(P(mon, 4) + 0.5f)) % 3)];
