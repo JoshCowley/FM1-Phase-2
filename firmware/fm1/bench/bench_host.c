@@ -181,6 +181,25 @@ int main(int argc, char **argv)
                 fails++;
         }
     }
+    /* the MODSUM cases (23 Nov 2026): the precompute (NEW) and the scan it replaced (OLD) give the same samples, bit for bit, in a second of each case */
+    {
+        int ko, kn, nm = 0, bad = 0;
+        for (ko = 0; ko < bncases; ko++) {
+            uint32_t s1 = 0, s2 = 0;
+            if (bcases[ko].group != G_MODSUM || bcases[ko].ab != 2)
+                continue;
+            for (kn = 0; kn < bncases; kn++)
+                if (bcases[kn].group == G_MODSUM && bcases[kn].ab == 1 && bcases[kn].preset == bcases[ko].preset && bcases[kn].mov == bcases[ko].mov)
+                    break;
+            if (kn == bncases || case_played(argv[0], kn, a, &s1) || case_played(argv[0], ko, b, &s2) || memcmp(a, b, sizeof a)) {
+                printf("MODSUM %-24s differs from its NEW twin   FAIL\n", bcases[ko].name);
+                bad++;
+            }
+            nm++;
+        }
+        printf("MODSUM: %d OLD/NEW pairs, %d differ\n", nm, bad);
+        fails += bad;
+    }
     /* each 2 CORES case against its one-core twin (same preset and notes): the same sound but for the order the
      * voices are added in (a Clouds case: a block late, Clouds on the second core), and the second core really took its share */
     {

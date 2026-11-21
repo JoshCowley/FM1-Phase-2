@@ -15,7 +15,7 @@ mkdir -p $OUT
 RACK_FLAGS="${RACK_FLAGS:-}"
 # update 8: the Clouds changes, each on by default; switch one off with RACK_FLAGS=-URACK_CLOUDS_32K (and so on; -URACK_CLOUDS_MAX_GRAINS);
 # update 9: RACK_FX_CORE2 (Clouds on the second core) too: RACK_FLAGS=-URACK_FX_CORE2 builds without it
-CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB -DRACK_FX_CORE2 -DRACK_DRUMS"
+CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=40 -DRACK_CLOUDS_SKIP_REVERB -DRACK_FX_CORE2 -DRACK_DRUMS -DRACK_BENCH_AB"
 [ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc; echo "$RACK_FLAGS" > $OUT/.flags; }
 EURORACK="$EURORACK" python3 make_units.py
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)

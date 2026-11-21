@@ -200,6 +200,18 @@ static float mo_[4 * MK_N];          // each target's offset now (parameter span
 static float rowoff_[NROUTE];        // the sum of the row targets, per row
 static uint8_t mdirty_;              // knobs whose offsets are out of date
 static void jam_routed_bits();       // JAM mode's layer (below): its targets' bits
+// The knob layer's and JAM's sums, per parameter, kept for mod_sum (23 Nov 2026: that call was about 15 % of a render): for a parameter no
+// matrix row reaches (rr_: the rows' own bits), mod_sum is just the knob targets' offsets added in order, then JAM's added together; that
+// is worked out here when a knob moves, a target or a row is set or JAM's offsets change (control rate), not for every voice and
+// every call. The same float adds in the same order as the scan: the same bits. A parameter a row reaches still scans (the sources
+// are live, and the offsets must come after the rows in that order). 1,320 B of RAM.
+static uint32_t rr_[NSLOT + 1];
+static float kn_[NSLOT + 1][32];
+static void kn_rebuild();
+#ifdef RACK_BENCH_AB
+static bool kn_on_ = true;   // the benchmark only: the sums ahead on or off (off: every call scans, as 2.32 did), for an A/B on the device
+EXPORT void set_modsum_precompute(int on) { kn_on_ = on != 0; }
+#endif
 static void routed_rebuild() {
   memset(routed_, 0, sizeof(routed_));
   for (int i = 0; i < NROUTE; ++i) {
@@ -211,6 +223,12 @@ static void routed_rebuild() {
     if (t.depth && t.slot >= -1 && t.slot < NSLOT && t.param < 32) routed_[t.slot + 1] |= 1u << t.param;
   }
   jam_routed_bits();
+  memset(rr_, 0, sizeof(rr_));
+  for (int i = 0; i < NROUTE; ++i) {
+    const Route& r = routes_[i];
+    if (r.src != SR_NONE && r.slot >= -1 && r.slot < NSLOT && r.param >= 0 && r.param < 32) rr_[r.slot + 1] |= 1u << r.param;
+  }
+  kn_rebuild();
 }
 // the response of a target to the knob at k (0..1): 0 linear, 1 slow start, 2 fast start, 3 step (at start), 4 smooth
 static float macro_curve_(float k, int start, int end, int curve) {
@@ -672,6 +690,27 @@ static float jam_sum(int slot, int param) {
   for (int i = 0; i < jn_; ++i) if (jo_[i] != 0.0f && jam_hit(i, slot, param)) m += jo_[i];
   return m;
 }
+static void kn_rebuild() {
+  // the knob targets in order, per parameter (what mod_sum adds after the rows), then JAM's sum for that parameter added to it
+  memset(kn_, 0, sizeof(kn_));
+  for (int j = 0; j < 4 * MK_N; ++j) {
+    const MTgt& t = mt_[j];
+    if (t.depth && t.slot >= -1 && t.slot < NSLOT && t.param < 32) kn_[t.slot + 1][t.param] += mo_[j];
+  }
+  if (!jam_on_) return;
+  for (int i = 0; i < jn_; ++i) {   // each parameter JAM reaches once (its first entry), with jam_sum's own order of adds
+    if (jo_[i] == 0.0f) continue;
+    int s = jt_[2 * i], p = jt_[2 * i + 1];
+    if (p >= 32) continue;
+    for (int f = -1; f < NSLOT; ++f) {
+      if (!jam_hit(i, f, p)) continue;
+      bool first = true;
+      for (int k = 0; k < i && first; ++k) if (jo_[k] != 0.0f && jam_hit(k, f, p)) first = false;
+      if (first) kn_[f + 1][p] += jam_sum(f, p);
+    }
+    (void)s;
+  }
+}
 static void jam_routed_bits() {
   if (!jam_on_) return;
   for (int i = 0; i < jn_; ++i) {
@@ -693,7 +732,14 @@ EXPORT void set_jam_offsets(const float* o) {
 EXPORT void clear_jam() { memset(jo_, 0, sizeof(jo_)); if (jam_on_) { jam_on_ = false; routed_rebuild(); } }
 
 static float mod_sum(int slot, int param, const VoiceState* v) {
-  if (slot >= -1 && slot < NSLOT && param >= 0 && param < 32 && !(routed_[slot + 1] >> param & 1u)) return 0.0f;
+  if (slot >= -1 && slot < NSLOT && param >= 0 && param < 32) {
+    if (!(routed_[slot + 1] >> param & 1u)) return 0.0f;
+#ifdef RACK_BENCH_AB
+    if (kn_on_ && !(rr_[slot + 1] >> param & 1u)) return kn_[slot + 1][param];
+#else
+    if (!(rr_[slot + 1] >> param & 1u)) return kn_[slot + 1][param];   // no row reaches it: the knobs and JAM, summed ahead
+#endif
+  }
   float m = 0.0f;
   for (int i = 0; i < NROUTE; ++i) {
     const Route& r = routes_[i];
@@ -784,7 +830,7 @@ EXPORT int get_macro_target(int k, int idx, int* out) {
 EXPORT float macro_curve(float k, int start, int end, int curve) { return macro_curve_(k, start, end, curve); }
 #ifdef TEST
 EXPORT float eff_param(int slot, int param) { macro_update(); return P(slot, param, 0); }   // a parameter as the voices hear it (host checks)
-EXPORT float eff_param_nojam(int slot, int param) { bool j = jam_on_; jam_on_ = false; macro_update(); float v = P(slot, param, 0); jam_on_ = j; return v; }   // the same without JAM's layer: what the preset alone gives at this moment
+EXPORT float eff_param_nojam(int slot, int param) { bool j = jam_on_; jam_on_ = false; macro_update(); kn_rebuild(); float v = P(slot, param, 0); jam_on_ = j; kn_rebuild(); return v; }   // the same without JAM's layer: what the preset alone gives at this moment
 #endif
 // the offsets of the knobs that moved: at most 32 evaluations, once per block, only while a knob is moving
 static void macro_update() {
@@ -800,6 +846,7 @@ static void macro_update() {
   for (int i = 0; i < NROUTE; ++i) rowoff_[i] = 0.0f;
   for (int j = 0; j < 4 * MK_N; ++j)
     if (mt_[j].slot == MT_ROW && mt_[j].depth && mt_[j].param < NROUTE) rowoff_[mt_[j].param] += mo_[j];
+  kn_rebuild();
 }
 // each block: the gliding parameters and macros a part of the way to their targets (about 5 ms to settle)
 static void glide_step() {
@@ -1123,6 +1170,7 @@ EXPORT void set_module(int slot, int id) {
 #endif
   if (mod_id_[slot] == id) return;
   mod_id_[slot] = id;
+  if (jam_on_) kn_rebuild();   // JAM's targets named by module id: which slot holds it has changed
 #ifdef RACK_WITH_GRAIN
   if (slot == S_SRC && id == M_GRAIN && !grain_filled_) grain_fill_test();
 #endif

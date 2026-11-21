@@ -44,6 +44,7 @@ float eff_param_nojam(int slot, int param);   // a parameter as the voices hear 
 #endif
 void set_master(float v);
 void set_master_fx(float low_db, float mid_db, float high_db, float comp);
+void set_modsum_precompute(int on);   // the benchmark's A/B of mod_sum's sums ahead (-DRACK_BENCH_AB only)
 void set_clouds_opts(int k32, int skip_rev, int grains);   // update 8: the Clouds changes' runtime switches (the benchmark's comparison cases only)
 void set_voices(int n);          // 1-6; the FM-1 build caps this at what fits
 void set_legato(int on);
