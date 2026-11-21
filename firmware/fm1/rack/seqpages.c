@@ -488,7 +488,7 @@ static void draw_seq_page(void)
         }
         seq_dials(l, v, f, K_SEQC);
         help(sp.lasso ? "LASSO: K1-K4 EDIT IT  TAP SEL: DONE" : artm ? "SEL HELD: K4 ARTICULATION" :
-             sq.run ? "SELECT: PAGE  K1 NOTE  EDIT: DELETE" : "PLAY A KEY: WRITE  EDIT: DELETE");
+             sq.run ? "SELECT: PAGE  K1 NOTE  EDIT: DELETE  SEQ: DRUMS" : "PLAY A KEY: WRITE  EDIT: DELETE  SEQ: DRUMS");
         break;
     }
     case SQP_PATTERN:

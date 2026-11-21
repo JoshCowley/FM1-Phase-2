@@ -1416,7 +1416,7 @@ int app_expect(const char *what, int *got)
         *got = rc_patch.mod[RS_SHP];
         return 1;
     }
-    if (same(what, "page") || same(what, "sub")) {   /* the menu's page (menus.c PG_*: 0 HOME, 8 AMP, 16 FILTER) and its page within */
+    if (same(what, "page") || same(what, "sub")) {   /* the menu's page (menus.c PG_*: 0 HOME, 8 AMP, 17 FILTER) and its page within */
         *got = same(what, "page") ? mn.page : mn.sub;
         return 1;
     }

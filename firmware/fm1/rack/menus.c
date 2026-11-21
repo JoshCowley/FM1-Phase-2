@@ -2,10 +2,11 @@
 /* FM1 Rack firmware: the sound-editing menus, ported from the page (web/src/4-pages.js, 5-controls.js), part of
  * app.c (included after the screen's helpers). The page's buttons, as printed on the FM-1:
  *
- *   EDIT   the source (SRC), then OSC     ENV   AMP, then the shaper (SHP)
- *   LFO    MOD A, MOD B, then the LFOs    FX    FX 1, then FX 2
- *   ARP    the matrix, then the arp       HOME  home; on home, the rack and back
- *   SEL    scale + chord, then the keys   GLO   GLOBAL: settings, playing, tuning, MIDI, master, system
+ *   EDIT   the source (SRC), then OSC     ENV   AMP, FILTER, then the shaper (SHP)
+ *   LFO    LFO, GATE PATTERN, MOD A, MOD B, MSEQ, MATRIX    FX    FX 1, FX 2, JAM
+ *   ARP    the arp                        HOME  home; on home, the rack and back
+ *   SEL    scale + chord, then the keys   GLO   GLOBAL: tempo, touch, tuning, MIDI, EQ, CPU, click, display
+ *   (2.34: tap a button again = its next GROUP of pages, as above; SELECT = the pages inside the group)
  *
  * On a module's page: SELECT turns its pages, K1-K4 its four parameters, ALGORITHM opens the picker (press the
  * slot's button again to load the module shown; HOME closes it). On AMP and the LFOs the same; the LFOs' last three
@@ -1086,8 +1087,8 @@ static void draw_param_page(int pg)
         return;
     }
     param_cells(pg);
-    help(pg == PG_FLT ? "SELECT: PAGE   K1-K4: VALUES   ENV+K1: SWEEP" : pg == PG_OSC ? "SELECT: PAGE   K1-K4: VALUES   EDIT: SOURCE" : pg == PG_AMP || pg == PG_LFO ? "SELECT: PAGE   K1-K4: VALUES"
-         : "SELECT: PAGE   K1-K4: VALUES   ALGO: MODULE");
+    help(pg == PG_FLT ? "SELECT: PAGE  TAP: NEXT GROUP  ENV+K1: SWEEP" : pg == PG_OSC || pg == PG_AMP || pg == PG_LFO ? "SELECT: PAGE  K1-K4: VALUES  TAP: NEXT GROUP"
+         : "SELECT: PAGE  TAP: NEXT GROUP  ALGO: MODULE");   /* (2.34: tap the button again for the next group) */
 }
 
 /* GATE PATTERN's controls: K1 the lane (GATE 1 / 2, set.arp[A_GSEL]), then its values: page 1 RATE, HITS, STEPS; page 2

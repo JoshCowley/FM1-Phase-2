@@ -615,7 +615,7 @@ static const char *drum_help(void)
     return mn.sub == SQP_DSOUND ? "SELECT: LANE  ALGO: MODEL  SEL+ALGO: KIT" : mn.sub == SQP_DMIX ? "SELECT: LANE  K4: HOW MUCH GOES TO FX" :
            mn.sub == SQP_DMIDI ? "OUT: SOUND / MIDI / ALSO / OFF   IN: PADS PLAY LANES" :
            mn.sub == SQP_DKIT ? "ALGO: QUEUE   SELECT: STYLE STARTS DRUMS" : mn.sub == SQP_DFEEL ? "LENGTH 12 AGAINST 16 DRIFTS EVERY BAR" : mn.sub == SQP_DGEN ? "SELECT: LANE  ALGO RIGHT: WRITE IT" :
-           "SEL: STEP  EDIT: ON/OFF  SEL+K1: PATTERN";
+           "EDIT: ON/OFF  SEL+K1: PATTERN  SEL+SELECT: PAGE";
 }
 static void drum_encoders(const int32_t *e)   /* e: SELECT, ALGO, K1-K4 */
 {
