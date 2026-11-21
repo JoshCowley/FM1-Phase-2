@@ -235,7 +235,7 @@ static float cl_buf[2][CL_N * 1000];
 static void cl_render_sched(int skip, int variant, int secs)
 {
     int s, ms, k = 0;
-    rk_clouds_opts(1, skip, 40);
+    rk_clouds_opts(1, skip, RACK_CLOUDS_MAX_GRAINS);
     cl_patch(30, 0, 0);
     s = cl_clouds_slot();
     cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 0.6f);
@@ -285,7 +285,7 @@ static int check_clouds_skip(void)
     printf("6d REVERB 0 -> 0.5 -> 0 ...: the largest step between samples in the 40 ms after a change %.4f with the skip, %.4f without; "
            "the patch's own before the first: %.4f%s\n", worst, worst_ref, steady, worst <= steady * 1.5f ? "" : "   FAIL");
     fails += !(worst <= steady * 1.5f);
-    rk_clouds_opts(1, 1, 40);
+    rk_clouds_opts(1, 1, RACK_CLOUDS_MAX_GRAINS);
     return fails;
 }
 
@@ -311,7 +311,7 @@ static int check_clouds_pitch(void)
     for (k32 = 0; k32 < 2; k32++)
         for (oct = 0; oct < 2; oct++) {
             int s, ms, kk = 0;
-            rk_clouds_opts(k32, 1, 40);
+            rk_clouds_opts(k32, 1, RACK_CLOUDS_MAX_GRAINS);
             cl_patch(30, 0, 0);
             s = cl_clouds_slot();
             cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.2f); cl_set(s, P_BLEND, 1.0f);
@@ -324,7 +324,7 @@ static int check_clouds_pitch(void)
             }
             fr[k32][oct] = cl_domfreq(cl_buf[0], kk * CL_N);
         }
-    rk_clouds_opts(1, 1, 40);
+    rk_clouds_opts(1, 1, RACK_CLOUDS_MAX_GRAINS);
     printf("6e pitch (a 220 Hz note through GRANULR, all wet): strongest frequency at PITCH 0 / +12: 32 kHz path %.0f / %.0f Hz, 48 kHz path %.0f / %.0f Hz%s\n",
            fr[1][0], fr[1][1], fr[0][0], fr[0][1],
            fabsf(fr[1][0] - fr[0][0]) <= 0.01f * fr[0][0] + 1 && fabsf(fr[1][1] - fr[0][1]) <= 0.01f * fr[0][1] + 1 ? "" : "   FAIL");
@@ -426,7 +426,7 @@ static int check_clouds_grain_run(void)
         fails += !ok;
         munmap(a, 2 * NB * sizeof(float) + 2 * sizeof(int));
     }
-    /* c) JITTER spreads the grains' starts over the window: the starts' spread (standard deviation) is JITTER x WINDOW / sqrt(12), their mean the window's centre */
+    /* c) (update 59: the grain ceiling is 24, ~155 grains in this run, not ~220: the count needs > 100) JITTER spreads the grains' starts over the window: the starts' spread (standard deviation) is JITTER x WINDOW / sqrt(12), their mean the window's centre */
     {
         static const float J[] = {0.0f, 0.5f, 1.0f};
         for (k = 0; k < 3; k++) {
@@ -437,7 +437,7 @@ static int check_clouds_grain_run(void)
             rk_gr_stats(st, 0);
             mean = st[0] > 0 ? st[1] / st[0] : 0;
             sd = st[0] > 1 ? sqrt(fmax(0.0, st[2] / st[0] - mean * mean)) : 0;
-            ok = st[0] > 200 && fabs(mean - 0.5) < 0.02 && fabs(sd - want) <= 0.1 * want + 0.002 && st[3] >= 0.3 - 1e-4 && st[4] <= 0.7 + 1e-4;
+            ok = st[0] > 100 && fabs(mean - 0.5) < 0.02 && fabs(sd - want) <= 0.1 * want + 0.002 && st[3] >= 0.3 - 1e-4 && st[4] <= 0.7 + 1e-4;
             printf("6g JITTER %.1f, WINDOW 0.4 at POSITION 0.5: %.0f grains, starts %.3f..%.3f, mean %.3f, spread %.4f (want %.4f)%s\n", J[k], st[0], st[3], st[4], mean, sd, want, ok ? "" : "   FAIL");
             fails += !ok;
         }

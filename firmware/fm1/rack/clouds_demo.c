@@ -175,7 +175,7 @@ typedef struct { int mode, qual; float dens, rev; } clcfg_t;
 #define CAUDIO 16
 static double braids4(void)
 {
-    rk_clouds_opts(1, 1, 40);
+    rk_clouds_opts(1, 1, RACK_CLOUDS_MAX_GRAINS);
     cl_patch(0, 0, 0); rk_set_voices(4);
     return cost(4, CAUDIO);
 }
@@ -189,7 +189,7 @@ static double own_share(const clcfg_t *c, int k32, int skip, int grains, double 
     cl_set(s, P_POS, 0.2f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_SPREAD, 0.5f); cl_set(s, P_FB, 0.3f); cl_set(s, P_REV, c->rev);
     rk_set_voices(4);
     with = cost(4, CAUDIO);
-    rk_clouds_opts(1, 1, 40);
+    rk_clouds_opts(1, 1, RACK_CLOUDS_MAX_GRAINS);
     return (with - four) * 100.0;
 }
 static void stats(const double *v, int n, double *mean, double *lo, double *hi)
@@ -256,7 +256,7 @@ static void print_grain_sound(void)
         }
         printf("\n");
     }
-    rk_clouds_opts(1, 1, 40);
+    rk_clouds_opts(1, 1, RACK_CLOUDS_MAX_GRAINS);
 }
 
 static void print_cost2(void)
@@ -391,7 +391,7 @@ int main(int argc, char **argv)
         return 1;
     }
     if (getenv("CL_K32"))                          /* update 8: CL_K32=0 renders with Clouds at 48 kHz (RACK_CLOUDS_32K off at run time), for the A/B */
-        rk_clouds_opts(atoi(getenv("CL_K32")), 1, 40);
+        rk_clouds_opts(atoi(getenv("CL_K32")), 1, RACK_CLOUDS_MAX_GRAINS);
     s = demo_patch();
     play(PADCH, (int)(sizeof PADCH / sizeof *PADCH), 0, s);
     snprintf(path, sizeof path, "%s/01_granular_on_pad.wav", argv[1]);

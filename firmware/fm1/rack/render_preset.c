@@ -64,6 +64,7 @@ int main(int argc, char **argv)
     }
     fclose(s);
     if (secs > 64) secs = 64;
+    if (getenv("RP_CAP")) rk_clouds_opts(getenv("RP_K32") ? atoi(getenv("RP_K32")) : 1, 1, atoi(getenv("RP_CAP")));   /* RP_CAP=n RP_K32=0|1: the Clouds grain ceiling / 48 kHz switch, for A/B renders */
     rk_seed(0x21u);
     rc_pause();
     rc_load(k);

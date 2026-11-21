@@ -165,9 +165,9 @@ static void drum_checks(const char *self, int *fails)
             printf("12d %-13s one core: rms %.4f peak %.3f NaN %d; two cores NOW against it: %d of %d samples differ (largest %.3g)\n", SC[s], r0, pk, bd, nd, 2 * DC_BLK * DC_BLOCKS, dd);
             if (bd || !(pk > 0.05f)) { bad12++; ok = 0; }
             if (s == DS_PLAIN && nd != 0) { bad12++; ok = 0; printf("12d plain: two cores must equal one core sample for sample\n"); }
-            if (s != DS_PLAIN) {   /* Clouds: the second core's job holds the drums; the first core's output is a block later or the same: rms within 6 % */
+            if (s != DS_PLAIN) {   /* Clouds: the second core's job holds the drums; the first core's output is a block later or the same: rms within 7 % (update 59: 6.2 % with the grain ceiling at 24, fewer and louder grains) */
                 double r1 = dc_rms(B, &bd, &pk);
-                if (bd || fabs(r1 - r0) > 0.06 * r0) { bad12++; ok = 0; printf("12d %s: rms %.4f against %.4f\n", SC[s], r1, r0); }
+                if (bd || fabs(r1 - r0) > 0.07 * r0) { bad12++; ok = 0; printf("12d %s: rms %.4f against %.4f\n", SC[s], r1, r0); }
             }
             /* a worker that fails (declines 40 %, gives up 40 %) and the other ways to run the job: the same as the working worker's */
             if (dc_played(self, s, FM_B, 40, 40, C)) { printf("12d %s: no play (failing)\n", SC[s]); bad12++; continue; }

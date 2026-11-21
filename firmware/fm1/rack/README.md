@@ -6,6 +6,16 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 59: Clouds' grain ceiling 24 (21 Nov 2026; host-tested, NOT heard, NOT run on an FM-1)
+
+`RACK_CLOUDS_MAX_GRAINS` 40 -> 24 (`fm1.toml`, `build_host.sh`; the bench's CAP24 row is the same ceiling: GRANULR 16 ST, DENSITY 1.0). Clouds' own count is 32 at 16 ST, so 40 only acted at 8 ST and
+16 MONO/8 MONO; 24 now acts at every quality. It is NOT only a limit on busy moments: the player's target is `max grains x DENSITY^3`, so the ceiling rescales the whole DENSITY knob (at 16 ST every
+setting gives 3/4 of the grains it did; grains are also a little louder each, the player's normalisation going by the count).
+**Sound.** Of the 46 factory presets only TIDE PAD has Clouds (GRANULR 16 ST, DENSITY 0.7, BLEND 0.25); the other 45 render sample for sample as in 2.34. TIDE PAD: active grains never above 2
+(8,000 blocks: 1.21 on average at 32, 1.00 at 24); no block over 24, but the grain stream differs (random draws); level -0.15 dB rms, peak -0.03 dB; not the same samples. At DENSITY 1.0, BLEND 1.0 (the bench
+case): 78 % of the blocks had more than 24 grains at the old count (up to 32); with the ceiling 24 at most; level -0.44 dB rms, peak -0.3 dB. `render_preset` takes `RP_CAP=n RP_K32=0|1` for the A/B.
+**Checks changed:** `clouds_check` 6g: grains in the 6 s run (~155 against ~220) > 100 instead of > 200; `drum_check` 12d: Clouds + notes one core against two cores rms within 7 % (6.2 % at 24 grains) instead of 6 %.
+
 ## Update 58 / release 2.34: tap again = next group (host-tested, NOT run on an FM-1)
 
 - **The rule.** A page button tapped again goes to its next GROUP of pages; SELECT turns the pages inside the group. Groups: ENV AMP / FILTER / SHAPER; LFO: LFO (9 pages), GATE PATTERN (2), MOD A, MOD B, MSEQ, MATRIX; FX: FX 1, FX 2, JAM; EDIT: SOURCE, OSC; SEQ: the note pages, DRUM + KIT, LANE SOUND + MIX + TIMING, DRUM GENERATE + MIDI. SEL, ARP and GLO are one group each (tapped again they stay). From HOME: FILTER ENV x2 (was 8), GATE PATTERN LFO x2 (12), JAM FX x3 (7), the DRUM grid SEQ x2 (7); SAVE and a preset change as before (1 each). `sim_groups.txt` proves them.

@@ -274,6 +274,8 @@ Edits are lost when you change preset unless you SAVE.
 
 Clouds sits in FX 1 or FX 2 and listens to everything before it, so it granulates the FM-1's own sound, live. Its buffer is short, set by QUALITY (page 4): **0.77 s** at 16 ST, **1.5 s** at 16 MONO, **3.1 s** at 8 ST, **6.1 s** at 8 MONO (the 8-bit qualities are lo-fi). The grain controls shape GRANULR mode; LOOPDLY and SPECTRL ignore WINDOW, SPEED and JITTER.
 
+Clouds plays at most **24 grains** at once (Mutable's own count is 32 at 16 ST, 45 at 8 ST, 40 at 16 MONO, 57 at 8 MONO); DENSITY's range is spread over that, so the busiest setting is a little thinner than on Mutable's Clouds, and costs less processor.
+
 **The first two pages are the grain set.** Every control is a matrix destination and a knob-layer target, and the three new ones are saved in user presets.
 
 | Page | Knob | Does |
