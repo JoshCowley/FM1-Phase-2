@@ -27,6 +27,7 @@
 #include "drum_check.c"
 #include "drumseq.c"
 #include "drumseq_check.c"
+#include "drum_timing_check.c"
 #include "jam.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
@@ -202,6 +203,12 @@ int main(int argc, char **argv)
         dkit_checks(&fails);
         return fails != 0;
     }
+    if (argc == 2 && !strcmp(argv[1], "--dtimecheck")) {   /* section 14 alone */
+        dt_checks(&fails);
+        return fails != 0;
+    }
+    if (argc >= 2 && !strcmp(argv[1], "--dtime"))     /* section 14's numbers by hand */
+        return dt_cli(argc, argv);
     if (argc == 3 && !strcmp(argv[1], "--drumdemo"))
         return drum_demo(argv[2]);
     if (argc == 2 && !strcmp(argv[1], "--dseq")) {    /* section 13 alone */
@@ -626,6 +633,7 @@ int main(int argc, char **argv)
     drum_checks(argv[0], &fails);   /* 12 (FM1 Phase 2 step 1: the drum voices) */
     dkit_checks(&fails);            /* 12g (step 3: the factory kits through the engine) */
     dseq_checks(&fails);            /* 13 (step 2: the drum sequencer) */
+    dt_checks(&fails);             /* 14 (timing: drums stopped cost nothing; drums playing on a heavy preset stay under the overload guard) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }
