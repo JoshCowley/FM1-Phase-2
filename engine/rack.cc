@@ -255,7 +255,8 @@ struct DrumVoice {
   float env, dec;               // the amplitude: 1 at the hit, times dec each frame
   float gl, gr, wl, wr;         // the hit's dry and wet gains, left and right
   int16_t pitch, p1, p2;
-  uint8_t shape, active;
+  uint8_t shape, active, model, fading;   // fading: cut (a choke, or stolen): dying away in 8 ms, not counted as sounding
+  float last, off;              // the last sample sent (pre-gain), and a step still being smoothed away: a hit on a sounding voice starts from where it was
 };
 struct DrumBus {
   DrumVoice v[DR_N];
@@ -269,6 +270,17 @@ static uint8_t drum_run_ = 0, drum_busy_ = 1;       // the firmware's pattern is
 static uint32_t drum_blk_job_ = 0, drum_blk_inl_ = 0;
 static float drum_dens_seen_ = 0.0f;                // the DENSITY the last Clouds block was given (the host check reads it)
 #define DRUM_CLOUDS_CEIL 0.9f   // IF BUSY = CLOUD: Clouds' DENSITY is held at this while the drums run
+// What each model costs the second core, in synth voices (the 13 Nov bench, points of a core over 5.8 a Braids voice: KICK 6.1, SNARE 7.8, CYMBAL 8.0, STRUCK
+// DRUM 6.0, STRUCK BELL 6.5, FILTERED NOISE 4.9, CLOCKED NOISE 3.2, PARTICLE 4.0, TWIN PEAKS 3.6). The first core takes that many more voices while they sound
+static const float DM_COST[DM_N] = {1.05f, 1.34f, 1.38f, 1.03f, 1.12f, 0.84f, 0.55f, 0.69f, 0.62f};
+#define DRUM_MAX_SOUNDING 3     // voices sounding at once: a fourth hit takes the quietest one's place (it dies away in 8 ms)
+#define DRUM_MAX_SLOW 2         // ... while the second core is the slow one (the first core waits for its job at the join)
+#define DRUM_END 1.0e-3f        // a voice below this (-60 dB: its own T60) is done: it is not rendered any more
+static uint32_t drum_wait_avg_ = 0, drum_blk_avg_ = 0, drum_wait_now_ = 0;   // ticks, smoothed over 16 blocks: the first core's wait at the join, and the block
+static uint32_t drum_c1_avg_ = 0, drum_c2_avg_ = 0, drum_c1_now_ = 0, drum_job_now_ = 0;   // ticks: the first core's work before the join (voices, early work), the job's own time (second core), each smoothed over 16 blocks
+static int8_t drum_bias_ = 0;                       // voices the first core takes more (+) or fewer (-) than the table says, while drums sound: learnt from c1 against c2
+static uint8_t drum_shared_ = 0, drum_cnt_ = 0;     // this block's job ran on the second core with drums in it; blocks since the last look at the balance
+static uint8_t drum_slow_ = 0;                      // the second core was the slow one while drums sounded (the wait over 1/16 of the block): fewer voices sound
 #endif
 static int nvoices_ = 2;
 static int shrink_to_ = 0;   // fewer voices asked for while some still fade out (set_voices): the count they go to
@@ -944,6 +956,7 @@ static void fm1_layout() {
   nalloc_ = nv;
 #ifdef HAVE_DRUMS
   drum_ok_[0] = drum_ok_[1] = 0; drum_pending_ = drum_in_job_ = 0;
+  drum_bias_ = 0; drum_slow_ = 0; drum_shared_ = 0; drum_cnt_ = 0; drum_c1_avg_ = drum_c2_avg_ = drum_wait_avg_ = drum_blk_avg_ = 0;
   if (drum_) { new (drum_) DrumBus(); for (int i = 0; i < DR_N; ++i) { drum_->v[i].osc.Init(); drum_->v[i].active = 0; } }
 #endif
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
@@ -2175,21 +2188,34 @@ static void drums_render() {
       v.osc.set_shape((braids::DigitalOscillatorShape)v.shape);
       v.osc.Render(sync + h, buf + h, BLOCK - h < 24 ? BLOCK - h : 24);
     }
-    float e = v.env;
+    float e = v.env, off = v.off, x = v.last;
     for (int n = 0; n < BLOCK; ++n) {
-      float x = buf[n] * (1.0f / 32768.0f) * e;
-      e *= v.dec;
+      x = buf[n] * (1.0f / 32768.0f) * e + off;   // (off: the step a hit on a sounding voice left, falling away in about 1.5 ms: no click)
+      e *= v.dec; off *= 0.985f;
       o[0][n] += x * v.gl; o[1][n] += x * v.gr; o[2][n] += x * v.wl; o[3][n] += x * v.wr;
     }
-    v.env = e;
-    if (e < 1.0e-4f) v.active = 0;
+    if (off > -1.0e-6f && off < 1.0e-6f) off = 0.0f;
+    v.env = e; v.off = off; v.last = x;
+    if (e < DRUM_END && off == 0.0f) v.active = 0;
   }
+  // the drum bus' ceiling: transparent to 0.6 of full scale, then a soft knee that never reaches 1 (the master's own limiter comes after the effects)
+  for (int c = 0; c < 4; ++c)
+    for (int n = 0; n < BLOCK; ++n) {
+      float a = o[c][n] < 0.0f ? -o[c][n] : o[c][n];
+      if (a > 0.6f) { float t = (a - 0.6f) * 2.5f; a = 0.6f + 0.4f * t / (1.0f + t); o[c][n] = o[c][n] < 0.0f ? -a : a; }
+    }
   drum_ok_[drum_w_] = 1;
 }
 static bool drums_any() {
   if (!drum_) return false;
   for (int i = 0; i < DR_N; ++i) if (drum_->v[i].active) return true;
   return false;
+}
+// the second core's drum work this block, in synth voices (the sum of the sounding voices' models): what the voices' split gives the first core more of
+static float drums_load() {
+  float w = 0.0f;
+  for (int i = 0; i < DR_N; ++i) if (drum_->v[i].active) w += DM_COST[drum_->v[i].model];
+  return w;
 }
 #endif
 #ifdef FXC2
@@ -2627,7 +2653,7 @@ static void par_job(uint32_t) {
 #ifdef HAVE_DRUMS
   if (drum_in_job_) { drums_render(); ++drum_blk_job_; }   // FM1 Phase 2 step 1
 #endif
-  if (ticks_) st_job_ += ticks_() - t0;
+  if (ticks_) { drum_job_now_ = ticks_() - t0; st_job_ += drum_job_now_; }
 }
 static void early_work();
 static void render_voices() {
@@ -2642,9 +2668,12 @@ static void render_voices() {
   if (mod_id_[S_SHP] == M_RINGS) early += PI(S_SHP, 0, 0) == 5 ? 2.2f : 1.85f;
   if (rv_early_ >= 0) early += 1.4f;
 #ifdef HAVE_DRUMS
-  if (drum_pending_) early -= 3.0f;   // the drums are the second core's: it carries them as about three voices (the bench settles it), so the first core takes more
+  if (drum_pending_) early -= drums_load();   // the drums are the second core's: each sounding one counts as the voices its model costs (DM_COST), so the first core takes that many more
 #endif
   int first = (int)floorf((nvoices_ - early) * 0.5f + 0.5f);
+#ifdef HAVE_DRUMS
+  if (drum_pending_) first += drum_bias_;
+#endif
   par_from_ = first < 0 ? 0 : first > nvoices_ ? nvoices_ : first;
 #ifdef FXC2
   if (cl_due_) {   // update 9: Clouds' job is the second core's (one job at a time, and the same sum order whether it takes it or not): the first core renders every voice
@@ -2658,7 +2687,9 @@ static void render_voices() {
 #endif
 #ifdef HAVE_DRUMS
   drum_in_job_ = drum_pending_;
+  uint32_t t_fork = ticks_ ? ticks_() : 0;
   bool shared = par_run_ && (par_from_ < nvoices_ || drum_pending_) && par_run_(par_job, 0);
+  drum_shared_ = shared && drum_pending_ ? 1 : 0;
 #else
   bool shared = par_run_ && par_from_ < nvoices_ && par_run_(par_job, 0);
 #endif
@@ -2666,8 +2697,11 @@ static void render_voices() {
   for (int i = 0; i < par_from_; ++i) render_voice(i, blk_l_, blk_r_);
   if (shared) {
     uint32_t t0 = ticks_ ? ticks_() : 0;
+#ifdef HAVE_DRUMS
+    drum_c1_now_ = t0 - t_fork;
+#endif
     int rc = par_wait_();
-    if (ticks_) st_wait_ += ticks_() - t0;
+    if (ticks_) { drum_wait_now_ = ticks_() - t0; st_wait_ += drum_wait_now_; }
     if (rc == 0) ++par_blocks_; else par_job(0);
   } else par_job(0);   // one core, or the second dropped it: the first does the second's share last
   for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += par_l_[n]; blk_r_[n] += par_r_[n]; }
@@ -2717,10 +2751,48 @@ static void early_work() {
 }
 #endif
 static void process_block_();
+#ifdef HAVE_DRUMS
+// the drums' guard: with drums sounding, the first core's wait at the join (smoothed over 16 blocks) over 1/16 of the block (smoothed likewise) says the second
+// core, which carries them, is the slow one: the drums then sound 2 voices at most (DRUM_MAX_SLOW) until the wait is under 1/32. It never waits longer than it has to:
+// the extra work is shed at the hits, 8 ms fades, and the first core is not asked to wait for what it can do without.
+static void drum_account(uint32_t blk_ticks, bool had_drums) {
+  drum_shared_ = drum_shared_ && had_drums;
+  if (!had_drums) { drum_slow_ = 0; drum_wait_avg_ = drum_blk_avg_ = 0; return; }
+  uint32_t w = (cl_pipe_ && cl_due_) ? cl_wait_now_ : drum_wait_now_;
+  drum_wait_avg_ = (uint32_t)((int32_t)drum_wait_avg_ + ((int32_t)w - (int32_t)drum_wait_avg_) / 16);
+  drum_blk_avg_ = (uint32_t)((int32_t)drum_blk_avg_ + ((int32_t)blk_ticks - (int32_t)drum_blk_avg_) / 16);
+  if (drum_shared_ && ticks_) {   // the split of the voices: the second core's job against the first core's own work before the join, a voice's worth apart or more moves one
+    drum_c1_avg_ = (uint32_t)((int32_t)drum_c1_avg_ + ((int32_t)drum_c1_now_ - (int32_t)drum_c1_avg_) / 16);
+    drum_c2_avg_ = (uint32_t)((int32_t)drum_c2_avg_ + ((int32_t)drum_job_now_ - (int32_t)drum_c2_avg_) / 16);
+    if (++drum_cnt_ >= 32) {
+      drum_cnt_ = 0;
+      const float unit = (float)(drum_c1_avg_ + drum_c2_avg_) / (float)(nvoices_ + 1);
+      const float d = (float)drum_c2_avg_ - (float)drum_c1_avg_;
+      if (d > 0.6f * unit && drum_bias_ < 4) ++drum_bias_;
+      else if (d < -0.6f * unit && drum_bias_ > -4) --drum_bias_;
+    }
+  }
+  if (drum_busy_ == 0) { drum_slow_ = 0; return; }
+  if (!drum_slow_ && drum_wait_avg_ * 16u > drum_blk_avg_) drum_slow_ = 1;
+  else if (drum_slow_ && drum_wait_avg_ * 32u < drum_blk_avg_) drum_slow_ = 0;
+  if (drum_slow_)   // the third voice goes at once, not at the next hit
+    for (int k = 0, n = 0; k < DR_N; ++k) {
+      DrumVoice& u = drum_->v[k];
+      if (!u.active || u.fading) continue;
+      if (++n > DRUM_MAX_SLOW) { u.dec = expf(-6.9077553f / (0.008f * SR)); u.fading = 1; }
+    }
+}
+#endif
 static void process_block() {
+#ifdef HAVE_DRUMS
+  drum_wait_now_ = 0;
+#endif
 #ifdef FXC2
   uint32_t tb0 = ticks_ ? ticks_() : 0;
   process_block_();
+#ifdef HAVE_DRUMS
+  if (ticks_ && drum_) drum_account(ticks_() - tb0, drum_pending_ != 0);
+#endif
   if (ticks_ && cl_pipe_ && cl_due_) {   // update 10: the first core's wait for the job, and the block, each smoothed over 16 blocks (shed_helps)
     cl_wait_avg_ = (uint32_t)((int32_t)cl_wait_avg_ + ((int32_t)cl_wait_now_ - (int32_t)cl_wait_avg_) / 16);
     cl_blk_avg_ = (uint32_t)((int32_t)cl_blk_avg_ + ((int32_t)(ticks_() - tb0) - (int32_t)cl_blk_avg_) / 16);
@@ -2836,6 +2908,19 @@ EXPORT void drum_hit(int voice, int model, float note, float p1, float p2, float
 #ifdef HAVE_DRUMS
   if (!drum_ || voice < 0 || voice >= DR_N || model < 0 || model >= DM_N) return;
   DrumVoice& v = drum_->v[voice];
+  {   // at most DRUM_MAX_SOUNDING voices at once (2 while the second core is slow): a hit on a voice not sounding, with the limit reached, takes the quietest one's place
+    int n = 0, q = -1; float qe = 1.0e9f;
+    for (int i = 0; i < DR_N; ++i) {
+      const DrumVoice& u = drum_->v[i];
+      if (i == voice || !u.active || u.fading) continue;
+      ++n;
+      if (u.env < qe) { qe = u.env; q = i; }
+    }
+    if (n >= (drum_slow_ ? DRUM_MAX_SLOW : DRUM_MAX_SOUNDING) && q >= 0) { drum_->v[q].dec = expf(-6.9077553f / (0.008f * SR)); drum_->v[q].fading = 1; }
+  }
+  if (v.active) v.off = v.last;                     // a hit on a sounding voice (the voice is mono): its last sample carries on and falls away, not a step
+  else v.off = 0.0f;
+  v.model = (uint8_t)model; v.fading = 0;
   v.shape = (uint8_t)DM_SHAPE[model];
   v.pitch = (int16_t)clampf((note + 12.0f) * 128.0f, 0.0f, 16383.0f);   // as the synth's Braids voice: tuned for 96 kHz, asked an octave up
   v.p1 = (int16_t)(clampf(p1, 0.0f, 1.0f) * 32767.0f); v.p2 = (int16_t)(clampf(p2, 0.0f, 1.0f) * 32767.0f);
@@ -2873,6 +2958,7 @@ EXPORT void drum_cut(int voice) {
 #ifdef HAVE_DRUMS
   if (!drum_ || voice < 0 || voice >= DR_N) return;
   drum_->v[voice].dec = expf(-6.9077553f / (0.008f * SR));
+  drum_->v[voice].fading = 1;
 #else
   (void)voice;
 #endif

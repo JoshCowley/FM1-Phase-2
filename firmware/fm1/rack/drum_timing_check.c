@@ -221,6 +221,7 @@ static void dt_checks(int *fails)
     /* 14a: drums stopped cost nothing: with drum_run(1) and no hit, no block is rendered by either core (exact), and the time is the same as with no drum calls (within 4 %: host noise) */
     {
         uint32_t j0, w0, i0, j1, w1, i1;
+        int n3, n4;
         dt_t a, b;
         for (i = 0; i < 2; i++) {
             int p = i == 0 ? -1 : dt_by_name("ATMOSPHERE");
@@ -231,9 +232,10 @@ static void dt_checks(int *fails)
         cl_patch(30, 0, 0); rk_set_voices(4); for (i = 0; i < 4; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.8f);
         rk_drum_off(); rk_drum_run(1);
         rk_core_stats(&j0, &w0, &i0);
+        n3 = rk_drum_status(3); n4 = rk_drum_status(4);   /* (cumulative counters: the change over the run is what counts) */
         for (i = 0; i < 1000; i++) rk_render(DT_BLK);
         rk_core_stats(&j1, &w1, &i1);
-        if (rk_drum_status(3) != 0 || rk_drum_status(4) != 0 || rk_drum_status(0) != 0) { printf("14a drum_run(1) and no hit: %d blocks rendered in a job, %d on the first core, %d voices sounding   FAIL\n", rk_drum_status(3), rk_drum_status(4), rk_drum_status(0)); bad14a++; }
+        if (rk_drum_status(3) != n3 || rk_drum_status(4) != n4 || rk_drum_status(0) != 0) { printf("14a drum_run(1) and no hit: %d blocks rendered in a job, %d on the first core, %d voices sounding   FAIL\n", rk_drum_status(3) - n3, rk_drum_status(4) - n4, rk_drum_status(0)); bad14a++; }
         hc2_stop();
         printf("14a drums stopped: no block rendered (job 0, first core 0), and the two cores' time with drum_run(1) and no hit equals the time with no drum calls (INIT and ATMOSPHERE): %s\n", bad14a ? "FAIL" : "ok");
     }
