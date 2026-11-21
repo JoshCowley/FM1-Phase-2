@@ -6,6 +6,15 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 60: Clouds at 48 kHz with the ceiling: decided by the bench (21 Nov 2026; host estimate only, NOT run on an FM-1)
+
+The question: does RACK_CLOUDS_32K off (48 kHz, no resampler) + the ceiling 24 fit the same core budget as 32 kHz without it (2.34), worst case two cores RICH x4 D1.0? **The default stays 32 kHz; the bench decides.**
+Estimate from the 2.33 bench (% of one core): one core, DENSITY 1.0: 32 kHz no ceiling 111.3 (own 76.8), 32 kHz + 24: 101.1 (own 66.6, -10.2), 48 kHz no ceiling 118.8. If 24 saves at 48 kHz what it saves at 32 kHz (-10.2; more
+if a grain costs 1.5 x there) the 48 kHz + 24 case is 103 to 109, below 111.3 (G.7 and G.9: 48 kHz was already 1.2 to 1.4 below 32 kHz, 75.3 against 76.5 and 91.5 against 92.9, before the ceiling). On one core it fits, by 3 to 8 points, inside what the bench's
+own spread allows (111.3 against 112.8 for the same 32 grains). **Two cores it cannot be estimated:** Clouds on the second core (RACK_FX_CORE2, `cl_pipe_decide`) needs `cl32_on_`, the 32 kHz block; at 48 kHz Clouds stays on the first core
+and the voices and drums are split (update 8's arrangement), so the 2.33 figures (RICH x4 D1.0: C2 97.1; CHEAP x4: 81.9) do not carry over. The bench has both (`fm1bench-k48cap1`, bench/README.md update 59). If 48 kHz is chosen after the run: `-URACK_CLOUDS_32K` in `fm1.toml` and
+`build_host.sh`; the second core's Clouds would need the pipeline made for a 48-frame block of 24-frame Clouds blocks first.
+
 ## Update 59: Clouds' grain ceiling 24 (21 Nov 2026; host-tested, NOT heard, NOT run on an FM-1)
 
 `RACK_CLOUDS_MAX_GRAINS` 40 -> 24 (`fm1.toml`, `build_host.sh`; the bench's CAP24 row is the same ceiling: GRANULR 16 ST, DENSITY 1.0). Clouds' own count is 32 at 16 ST, so 40 only acted at 8 ST and

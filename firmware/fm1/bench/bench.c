@@ -59,7 +59,7 @@ static int (*bench_cpu2_wait)(void);
 static void (*bench_cpu2_sync)(void);       /* update 9: plat_cpu2_sync and plat_cpu2_on (the engine's Clouds job on the second core) */
 static int (*bench_cpu2_on)(void);
 
-typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } bop_t;
+typedef struct { float x; int16_t y, z, w; uint8_t fn, a, b, c, d; } bop_t;   /* 16 bytes (update 59; was 24 with four floats): y z w are whole numbers in every preset */
 typedef struct { const char *name; const bop_t *ops; uint16_t nops; uint8_t voices, mode; } bpreset_t;
 #include "cases.h"
 #include "modsum_cases.h"   /* the MODSUM group's three presets, whole, with the knob layer */
@@ -118,7 +118,7 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 /* kit, dv, ease (step 1 of the drum track): a DRUMS case: the kit struck every step (1 cheap, 2 rich), its voices (3 or 4), IF BUSY = CLOUD on (the guard: Clouds' DENSITY held at 0.9) */
 typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
-#define NCASE_MAX 240
+#define NCASE_MAX 320
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
 
@@ -201,6 +201,14 @@ static const clc_t CLC[] = {
     /* 29 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0}, /* 16 ST, a ceiling of 24 (what a lower one would buy) */
     /* 30 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 0, 0, 0, 1},  /* REVERB 0, skip on */
     /* 31 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 0, 1, 0, 1},  /* REVERB 0, skip off */
+    /* update 59 (21 Nov 2026): the grain ceiling 24 (2.35's, RACK_CLOUDS_MAX_GRAINS=24) at 32 kHz and at 48 kHz (RACK_CLOUDS_32K off: no resampler), to see which fits the
+     * two cores' worst case. Rows 13, 1 and 14 are GRANULR 16 ST at DENSITY 0.7, 0.9, 1.0 with the 2.34 build's settings (32 kHz, ceiling 40, which at 16 ST changes
+     * nothing: 32 grains); row 29 is 1.0 at 32 kHz with 24; these complete the set: 32 kHz with 24 at 0.7 and 0.9, and 48 kHz with 24 at 0.7, 0.9 and 1.0 */
+    /* 32 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0},  /* 32 kHz, ceiling 24 */
+    /* 33 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 0, 0, 24, 0},
+    /* 34 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 1, 0, 24, 0},  /* 48 kHz, ceiling 24 */
+    /* 35 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 1, 0, 24, 0},
+    /* 36 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 1, 0, 24, 0},
 };
 #define CL_REF 0
 #define CL_ON(c) ((c)->cl && CLC[(c)->cl - 1].on)       /* the case has Clouds in FX 1 (cl is its CLC row + 1: row 0 is Braids alone) */
@@ -248,7 +256,7 @@ static void bench_drum_cases(int group, int ref0, int ref7, int ref9, int ref10)
 static void bench_cases(void)
 {
     int i, k, base;
-    int r4s = -1, d7s = -1, d9s = -1, d10s = -1;      /* the CLOUDS group's BRAIDS x4, GRAN D0.7, GRAN 16ST (D0.9), GRAN D1.0: the DRUMS cases are measured against them */
+    int r4s = -1, d7s = -1, d9s = -1, d10s = -1, g10c = -1, g10c48 = -1;      /* the CLOUDS group's BRAIDS x4, GRAN D0.7, GRAN 16ST (D0.9), GRAN D1.0: the DRUMS cases are measured against them */
     bncases = 0;
     /* the engine with no source: envelopes, matrix, LFOs, master, for one voice */
     k = bc_add(G_CORE, P_INIT, 1, "NO SOURCE");
@@ -359,7 +367,12 @@ static void bench_cases(void)
         bc_cl(G_CLOUDS, 4, 24, "G.9 OLD", r4);
         bc_cl(G_CLOUDS, 4, 25, "G1.0 OLD", r4);
         bc_cl(G_CLOUDS, 4, 26, "G1.0 NOCAP", r4);
-        bc_cl(G_CLOUDS, 4, 29, "G1.0 CAP24", r4);
+        g10c = bc_cl(G_CLOUDS, 4, 29, "G1.0 CAP24", r4);
+        bc_cl(G_CLOUDS, 4, 32, "G.7 CAP24", r4);               /* update 59: the ceiling 24 at 32 kHz (G1.0 CAP24 above), and at 48 kHz */
+        bc_cl(G_CLOUDS, 4, 33, "G.9 CAP24", r4);
+        bc_cl(G_CLOUDS, 4, 34, "G.7 48K CAP24", r4);
+        bc_cl(G_CLOUDS, 4, 35, "G.9 48K CAP24", r4);
+        g10c48 = bc_cl(G_CLOUDS, 4, 36, "G1.0 48K CAP24", r4);
         bc_cl(G_CLOUDS, 4, 27, "8MO D1.0", r4);
         bc_cl(G_CLOUDS, 4, 28, "8MO NOCAP", r4);
         bc_cl(G_CLOUDS, 4, 30, "CL REV0", r4);
@@ -388,6 +401,16 @@ static void bench_cases(void)
      * "D0.7" etc: own = minus the same Clouds case without drums (GRAN D0.7, GRAN 16ST, GRAN D1.0). IF BUSY is NONE in them (the engine's guard, which holds Clouds'
      * DENSITY at 0.9 while the drums run, is off), so D1.0 is a real 1.0; the cases ending "EASED" have it on (CLOUD: D1.0 becomes 0.9) at 4 voices. The same on two cores below ("2 CORES"). */
     bench_drum_cases(G_DRUMS, r4s, d7s, d9s, d10s);
+    /* update 59: one-core twins of the two-core cases with the ceiling 24 (the "2 CORES" cases of the same names; the host check compares them) */
+    {
+        static const struct { const char *c, *r; uint8_t row; } V[2] = {{"CHEAP x4 D1.0 CAP24", "RICH x4 D1.0 CAP24", 29}, {"CHEAP x4 D1.0 48K CAP24", "RICH x4 D1.0 48K CAP24", 36}};
+        int v;
+        for (v = 0; v < 2; v++) {
+            int ref = v ? g10c48 : g10c;                       /* the CLOUDS group's two rows: the drums' reference */
+            k = bc_cl(G_DRUMS, 4, V[v].row, V[v].c, ref); bcases[k].kit = 1; bcases[k].dv = 4;
+            k = bc_cl(G_DRUMS, 4, V[v].row, V[v].r, ref); bcases[k].kit = 2; bcases[k].dv = 4;
+        }
+    }
     /* MODSUM (23 Nov 2026): the engine's mod_sum precompute against the scan it replaced, on one core. Three whole factory presets (ROTARY ORGAN: the most LFO
      * routes, TIDE PAD: the heaviest, SHIMMER PAD) with four notes held, each with the knobs still ("still") and all four moving ("moving": a glide every
      * step, so the knob layer's sums are rebuilt each block), each twice: "NEW" (rk_modsum_precompute(1): the firmware as it is) and "OLD" (0: every call scans the 18 rows and
@@ -459,6 +482,19 @@ static void bench_cases(void)
     bcases[bc_cl(G_CORES2, 6, 1, "GRAN D0.9 x6 V1", -1)].v1 = 1;
     bcases[bc_cl(G_CORES2, 6, 17, "CL+REV x6 V1", -1)].v1 = 1;
     bench_drum_cases(G_CORES2, r2c[0], r2c[1], r2c[2], r2c[3]);   /* step 1, drums: the same cases on two cores (the second core renders the drums) */
+    /* update 59: the worst case on two cores (D1.0, four voices, no IF BUSY easing) with the ceiling 24 at 32 kHz ("CAP24") and at 48 kHz ("48K CAP24"): the Clouds case
+     * alone (the reference of the two below it), then CHEAP x4 and RICH x4 with it. Compare "CHEAP x4 D1.0" and "RICH x4 D1.0" (32 kHz, no ceiling at 16 ST: 2.34's) */
+    {
+        static const struct { const char *g, *c, *r; uint8_t row; } V[2] = {
+            {"GRAN D1.0 CAP24", "CHEAP x4 D1.0 CAP24", "RICH x4 D1.0 CAP24", 29},
+            {"GRAN D1.0 48K CAP24", "CHEAP x4 D1.0 48K CAP24", "RICH x4 D1.0 48K CAP24", 36}};
+        int v, g;
+        for (v = 0; v < 2; v++) {
+            g = bc_cl(G_CORES2, 4, V[v].row, V[v].g, -1);
+            k = bc_cl(G_CORES2, 4, V[v].row, V[v].c, g); bcases[k].kit = 1; bcases[k].dv = 4;
+            k = bc_cl(G_CORES2, 4, V[v].row, V[v].r, g); bcases[k].kit = 2; bcases[k].dv = 4;
+        }
+    }
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
@@ -519,7 +555,7 @@ static void run_ops_to_fx2(const bop_t *o, int n)
 static void cl_setup(const clc_t *r)
 {
     int p;
-    rk_clouds_opts(!r->no32, !r->noskip, r->cap == 0 ? 40 : r->cap == 1 ? 0 : r->cap);
+    rk_clouds_opts(!r->no32, !r->noskip, r->cap == 0 ? 40 : r->cap == 1 ? 0 : r->cap);   /* cap 0: 2.34's ceiling, 40 (at 16 ST it changes nothing: 32 grains), so the older rows stay comparable; the firmware itself is 24 from 2.35 */
     if (r->fx2) {
         const bpreset_t *fx = &PRESETS[r->fx2 == 1 ? P_CH_GLASS_PNO : P_LD_SQUARE_CHIP];
         run_ops_to_fx2(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
