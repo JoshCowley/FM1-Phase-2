@@ -135,7 +135,46 @@ static const int NP = 32;
 static float base_[NSLOT][NP];
 static void flt_defaults();
 static void osc_defaults();   // OSC (below): its ranges and defaults, on AMP's spare parameters
-static float lo_[NSLOT][NP], hi_[NSLOT][NP], span_[NSLOT][NP];
+static float lo_[NSLOT][NP], hi_[NSLOT][NP];
+// A parameter's span (what a modulation of 1.0 moves it by): in all 184 of the modules' META entries it is hi - lo, so it is not stored
+// (R2, 22 Nov 2026: 1,152 B of RAM). One bit per parameter says a range was set by set_meta (the span is hi - lo), another that its span is
+// one of the few that differ (meta_ex_: a short list, below: the OSC's and the filter's SWEEP, as the engine sets them); a parameter with
+// neither is open (-1e9..1e9) and its span 1, as at init. Only the modulation reads it, so it is out of line. Same values as before.
+// (R3, the ranges as bytes, cost 10 KB of flash in the inlined P: not done.)
+static uint32_t meta_set_[NSLOT], meta_ex_[NSLOT];
+struct MetaEx { uint8_t slot, param; float span; };
+static const int NMETAEX = 8;   // the engine's own: 6 (OSC's 5 and the filter's SWEEP)
+static MetaEx metaex_[NMETAEX];
+static int nmetaex_;
+static float meta_span(int slot, int param) __attribute__((noinline));
+static float meta_span(int slot, int param) {
+  if (param < NP) {
+    if (meta_ex_[slot] >> param & 1u)
+      for (int i = 0; i < nmetaex_; ++i)
+        if (metaex_[i].slot == slot && metaex_[i].param == param) return metaex_[i].span;
+    if (meta_set_[slot] >> param & 1u) return hi_[slot][param] - lo_[slot][param];
+  }
+  return 1.0f;
+}
+static void meta_put(int slot, int param, float lo, float hi, float span) {
+  if (slot < 0 || slot >= NSLOT || param < 0 || param >= NP) return;
+  uint32_t bit = 1u << param;
+  lo_[slot][param] = lo; hi_[slot][param] = hi;
+  int i = 0;
+  while (i < nmetaex_ && !(metaex_[i].slot == slot && metaex_[i].param == param)) ++i;
+  if (span == hi - lo) {
+    meta_set_[slot] |= bit; meta_ex_[slot] &= ~bit;
+    if (i < nmetaex_) metaex_[i] = metaex_[--nmetaex_];
+    return;
+  }
+  if (i == nmetaex_) { if (nmetaex_ >= NMETAEX) { meta_set_[slot] |= bit; return; } ++nmetaex_; }
+  metaex_[i].slot = (uint8_t)slot; metaex_[i].param = (uint8_t)param; metaex_[i].span = span;
+  meta_set_[slot] |= bit; meta_ex_[slot] |= bit;
+}
+static void meta_clear() {
+  memset(meta_set_, 0, sizeof(meta_set_)); memset(meta_ex_, 0, sizeof(meta_ex_)); nmetaex_ = 0;
+  for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; }
+}
 static int mod_id_[NSLOT];
 static float macros_[4];
 static float mod_out_[4];       // MOD A out0/out1, MOD B out0/out1
@@ -530,7 +569,9 @@ static const int OUTN = 1024;
 #endif
 static float out_l_[OUTN], out_r_[OUTN];
 static float peak_l_ = 0.0f, peak_r_ = 0.0f;
-static float scope_[256];
+#ifndef RACK_FM1
+static float scope_[256];   // the browser build's oscilloscope; the FM-1 has none (its screen reads rc_scope): 1 KB of RAM
+#endif
 static float blk_l_[BLOCK], blk_r_[BLOCK];
 static int blk_pos_ = BLOCK;
 
@@ -670,7 +711,7 @@ static float mod_sum(int slot, int param, const VoiceState* v) {
 static inline float P(int slot, int param, const VoiceState* v) {
   float x = base_[slot][param];
   // a parameter nothing routes to (most of them) skips the call: P runs hundreds of times a block (10 Nov 2026)
-  if (param >= 32 || (routed_[slot + 1] >> param & 1u)) x += mod_sum(slot, param, v) * span_[slot][param];
+  if (param >= 32 || (routed_[slot + 1] >> param & 1u)) x += mod_sum(slot, param, v) * meta_span(slot, param);
   return clampf(x, lo_[slot][param], hi_[slot][param]);
 }
 static int PI(int slot, int param, const VoiceState* v) {
@@ -680,7 +721,9 @@ static int PI(int slot, int param, const VoiceState* v) {
 // ------------------------------------------------------------------ exports
 EXPORT float* out_l() { return out_l_; }
 EXPORT float* out_r() { return out_r_; }
+#ifndef RACK_FM1
 EXPORT float* scope() { return scope_; }
+#endif
 
 // a knob's turn glides (set_param_glide, 11 Nov 2026): the parameter moves to its target over a few ms, a step of a
 // block at a time, so a level, a cutoff or a delay time turned doesn't click or zipper. One bit per parameter says it
@@ -709,7 +752,7 @@ EXPORT float get_route(int i, int* out) {
   return routes_[i].amt;
 }
 EXPORT void set_meta(int slot, int param, float lo, float hi, float span) {
-  lo_[slot][param] = lo; hi_[slot][param] = hi; span_[slot][param] = span;
+  meta_put(slot, param, lo, hi, span);
 }
 static float macro_tgt_[4];
 static uint8_t macro_gl_[4];
@@ -1213,7 +1256,7 @@ EXPORT void init() {
   memset(tgt_, 0, sizeof(tgt_)); memset(glide_, 0, sizeof(glide_)); memset(macro_gl_, 0, sizeof(macro_gl_));
   blk_pos_ = BLOCK; memset(blk_l_, 0, sizeof(blk_l_)); memset(blk_r_, 0, sizeof(blk_r_));
   master_reset();   // none of the old patch's block left to play
-  for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; span_[s][p] = 1.0f; }
+  meta_clear();
   osc_defaults();
   flt_defaults();
   for (int i = 0; i < MAXV; ++i) { memset(&vs_[i], 0, sizeof(VoiceState)); svf_[i].Init(); svf2_[i].Init(); card_[i] = randf() * 2.0f - 1.0f; vdrift_[i] = 0.0f; }
@@ -1584,12 +1627,12 @@ static uint32_t osc_rng_[MAXV];
 static void flt_defaults() {
 #ifdef RACK_FM1   // the always-on filter starts open (cutoff at the top: transparent) and its SWEEP centred, -1..+1
   base_[S_GLO][FLT_P0 + 1] = 1.0f;
-  lo_[S_GLO][FLT_SWEEP] = -1.0f; hi_[S_GLO][FLT_SWEEP] = 1.0f; span_[S_GLO][FLT_SWEEP] = 1.0f;
+  meta_put(S_GLO, FLT_SWEEP, -1.0f, 1.0f, 1.0f);
 #endif
 }
 static void osc_defaults() {
   static const float LO[8] = {0, -3, -12, -1, 0.05f, 0, 0, 0}, HI[8] = {5, 2, 12, 1, 0.95f, 1, 1, 1};
-  for (int k = 0; k < 8; ++k) { lo_[S_AMP][OSC_WAVE + k] = LO[k]; hi_[S_AMP][OSC_WAVE + k] = HI[k]; span_[S_AMP][OSC_WAVE + k] = 1.0f; }
+  for (int k = 0; k < 8; ++k) meta_put(S_AMP, OSC_WAVE + k, LO[k], HI[k], 1.0f);
   base_[S_AMP][OSC_PW] = 0.5f; base_[S_AMP][OSC_MAIN] = 1.0f;
 }
 static inline float osc_blep(float t, float dt) {   // PolyBLEP: the step's corner rounded off over one sample
@@ -2871,7 +2914,9 @@ EXPORT void render(int n) {
     if (blk_pos_ >= BLOCK) { process_block(); blk_pos_ = 0; }
     out_l_[i] = blk_l_[blk_pos_]; out_r_[i] = blk_r_[blk_pos_]; ++blk_pos_;
   }
+#ifndef RACK_FM1
   for (int i = 0; i < 128 && i < n; ++i) scope_[i] = (out_l_[i] + out_r_[i]) * 0.5f;
+#endif
   for (int i = 0; i < n; ++i) { float a = fabsf(out_l_[i]), b = fabsf(out_r_[i]); if (a > peak_l_) peak_l_ = a; if (b > peak_r_) peak_r_ = b; }
 }
 

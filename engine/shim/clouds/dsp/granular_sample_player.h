@@ -47,6 +47,17 @@
 
 #include "clouds/dsp/audio_buffer.h"
 #include "clouds/dsp/frame.h"
+#ifdef RACK_CLOUDS_SHARE_SINE
+#include "rings/resources.h"
+// clouds::lut_sin + off, interpolated as stmlib's Interpolate does, from every 4th entry of Rings' lut_sine (the same floats): see make_units.py
+static inline float rack_sin4_interp(int off, float index) {
+  index *= 256.0f;
+  MAKE_INTEGRAL_FRACTIONAL(index)
+  float a = rings::lut_sine[(off + index_integral) * 4];
+  float b = rings::lut_sine[(off + index_integral + 1) * 4];
+  return a + (b - a) * index_fractional;
+}
+#endif
 #include "clouds/dsp/grain.h"
 #include "clouds/dsp/parameters.h"
 
@@ -251,8 +262,13 @@ class GranularSamplePlayer {
     float pan = 0.5f + parameters.stereo_spread * (Random::GetFloat() - 0.5f);
     float gain_l, gain_r;
     if (num_channels_ == 1) {
+#ifdef RACK_CLOUDS_SHARE_SINE
+      gain_l = rack_sin4_interp(0, pan);
+      gain_r = rack_sin4_interp(256, pan);
+#else
       gain_l = Interpolate(lut_sin, pan, 256.0f);
       gain_r = Interpolate(lut_sin + 256, pan, 256.0f);
+#endif
     } else {
       if (pan < 0.5f) {
         gain_l = 1.0f;
