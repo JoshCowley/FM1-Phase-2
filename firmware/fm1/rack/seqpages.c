@@ -11,7 +11,7 @@
  * values, drawn as dials. The pages draw a 94-row area in three bands (the canvas holds 40 rows). */
 
 enum { SQP_NOTES, SQP_PATTERN, SQP_SPICE, SQP_GEN, SQP_BANKS, SQP_SONG, SQP_DRUM, SQP_DKIT, SQP_DSOUND, SQP_DMIX, SQP_DFEEL, SQP_DGEN, SQP_DMIDI, SQP_N };   /* (the drum pages: DRUM on; 2.34: DRUM and KIT first, then the lane pages, then GEN and MIDI) */
-static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE", "GEN", "BANKS", "SONG", "DRUM", "DRUM KIT", "LANE SOUND", "LANE MIX", "LANE FEEL", "DRUM GEN", "DRUM MIDI"};
+static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE + CHANCE", "GENERATE", "BANKS", "SONG", "DRUM GRID", "KIT + PATTERNS", "LANE SOUND", "LANE MIX", "LANE TIMING", "DRUM GENERATE", "DRUM MIDI"};
 static const char *const GEN_TOOLS[] = {"EUCLID", "RANDOM", "ACID", "ARP UP", "ARP UPDN", "BERLIN", "OCTAVES", "OFFBEAT",
                                         "ROLLING", "STABS", "PROGRESS", "GATES", "SHIFT >", "SHIFT <", "REVERSE", "DOUBLE",
                                         "HALF", "CLEAR"};

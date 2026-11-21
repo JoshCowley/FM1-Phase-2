@@ -1033,8 +1033,8 @@ static void draw_param_page(int pg)
     }
     title[0] = 0;
     if (is_fixed(pg)) {
-        static const char *const GT[] = {"SETTINGS", "PLAYING", "TUNING", "MIDI", "MASTER", "SYSTEM", "CLICK", "DISPLAY", "LAYER MIDI CH", "CHORD + ARP"};
-        static const char *const ST[] = {"SCALE + CHORD", "KEYS + STRUM", "STYLE", "FEEL"},
+        static const char *const GT[] = {"TEMPO + VOICES", "TOUCH + LEDS", "TUNING + BEND", "MIDI", "EQ + COMP", "CPU + MEMORY", "CLICK + COUNT IN", "DISPLAY", "LAYER MIDI CH", "CHORD + ARP"};
+        static const char *const ST[] = {"SCALE + CHORD", "KEYS + STRUM", "BASS STYLE", "HUMANISE"},
                           *const AT[] = {"ARPEGGIATOR", "HOLD + TURING", "RHYTHM: WHICH STEPS", "CHANCE: HOW OFTEN"};
         int ic = pg == PG_GLO ? (mn.sub == 3 || mn.sub == 8 ? IC_MIDI : mn.sub == 4 ? IC_OUT : IC_GLOBAL) : pg == PG_SEL ? (mn.sub ? IC_SCALE : IC_CHORD) : IC_ARP;
         header(pg == PG_JAM ? "JAM" : pg == PG_GLO ? "GLO" : pg == PG_SEL ? "SEL" : "ARP", c, pg == PG_JAM ? JAM_PAGE[mn.sub % 7] : pg == PG_GLO ? GT[mn.sub % 10] : pg == PG_SEL ? ST[mn.sub % 4] : AT[mn.sub & 3],
