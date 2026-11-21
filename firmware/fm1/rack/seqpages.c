@@ -28,10 +28,10 @@ static struct {
     int layer, layer_page, held, turned;      /* hold SEQ: the layer, its 16 steps' page, the step held, a knob moved */
     uint32_t seq_at;                          /* SEQ went down */
     int undo_ok, seq_sub;
-    int seq_mem[2];                           /* (2.34) the page last on in each group: the notes pages (0), the drum pages (1: 0 = DRUM) */
     int lasso, lasso_a, lasso_b;              /* NOTES (update 38): hold SEL + turn K1, steps lasso_a..lasso_b picked */
     uint32_t save_at;                         /* SAVE went down on a sequencer page (held on NOTES: copy / paste) */
     int save_long;
+    int seq_mem[2];                           /* (2.34) the page last on in each group: the notes pages (0), the drum pages (1: 0 = DRUM) */
 } sp = {0, 0, 50, 30, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 #define SQ_CLIP 32
 static sq_step_t sq_clip[SQ_CLIP];            /* the steps hold SAVE copied (at most two pages of 16) */
