@@ -22,6 +22,8 @@ void rk_set_route(int i, int src, int slot, int param, float amt, int via);
 void rk_set_macro(int i, float v);
 void rk_set_macro_glide(int i, float v);
 void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve);
+void rk_rv_mono(int on);       /* 24 Nov 2026: the reverb tank takes one sum (1) or both sides down-sampled (0, as 2.35): the ENGINE cases A/B (RACK_BENCH_AB) */
+void rk_lim_fast(int on);      /* the limiters peak block-wise (1) or by the falling queue (0, as 2.35) */
 void rk_modsum_precompute(int on);   /* 23 Nov 2026: the engine's mod_sum sums ahead (on) or scans as 2.32 did (off): the MODSUM cases' A/B (RACK_BENCH_AB) */
 void rk_set_master(float v);
 void rk_set_master_fx(float lo, float mid, float hi, float comp);
@@ -63,7 +65,11 @@ static int (*bench_cpu2_on)(void);
 typedef struct { float x; int16_t y, z, w; uint8_t fn, a, b, c, d; } bop_t;   /* 16 bytes (update 59; was 24 with four floats): y z w are whole numbers in every preset */
 typedef struct { const char *name; const bop_t *ops; uint16_t nops; uint8_t voices, mode; } bpreset_t;
 #include "cases.h"
+#ifdef BENCH_MSALL
+#include "modsum_all.h"     /* (host tool bench_ir: every preset whole, with the knob layer) */
+#else
 #include "modsum_cases.h"   /* the MODSUM group's three presets, whole, with the knob layer */
+#endif
 
 enum { P_INIT, P_FOLDED_BASS, P_KARPLUS, P_TIDAL_FM, P_GRID_GATE, P_CH_GLASS_PNO, P_BS_SUB_MONO, P_LD_SQUARE_CHIP,
        P_P2INIT, P_PLAYED };   /* cases.h order (make_cases.py PRESETS): the ones the cases are built on, then the ones played */
@@ -117,9 +123,13 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 /* c2off: a 2 CORES case with the Clouds-on-the-second-core arrangement switched off at run time (rk_fx_core2(0)): update 8's, the voices split, Clouds on the first core */
 /* v1 (update 10): a 2 CORES case with the voices above the fourth kept on the first core (rk_fx_core2_voices(0)): update 9's arrangement, for comparison */
 /* kit, dv, ease (step 1 of the drum track): a DRUMS case: the kit struck every step (1 cheap, 2 rich), its voices (3 or 4), IF BUSY = CLOUD on (the guard: Clouds' DENSITY held at 0.9) */
-typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov, ms, kmax; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov, ms, kmax, rvs, limold; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
+#ifdef BENCH_MSALL
+#define NCASE_MAX 700
+#else
 #define NCASE_MAX 320
+#endif
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
 
@@ -134,7 +144,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->c2off = 0;
     c->v1 = 0;
     c->kit = c->dv = c->ease = 0;
-    c->ab = c->mov = c->ms = c->kmax = 0;
+    c->ab = c->mov = c->ms = c->kmax = c->rvs = c->limold = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -419,14 +429,26 @@ static void bench_cases(void)
      * step, so the knob layer's sums are rebuilt each block), each twice: "NEW" (rk_modsum_precompute(1): the firmware as it is) and "OLD" (0: every call scans the 18 rows and
      * the knob targets, as 2.32 did). The output is the same either way (bench_host checks it). OLD's own figure = OLD minus NEW = what the precompute saves. */
     {
+#ifdef BENCH_MSALL
+        static char msname[NMSPRESETS][2][2][40];
+        static const char *const MSN[1][2][2] = {{{0}}};
+#else
         static const char *const MSN[NMSPRESETS][2][2] = {
             {{"ROTARY ORGAN still NEW", "ROTARY ORGAN still OLD"}, {"ROTARY ORGAN moving NEW", "ROTARY ORGAN moving OLD"}},
             {{"TIDE PAD still NEW", "TIDE PAD still OLD"}, {"TIDE PAD moving NEW", "TIDE PAD moving OLD"}},
             {{"SHIMMER PAD still NEW", "SHIMMER PAD still OLD"}, {"SHIMMER PAD moving NEW", "SHIMMER PAD moving OLD"}}};
+#endif
         int m, mv;
         for (m = 0; m < NMSPRESETS; m++)
             for (mv = 0; mv < 2; mv++) {
+#ifdef BENCH_MSALL
+                int kn, ko;
+                snprintf(msname[m][mv][0], 40, "%s %s NEW", MSNAMES[m], mv ? "moving" : "still");
+                snprintf(msname[m][mv][1], 40, "%s %s OLD", MSNAMES[m], mv ? "moving" : "still");
+                kn = bc_add(G_MODSUM, m, 4, msname[m][mv][0]); ko = bc_add(G_MODSUM, m, 4, msname[m][mv][1]);
+#else
                 int kn = bc_add(G_MODSUM, m, 4, MSN[m][mv][0]), ko = bc_add(G_MODSUM, m, 4, MSN[m][mv][1]);
+#endif
                 bcases[kn].ab = 1; bcases[ko].ab = 2;
                 bcases[kn].mov = bcases[ko].mov = (uint8_t)mv;
                 bcases[kn].ms = bcases[ko].ms = 1;
@@ -499,8 +521,37 @@ static void bench_cases(void)
             k = bc_cl(G_CORES2, 4, V[v].row, V[v].r, g); bcases[k].kit = 2; bcases[k].dv = 4;
         }
     }
+#ifdef BENCH_MSALL
+    {   /* every preset whole on two cores, four notes, the knobs still or moving (bench_ir) */
+        static char n2c[NMSPRESETS][2][48];
+        int m, mv;
+        for (m = 0; m < NMSPRESETS; m++)
+            for (mv = 0; mv < 2; mv++) {
+                snprintf(n2c[m][mv], 48, "%s 2C %s", MSNAMES[m], mv ? "moving" : "still");
+                k = bc_add(G_CORES2, m, 4, n2c[m][mv]);
+                bcases[k].ms = 1; bcases[k].mov = (uint8_t)mv;
+            }
+    }
+#endif
     /* TIDE PAD (24 Nov 2026: Clouds' own reverb in place of the second reverb, to bring the first core down), whole with its knob layer, four notes, on two cores:
      * the knobs at rest, all four at the top, and each of them with the CHEAP drum kit playing (kit 1, four voices). No one-core twin: the cases of the MODSUM group hold it whole */
+#ifndef BENCH_MSALL
+    {   /* ENGINE (24 Nov 2026, engine 2.36): the three whole presets of the MODSUM group on two cores, four notes, knobs still: with the engine as it is (NEW), with the 2.35
+         * reverb input (OLD REV: both sides down-sampled), with the 2.35 limiter (OLD LIM: the falling queue) and with both (OLD BOTH). The rest of 2.36's changes (loops written
+         * out, copies dropped, shorter scans, the same samples) have no switch: compare the PRESETS and 2 CORES cases with the 2.35 run (fm1-bench-k48cap1-2026-11-21.csv) */
+        static const char *const EN[NMSPRESETS][4] = {
+            {"ROTARY ORGAN 2C NEW", "ROTARY ORGAN 2C OLD REV", "ROTARY ORGAN 2C OLD LIM", "ROTARY ORGAN 2C OLD BOTH"},
+            {"TIDE PAD 2C NEW", "TIDE PAD 2C OLD REV", "TIDE PAD 2C OLD LIM", "TIDE PAD 2C OLD BOTH"},
+            {"SHIMMER PAD 2C NEW", "SHIMMER PAD 2C OLD REV", "SHIMMER PAD 2C OLD LIM", "SHIMMER PAD 2C OLD BOTH"}};
+        int m, t;
+        for (m = 0; m < NMSPRESETS; m++)
+            for (t = 0; t < 4; t++) {
+                k = bc_add(G_CORES2, m, 4, EN[m][t]);
+                bcases[k].ms = 1;
+                bcases[k].rvs = (uint8_t)(t == 1 || t == 3);
+                bcases[k].limold = (uint8_t)(t == 2 || t == 3);
+            }
+    }
     {
         static const char *const TN[4] = {"TIDE PAD K0", "TIDE PAD K1", "TIDE PAD K0 +CHEAP", "TIDE PAD K1 +CHEAP"};
         int t;
@@ -511,6 +562,7 @@ static void bench_cases(void)
             if (t >= 2) { bcases[k].kit = 1; bcases[k].dv = 4; }
         }
     }
+#endif
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
@@ -631,6 +683,8 @@ static void bench_setup(int k)
     for (i = 0; i < c->notes; i++)
         rk_note_on(CHORD[i], 0.8f);
     rk_drum_run(c->kit != 0);
+    rk_rv_mono(!c->rvs);                       /* (ENGINE cases: the 2.35 reverb input or limiter; every other case runs the engine as it is) */
+    rk_lim_fast(!c->limold);
     rk_modsum_precompute(c->ab != 2);          /* (MODSUM: OLD scans; every other case runs the engine as it is) */
     bench_knob_step = 0;
     bres[k].best = 0xFFFFFFFFu;

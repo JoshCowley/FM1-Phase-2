@@ -820,3 +820,4 @@ static const bpreset_t MSPRESETS[] = {
     {"SHIMMER PAD", OPS_MS_SHIMMER_PAD, 262, 4, 0},
 };
 #define NMSPRESETS 3
+static const char *const MSNAMES[] = {"ROTARY ORGAN", "TIDE PAD", "SHIMMER PAD"};

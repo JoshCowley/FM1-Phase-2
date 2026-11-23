@@ -207,6 +207,12 @@ static void jam_routed_bits();       // JAM mode's layer (below): its targets' b
 // are live, and the offsets must come after the rows in that order). 1,320 B of RAM.
 static uint32_t rr_[NSLOT + 1];
 static float kn_[NSLOT + 1][32];
+// 2.36: the rows that are in use (src set) and the knob targets that carry a depth, as short lists in their own order, for the calls that still scan (a parameter a row
+// reaches): the same adds in the same order as the full scan, without visiting the empty ones. Rebuilt with rr_.
+static uint8_t act_[NROUTE], mr_[4 * MK_N]; static uint8_t nact_ = 0, nmr_ = 0;
+// and, for each parameter a row reaches, its own rows and knob targets (so a scan visits only those: 1 to 3, not 18 and 32)
+struct RrEnt { int8_t slot; uint8_t param, r0, nr, k0, nk; };
+static RrEnt rre_[NROUTE]; static uint8_t nrre_ = 0, rrl_[NROUTE], rkl_[4 * MK_N];
 static void kn_rebuild();
 #ifdef RACK_BENCH_AB
 static bool kn_on_ = true;   // the benchmark only: the sums ahead on or off (off: every call scans, as 2.32 did), for an A/B on the device
@@ -224,10 +230,23 @@ static void routed_rebuild() {
   }
   jam_routed_bits();
   memset(rr_, 0, sizeof(rr_));
+  nact_ = 0; nmr_ = 0;
   for (int i = 0; i < NROUTE; ++i) {
     const Route& r = routes_[i];
+    if (r.src != SR_NONE) act_[nact_++] = (uint8_t)i;
     if (r.src != SR_NONE && r.slot >= -1 && r.slot < NSLOT && r.param >= 0 && r.param < 32) rr_[r.slot + 1] |= 1u << r.param;
   }
+  for (int j = 0; j < 4 * MK_N; ++j) if (mt_[j].depth) mr_[nmr_++] = (uint8_t)j;
+  nrre_ = 0; { int nr = 0, nk = 0;
+    for (int a = 0; a < nact_; ++a) {   // one entry for each (slot, param) the rows reach, in order of the first row that does
+      const Route& r0 = routes_[act_[a]];
+      if (!(r0.slot >= -1 && r0.slot < NSLOT && r0.param >= 0 && r0.param < 32)) continue;
+      int e = 0; while (e < nrre_ && !(rre_[e].slot == r0.slot && rre_[e].param == r0.param)) ++e;
+      if (e < nrre_) continue;
+      RrEnt& t = rre_[nrre_++]; t.slot = (int8_t)r0.slot; t.param = (uint8_t)r0.param; t.r0 = (uint8_t)nr; t.nr = 0; t.k0 = (uint8_t)nk; t.nk = 0;
+      for (int b = 0; b < nact_; ++b) { const Route& r = routes_[act_[b]]; if (r.slot == t.slot && r.param == t.param) { rrl_[nr++] = act_[b]; ++t.nr; } }
+      for (int c = 0; c < nmr_; ++c) { const MTgt& m = mt_[mr_[c]]; if (m.slot == t.slot && m.param == t.param) { rkl_[nk++] = mr_[c]; ++t.nk; } }
+    } }
   kn_rebuild();
 }
 // the response of a target to the knob at k (0..1): 0 linear, 1 slow start, 2 fast start, 3 step (at start), 4 smooth
@@ -610,8 +629,15 @@ static inline float fast_sin01(float p) {
   float y = 1.2732395f * x - 0.4052847f * x * fabsf(x);         // a parabola through the sine's zeros and peaks
   return 0.225f * (y * fabsf(y) - y) + y;
 }
+// the same for p already in [0, 1) (floorf(p) = 0 there: p - 0 = p, so the same samples without the call; 2.36, the chorus' phase)
+static inline float fast_sin01_u(float p) {
+  float x = (p < 0.5f ? p : p - 1.0f) * 6.2831853f;
+  float y = 1.2732395f * x - 0.4052847f * x * fabsf(x);
+  return 0.225f * (y * fabsf(y) - y) + y;
+}
 #define TANHF fast_tanh
 #define SIN01(p) fast_sin01(p)
+#define SIN01U(p) fast_sin01_u(p)
 // 48 kHz <-> 24 kHz for the modules the FM-1 runs at half rate (Rings, the reverb): a 39-tap halfband filter (flat to
 // 10 kHz, -75 dB from 16 kHz), as its 10 taps either side of the middle (0.5); the others are 0
 static const float HB24[10] = {0.315457678f, -0.097823539f, 0.050681315f, -0.028869892f, 0.016396910f,
@@ -622,8 +648,10 @@ struct Half24Down {   // a block at 48 kHz in, half a block at 24 kHz out (19 sa
     for (int n = 0; n < BLOCK; ++n) h[38 + n] = x[n];
     for (int m = 0; m < BLOCK / 2; ++m) {
       const float* c = h + 19 + 2 * m;
-      float v = 0.5f * c[0];
-      for (int j = 0; j < 10; ++j) v += HB24[j] * (c[-(2 * j + 1)] + c[2 * j + 1]);
+      float v = 0.5f * c[0];   // (2.36: the ten taps written out, in the same order: no loop counter)
+      v += HB24[0] * (c[-1] + c[1]);   v += HB24[1] * (c[-3] + c[3]);   v += HB24[2] * (c[-5] + c[5]);   v += HB24[3] * (c[-7] + c[7]);
+      v += HB24[4] * (c[-9] + c[9]);   v += HB24[5] * (c[-11] + c[11]); v += HB24[6] * (c[-13] + c[13]); v += HB24[7] * (c[-15] + c[15]);
+      v += HB24[8] * (c[-17] + c[17]); v += HB24[9] * (c[-19] + c[19]);
       y[m] = v;
     }
     for (int n = 0; n < 38; ++n) h[n] = h[n + BLOCK];   // (the FM-1 has no memmove)
@@ -636,7 +664,9 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
     for (int k = 0; k < BLOCK / 2; ++k) {
       const float* u = h + 9 + k;
       float v = 0.0f;
-      for (int j = 0; j < 10; ++j) v += HB24[j] * (u[-j] + u[1 + j]);
+      v += HB24[0] * (u[0] + u[1]);   v += HB24[1] * (u[-1] + u[2]);  v += HB24[2] * (u[-2] + u[3]);  v += HB24[3] * (u[-3] + u[4]);
+      v += HB24[4] * (u[-4] + u[5]);  v += HB24[5] * (u[-5] + u[6]);  v += HB24[6] * (u[-6] + u[7]);  v += HB24[7] * (u[-7] + u[8]);
+      v += HB24[8] * (u[-8] + u[9]);  v += HB24[9] * (u[-9] + u[10]);
       x[2 * k] = u[0]; x[2 * k + 1] = 2.0f * v;
     }
     for (int n = 0; n < 20; ++n) h[n] = h[n + BLOCK / 2];
@@ -645,6 +675,7 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
 #else
 #define TANHF tanhf
 #define SIN01(p) sinf((p) * 6.2831853f)
+#define SIN01U(p) SIN01(p)
 #endif
 static inline float randf() { return Random::GetFloat(); }
 
@@ -741,15 +772,35 @@ static float mod_sum(int slot, int param, const VoiceState* v) {
 #endif
   }
   float m = 0.0f;
-  for (int i = 0; i < NROUTE; ++i) {
+  if (slot >= -1 && slot < NSLOT && param >= 0 && param < 32 && (rr_[slot + 1] >> param & 1u)) {   // a parameter a row reaches (the check above): its own rows, then its knob targets, as the scan would
+    for (int e = 0; e < nrre_; ++e) {
+      const RrEnt& t = rre_[e];
+      if (t.slot != slot || t.param != param) continue;
+      for (int a = 0; a < t.nr; ++a) {
+        const int i = rrl_[t.r0 + a];
+        const Route& r = routes_[i];
+        float s = source_value(r.src, v) * (r.amt + rowoff_[i]);
+        if (r.via != SR_NONE) s *= source_value(r.via, v);
+        m += s;
+      }
+      for (int a = 0; a < t.nk; ++a) m += mo_[rkl_[t.k0 + a]];
+      break;
+    }
+    if (jam_on_) m += jam_sum(slot, param);
+    return m;
+  }
+  for (int a = 0; a < nact_; ++a) {
+    const int i = act_[a];
     const Route& r = routes_[i];
-    if (r.src == SR_NONE || r.slot != slot || r.param != param) continue;
+    if (r.slot != slot || r.param != param) continue;
     float s = source_value(r.src, v) * (r.amt + rowoff_[i]);
     if (r.via != SR_NONE) s *= source_value(r.via, v);
     m += s;
   }
-  for (int j = 0; j < 4 * MK_N; ++j)
-    if (mt_[j].slot == slot && mt_[j].param == param && mt_[j].depth) m += mo_[j];
+  for (int a = 0; a < nmr_; ++a) {
+    const int j = mr_[a];
+    if (mt_[j].slot == slot && mt_[j].param == param) m += mo_[j];
+  }
   if (jam_on_) m += jam_sum(slot, param);
   return m;
 }
@@ -2174,15 +2225,29 @@ static float lim_buf_l_[64], lim_buf_r_[64]; static int lim_w_ = 0;
 // the limiter's look-ahead peak: the largest |sample| of the last 48, kept as a falling queue (each sample goes in
 // once and out once) instead of reading all 48 for every sample. The same peak exactly; NaN counts as 0, as fmaxf
 // skipped it.
+// 2.36: the same peak from the block's own structure (run_master is called with exactly BLOCK samples, and the window is BLOCK long): the largest of the
+// previous block's last (BLOCK - 1 - n) samples and this block's first n + 1 is the window's largest, the same value as the queue's. lim_sfx_[k] = the
+// largest |sample| of the previous block from k to its end (lim_sfx_[BLOCK] = 0: nothing there, after a reset or before the first block).
+static float lim_sfx_[BLOCK + 1];
+#ifdef RACK_BENCH_AB
+// the benchmark's A/B (set_lim_fast(0)): the falling queue of 2.35 again
 static float lim_qv_[64]; static uint32_t lim_qi_[64], lim_qh_ = 0, lim_qt_ = 0, lim_n_ = 0;
+static bool lim_fast_ = true;
+EXPORT void set_lim_fast(int on) { lim_fast_ = on != 0; lim_qh_ = lim_qt_ = 0; memset(lim_sfx_, 0, sizeof(lim_sfx_)); }
+#endif
+static_assert(BLOCK == 48, "the limiter's look-ahead window is one block");
 // a new patch (init): nothing of the old one's sound left in the master's filters, compressor and limiter
 static void master_reset() {
   for (int c = 0; c < 2; ++c) for (int b = 0; b < 3; ++b) eq_[c][b].z1 = eq_[c][b].z2 = 0.0f;
   memset(lim_buf_l_, 0, sizeof(lim_buf_l_)); memset(lim_buf_r_, 0, sizeof(lim_buf_r_));
-  lim_qh_ = lim_qt_ = 0; lim_gain_ = 1.0f; comp_env_ = 0.0f; comp_g_ = 0.0f;
+  memset(lim_sfx_, 0, sizeof(lim_sfx_)); lim_gain_ = 1.0f;
+#ifdef RACK_BENCH_AB
+  lim_qh_ = lim_qt_ = 0;
+#endif comp_env_ = 0.0f; comp_g_ = 0.0f;
 }
 EXPORT void set_master_fx(float low, float mid, float high, float comp) { eq_db_[0] = low; eq_db_[1] = mid; eq_db_[2] = high; comp_amt_ = comp; }
-static void run_master(float* l, float* r) {
+// 2.36: the master gain (mg), the limiter and the soft clip in one pass when the EQ is flat and the compressor off (the usual case): the same multiplications in the same order
+static void run_master(float* l, float* r, float mg) {
   // EQ: the gains glide, the filters are re-designed only when they move
   bool flat = true;
   for (int b = 0; b < 3; ++b) {
@@ -2191,6 +2256,9 @@ static void run_master(float* l, float* r) {
       for (int c = 0; c < 2; ++c) eq_[c][b].set(b == 0 ? 0 : b == 1 ? 1 : 2, f[b], eq_cur_[b], q[b]); }
     if (fabsf(eq_cur_[b]) > 0.01f) flat = false;
   }
+  const bool fuse = flat && !(comp_amt_ > 0.001f);
+  if (!fuse) for (int n = 0; n < BLOCK; ++n) { l[n] *= mg; r[n] *= mg; }
+  const float gm = fuse ? mg : 1.0f;   // (x * 1 = x)
   if (!flat) for (int n = 0; n < BLOCK; ++n) for (int b = 0; b < 3; ++b) { l[n] = eq_[0][b].run(l[n]); r[n] = eq_[1][b].run(r[n]); }
   // glue compressor: one knob lowers the threshold from -6 to -30 dB and raises the ratio from 2:1 to 4:1, with make-up
   if (comp_amt_ > 0.001f) {
@@ -2222,23 +2290,76 @@ static void run_master(float* l, float* r) {
 #endif
   } else comp_gr_db_ = 0.0f;
   // limiter: looks 48 samples (1 ms) ahead, so a loud attack is already turned down when it arrives
-  for (int n = 0; n < BLOCK; ++n) {
-    lim_buf_l_[lim_w_] = l[n]; lim_buf_r_[lim_w_] = r[n];
-    float a = fmaxf(fabsf(l[n]), fabsf(r[n])); if (!(a == a)) a = 0.0f;
-    while (lim_qt_ != lim_qh_ && lim_qv_[(lim_qt_ - 1u) & 63u] <= a) --lim_qt_;
-    lim_qv_[lim_qt_ & 63u] = a; lim_qi_[lim_qt_ & 63u] = lim_n_; ++lim_qt_;
-    while (lim_n_ - lim_qi_[lim_qh_ & 63u] >= 48u) ++lim_qh_;
-    float peak = lim_qv_[lim_qh_ & 63u]; ++lim_n_;
-    float target = peak > 0.89f ? 0.89f / peak : 1.0f;
-    lim_gain_ += (target - lim_gain_) * (target < lim_gain_ ? 0.3f : 0.0005f);
-    int rd = (lim_w_ - 47) & 63;
-    l[n] = lim_buf_l_[rd] * lim_gain_; r[n] = lim_buf_r_[rd] * lim_gain_;
-    lim_w_ = (lim_w_ + 1) & 63;
+#ifdef RACK_BENCH_AB
+  if (!lim_fast_) {
+    for (int n = 0; n < BLOCK; ++n) {
+      const float xl = l[n] * gm, xr = r[n] * gm;
+      lim_buf_l_[lim_w_] = xl; lim_buf_r_[lim_w_] = xr;
+      float a = fmaxf(fabsf(xl), fabsf(xr)); if (!(a == a)) a = 0.0f;
+      while (lim_qt_ != lim_qh_ && lim_qv_[(lim_qt_ - 1u) & 63u] <= a) --lim_qt_;
+      lim_qv_[lim_qt_ & 63u] = a; lim_qi_[lim_qt_ & 63u] = lim_n_; ++lim_qt_;
+      while (lim_n_ - lim_qi_[lim_qh_ & 63u] >= 48u) ++lim_qh_;
+      float peak = lim_qv_[lim_qh_ & 63u]; ++lim_n_;
+      float target = peak > 0.89f ? 0.89f / peak : 1.0f;
+      lim_gain_ += (target - lim_gain_) * (target < lim_gain_ ? 0.3f : 0.0005f);
+      int rd = (lim_w_ - 47) & 63;
+      l[n] = SoftClip(lim_buf_l_[rd] * lim_gain_); r[n] = SoftClip(lim_buf_r_[rd] * lim_gain_);
+      lim_w_ = (lim_w_ + 1) & 63;
+    }
+  } else
+#endif
+  {
+    float cur[BLOCK], pre = 0.0f;
+    for (int n = 0; n < BLOCK; ++n) {
+      const float xl = l[n] * gm, xr = r[n] * gm;
+      lim_buf_l_[lim_w_] = xl; lim_buf_r_[lim_w_] = xr;
+      float a = fmaxf(fabsf(xl), fabsf(xr)); if (!(a == a)) a = 0.0f;
+      cur[n] = a; if (a > pre) pre = a;
+      float sf = lim_sfx_[n + 1];
+      float peak = pre > sf ? pre : sf;
+      float target = peak > 0.89f ? 0.89f / peak : 1.0f;
+      lim_gain_ += (target - lim_gain_) * (target < lim_gain_ ? 0.3f : 0.0005f);
+      int rd = (lim_w_ - 47) & 63;
+      l[n] = SoftClip(lim_buf_l_[rd] * lim_gain_); r[n] = SoftClip(lim_buf_r_[rd] * lim_gain_);
+      lim_w_ = (lim_w_ + 1) & 63;
+    }
+    float m = 0.0f;
+    lim_sfx_[BLOCK] = 0.0f;
+    for (int n = BLOCK - 1; n >= 0; --n) { if (cur[n] > m) m = cur[n]; lim_sfx_[n] = m; }
   }
   lim_gr_db_ = -20.0f * log10f(lim_gain_ + 1e-6f);
 }
 
 // ------------------------------------------------------------------ FX
+// 2.36: the reverb tank takes the sum of its two inputs: one down-sampler, not two. RACK_RV_STEREO (host checks) or, in the benchmark build (RACK_BENCH_AB), set_rv_mono(0): the two-sided path of 2.35
+#if defined(RACK_BENCH_AB)
+static bool rv_mono_ = true;
+EXPORT void set_rv_mono(int on) { rv_mono_ = on != 0; }
+#define RV_MONO rv_mono_
+#elif defined(RACK_RV_STEREO)
+#define RV_MONO false
+#else
+#define RV_MONO true
+#endif
+// 2.36: the reverb's input stage (16-bit pre-delay line, LO CUT) with the PRE and LO CUT tests outside the loop: four copies of it, one for each case; the shimmer has its own loop in reverb_wet.
+// The same operations in the same order as the general loop below it. (RACK_FM1: the sum or the two sides, as RV_MONO says.)
+template <bool PRE, bool LC>
+static void rv_front(const float* l, const float* r, int pre, float lcc, float* xl, float* xr) {
+  for (int n = 0; n < BLOCK; ++n) {
+    int16_t ql = (int16_t)(clampf(l[n], -1.0f, 1.0f) * 32767.0f), qr = (int16_t)(clampf(r[n], -1.0f, 1.0f) * 32767.0f);
+    pre_buf_l_[pre_w_] = ql; pre_buf_r_[pre_w_] = qr;
+    float in_l, in_r;
+    if (!PRE) { in_l = ql / 32768.0f; in_r = qr / 32768.0f; pre_w_ = (pre_w_ + 1) & pre_mask_; }
+    else { int rd = (pre_w_ - pre) & pre_mask_; pre_w_ = (pre_w_ + 1) & pre_mask_; in_l = pre_buf_l_[rd] / 32768.0f; in_r = pre_buf_r_[rd] / 32768.0f; }
+    if (LC) { rv_lc_l_ += (in_l - rv_lc_l_) * lcc; rv_lc_r_ += (in_r - rv_lc_r_) * lcc; in_l -= rv_lc_l_; in_r -= rv_lc_r_; }
+#ifdef RACK_FM1
+    if (RV_MONO) xl[n] = in_l + in_r;
+    else { xl[n] = in_l; xr[n] = in_r; }
+#else
+    xl[n] = in_l; xr[n] = in_r;
+#endif
+  }
+}
 // the reverb's wet signal from in_l/in_r (its pre-delay, LO CUT, shimmer and tank), into wl/wr
 static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, float* wr_out) {
     int type = PI(slot, 4, 0);                     // 0 PLATE, 1 HALL, 2 SHIMMER
@@ -2259,11 +2380,17 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
     float lc = P(slot, 7, 0), width = P(slot, 8, 0), duck = P(slot, 9, 0);
     float lcc = lc > 0.0f ? 1.0f - expf(-6.2831853f * (20.0f + lc * lc * 980.0f) / SR) : 0.0f;
     float shim = type == 2 && shim_buf_ ? P(slot, 6, 0) : 0.0f;
-    clouds::FloatFrame fr[BLOCK];
+    float xl[BLOCK], xr[BLOCK];   // 2.36: the signal into the tank is built in these (no FloatFrame copy), the pre-delay read skipped when PRE is 0 (the slot just written)
+    if (!(shim > 0.0f)) {
+      if (pre == 0) { if (lc > 0.0f) rv_front<false, true>(l, r, pre, lcc, xl, xr); else rv_front<false, false>(l, r, pre, lcc, xl, xr); }
+      else { if (lc > 0.0f) rv_front<true, true>(l, r, pre, lcc, xl, xr); else rv_front<true, false>(l, r, pre, lcc, xl, xr); }
+    } else
     for (int n = 0; n < BLOCK; ++n) {
-      pre_buf_l_[pre_w_] = (int16_t)(clampf(l[n], -1.0f, 1.0f) * 32767.0f); pre_buf_r_[pre_w_] = (int16_t)(clampf(r[n], -1.0f, 1.0f) * 32767.0f);
-      int rd = (pre_w_ - pre) & pre_mask_; pre_w_ = (pre_w_ + 1) & pre_mask_;
-      float in_l = pre_buf_l_[rd] / 32768.0f, in_r = pre_buf_r_[rd] / 32768.0f;
+      int16_t ql = (int16_t)(clampf(l[n], -1.0f, 1.0f) * 32767.0f), qr = (int16_t)(clampf(r[n], -1.0f, 1.0f) * 32767.0f);
+      pre_buf_l_[pre_w_] = ql; pre_buf_r_[pre_w_] = qr;
+      float in_l, in_r;
+      if (pre == 0) { in_l = ql / 32768.0f; in_r = qr / 32768.0f; pre_w_ = (pre_w_ + 1) & pre_mask_; }
+      else { int rd = (pre_w_ - pre) & pre_mask_; pre_w_ = (pre_w_ + 1) & pre_mask_; in_l = pre_buf_l_[rd] / 32768.0f; in_r = pre_buf_r_[rd] / 32768.0f; }
       if (lc > 0.0f) { rv_lc_l_ += (in_l - rv_lc_l_) * lcc; rv_lc_r_ += (in_r - rv_lc_r_) * lcc; in_l -= rv_lc_l_; in_r -= rv_lc_r_; }   // LO CUT: thin the tail
       if (shim > 0.0f) {         // the tail, an octave up, back into the tank
         shim_buf_[shim_w_] = (int16_t)(clampf(shim_fb_, -1.0f, 1.0f) * 32767.0f);
@@ -2275,25 +2402,41 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
         shim_w_ = (shim_w_ + 1) & 4095;
         in_l += up * shim * 0.35f; in_r += up * shim * 0.35f;   // 1.9.2: 0.7 let long shimmer tails grow after release
       }
-      fr[n].l = in_l; fr[n].r = in_r;
+#ifdef RACK_FM1
+      if (RV_MONO) xl[n] = in_l + in_r;   // (2.36: the tank reads only the sum of its two inputs (Mutable's Reverb: in_out->l + in_out->r): the sum goes down to 24 kHz once, not each side)
+      else { xl[n] = in_l; xr[n] = in_r; }
+#else
+      xl[n] = in_l; xr[n] = in_r;
+#endif
     }
 #ifdef RACK_FM1
     {
-      static Half24Down dl, dr; static Half24Up ul, ur;
-      float xl[BLOCK], xr[BLOCK], yl[BLOCK / 2], yr[BLOCK / 2];
+      static Half24Down dl; static Half24Up ul, ur;
+#if defined(RACK_BENCH_AB) || defined(RACK_RV_STEREO)
+      static Half24Down dr;   // (the one-sum path above needs no second down-sampler: the production build leaves it out, 344 B)
+#endif
+      float yl[BLOCK / 2], yr[BLOCK / 2];
       clouds::FloatFrame h[BLOCK / 2];
-      for (int n = 0; n < BLOCK; ++n) { xl[n] = fr[n].l; xr[n] = fr[n].r; }
-      dl.run(xl, yl); dr.run(xr, yr);
-      for (int m = 0; m < BLOCK / 2; ++m) { h[m].l = yl[m]; h[m].r = yr[m]; }
+      dl.run(xl, yl);
+#if defined(RACK_BENCH_AB) || defined(RACK_RV_STEREO)
+      if (!RV_MONO) { dr.run(xr, yr); for (int m = 0; m < BLOCK / 2; ++m) { h[m].l = yl[m]; h[m].r = yr[m]; } }
+      else
+#endif
+      for (int m = 0; m < BLOCK / 2; ++m) { h[m].l = yl[m]; h[m].r = 0.0f; }
       reverb_.Process(h, BLOCK / 2);
       for (int m = 0; m < BLOCK / 2; ++m) { yl[m] = h[m].l; yr[m] = h[m].r; }
       ul.run(yl, xl); ur.run(yr, xr);
-      for (int n = 0; n < BLOCK; ++n) { fr[n].l = xl[n]; fr[n].r = xr[n]; }
     }
 #else
-    reverb_.Process(fr, BLOCK);
+    {
+      clouds::FloatFrame fr[BLOCK];
+      for (int n = 0; n < BLOCK; ++n) { fr[n].l = xl[n]; fr[n].r = xr[n]; }
+      reverb_.Process(fr, BLOCK);
+      for (int n = 0; n < BLOCK; ++n) { xl[n] = fr[n].l; xr[n] = fr[n].r; }
+    }
 #endif
-    for (int n = 0; n < BLOCK; ++n) { shim_fb_ = (fr[n].l + fr[n].r) * 0.5f; wl_out[n] = fr[n].l; wr_out[n] = fr[n].r; }
+    for (int n = 0; n < BLOCK; ++n) { wl_out[n] = xl[n]; wr_out[n] = xr[n]; }
+    shim_fb_ = (xl[BLOCK - 1] + xr[BLOCK - 1]) * 0.5f;   // (read at the next block's start only: the last sample's)
 }
 #ifdef HAVE_DRUMS
 // render this block's drums into out[drum_w_] (the job's, or the first core's when no job is out). Idle voices (below -80 dB) are skipped.
@@ -2603,20 +2746,23 @@ static void run_fx(int slot, float* l, float* r) {
   if (id == M_REVERB) {
     int type = PI(slot, 4, 0);                     // 0 PLATE, 1 HALL, 2 SHIMMER
     float mix = P(slot, 3, 0), width = P(slot, 8, 0), duck = P(slot, 9, 0);
-    float dry_l[BLOCK], dry_r[BLOCK], wet_l[BLOCK], wet_r[BLOCK];
-    for (int n = 0; n < BLOCK; ++n) { dry_l[n] = l[n]; dry_r[n] = r[n]; }
+    float wet_l[BLOCK], wet_r[BLOCK];   // (2.36: no copy of the dry signal: l[n] and r[n] are read before they are written, at the same n)
 #ifdef RACK_FM1
     if (slot == rv_early_) {   // its wet signal was made a block behind (early_work): keep this input for the next
       for (int n = 0; n < BLOCK; ++n) { rv_in_l_[n] = l[n]; rv_in_r_[n] = r[n]; wet_l[n] = rv_wet_l_[n]; wet_r[n] = rv_wet_r_[n]; }
     } else
 #endif
     reverb_wet(slot, l, r, wet_l, wet_r);
+    const float wet0 = mix * (type == 1 ? 0.75f : 0.6f), dry_g = 1.0f - mix * 0.4f;   // (2.36: these two are the same every sample; the plain case, no WIDTH and no DUCK, in a loop of its own)
+    if (width == 0.0f && !(duck > 0.0f)) {
+      for (int n = 0; n < BLOCK; ++n) { l[n] = l[n] * dry_g + wet_l[n] * wet0; r[n] = r[n] * dry_g + wet_r[n] * wet0; }
+    } else
     for (int n = 0; n < BLOCK; ++n) {
-      float wet = mix * (type == 1 ? 0.75f : 0.6f);
-      float wl = wet_l[n], wr = wet_r[n];
+      float wet = wet0;
+      float wl = wet_l[n], wr = wet_r[n], dry_l = l[n], dry_r = r[n];
       if (width != 0.0f) { float m = (wl + wr) * 0.5f, sd = (wl - wr) * 0.5f * (1.0f + width); wl = m + sd; wr = m - sd; }
-      if (duck > 0.0f) { float x = fmaxf(fabsf(dry_l[n]), fabsf(dry_r[n])); rv_duck_ += (x - rv_duck_) * (x > rv_duck_ ? 0.01f : 0.0002f); wet *= 1.0f - duck * clampf(rv_duck_ * 3.0f, 0.0f, 1.0f); }
-      l[n] = dry_l[n] * (1.0f - mix * 0.4f) + wl * wet; r[n] = dry_r[n] * (1.0f - mix * 0.4f) + wr * wet;
+      if (duck > 0.0f) { float x = fmaxf(fabsf(dry_l), fabsf(dry_r)); rv_duck_ += (x - rv_duck_) * (x > rv_duck_ ? 0.01f : 0.0002f); wet *= 1.0f - duck * clampf(rv_duck_ * 3.0f, 0.0f, 1.0f); }
+      l[n] = dry_l * dry_g + wl * wet; r[n] = dry_r * dry_g + wr * wet;
     }
   } else if (id == M_DELAY) {
     static const float beats[] = { 0.25f, 0.5f, 0.75f, 1.0f, 2.0f, 1.0f / 3.0f, 2.0f / 3.0f, 1.5f, 3.0f };   // .. 1/2, then 1/8T 1/4T 1/4D 1/2D
@@ -2635,10 +2781,14 @@ static void run_fx(int slot, float* l, float* r) {
       if (mode == 2) {           // wow and flutter swing the read point; the repeats saturate as they pile up
         tape_ph1_ += 0.45f / SR; if (tape_ph1_ >= 1.0f) tape_ph1_ -= 1.0f;
         tape_ph2_ += 6.3f / SR; if (tape_ph2_ >= 1.0f) tape_ph2_ -= 1.0f;
-        dsamp += wow * (SIN01(tape_ph1_) * 90.0f + SIN01(tape_ph2_) * 6.0f);
+        dsamp += wow * (SIN01U(tape_ph1_) * 90.0f + SIN01U(tape_ph2_) * 6.0f);
       }
       float pos = delay_w_ - dsamp; while (pos < 0) pos += (float)dlen_;
-      int i0 = (int)pos; float fr2 = pos - i0; int i1 = (i0 + 1) % dlen_; i0 %= dlen_;
+      int i0 = (int)pos; float fr2 = pos - i0;
+      // (2.36: i0 and i1 wrapped by a subtraction, as % gives for 0 <= i < 2 dlen_; % only where that does not hold)
+      int i1 = i0 + 1;
+      i0 = i0 < dlen_ ? i0 : i0 < 2 * dlen_ ? i0 - dlen_ : i0 % dlen_;
+      i1 = i1 < dlen_ ? i1 : i1 < 2 * dlen_ ? i1 - dlen_ : i1 % dlen_;
       float dl = DG(delay_l_[i0]) * (1 - fr2) + DG(delay_l_[i1]) * fr2, dr = DG(delay_r_[i0]) * (1 - fr2) + DG(delay_r_[i1]) * fr2;
       delay_tone_l_ += (dl - delay_tone_l_) * lp; delay_tone_r_ += (dr - delay_tone_r_) * lp;
       if (lc > 0.0f) { dl_lc_l_ += (delay_tone_l_ - dl_lc_l_) * lcc; dl_lc_r_ += (delay_tone_r_ - dl_lc_r_) * lcc; delay_tone_l_ -= dl_lc_l_; delay_tone_r_ -= dl_lc_r_; }
@@ -2654,7 +2804,7 @@ static void run_fx(int slot, float* l, float* r) {
 #ifndef RACK_FM1
       if (delay_q16_) { delay_l_[delay_w_] = q16(delay_l_[delay_w_]); delay_r_[delay_w_] = q16(delay_r_[delay_w_]); }
 #endif
-      delay_w_ = (delay_w_ + 1) % dlen_;
+      delay_w_ = delay_w_ + 1 < dlen_ ? delay_w_ + 1 : (delay_w_ + 1) % dlen_;
       float wl = delay_tone_l_, wr = delay_tone_r_, wm = mix;
       if (width != 0.0f) { float m = (wl + wr) * 0.5f, sd = (wl - wr) * 0.5f * (1.0f + width); wl = m + sd; wr = m - sd; }
       if (duck > 0.0f) { float x = fmaxf(fabsf(l[n]), fabsf(r[n])); dl_duck_ += (x - dl_duck_) * (x > dl_duck_ ? 0.01f : 0.0002f); wm *= 1.0f - duck * clampf(dl_duck_ * 3.0f, 0.0f, 1.0f); }
@@ -2671,10 +2821,11 @@ static void run_fx(int slot, float* l, float* r) {
     if (ch_base0 < 0.0f) { ch_base0 = base; ch_dep0 = depth; ch_mix0 = mix; }
     const float dbs = (base - ch_base0) * (1.0f / BLOCK), ddp = (depth - ch_dep0) * (1.0f / BLOCK), dmx = (mix - ch_mix0) * (1.0f / BLOCK);
     { float tb = base, td = depth, tm = mix; base = ch_base0; depth = ch_dep0; mix = ch_mix0; ch_base0 = tb; ch_dep0 = td; ch_mix0 = tm; }
+    const float dph = rate / SR;
     for (int n = 0; n < BLOCK; ++n) {
       base += dbs; depth += ddp; mix += dmx;
-      chorus_phase_ += rate / SR; if (chorus_phase_ >= 1.0f) chorus_phase_ -= 1.0f;
-      float s = SIN01(chorus_phase_);
+      chorus_phase_ += dph; if (chorus_phase_ >= 1.0f) chorus_phase_ -= 1.0f;
+      float s = SIN01U(chorus_phase_);
       chorus_l_[chorus_w_] = DS(cfb > 0.0f ? l[n] + ch_fb_l_ * cfb : l[n]); chorus_r_[chorus_w_] = DS(cfb > 0.0f ? r[n] + ch_fb_r_ * cfb : r[n]);
 #ifndef RACK_FM1
       if (delay_q16_) { chorus_l_[chorus_w_] = q16(chorus_l_[chorus_w_]); chorus_r_[chorus_w_] = q16(chorus_r_[chorus_w_]); }   // the FM-1 preview: 16-bit
@@ -2979,21 +3130,28 @@ static void process_block_() {
 #ifdef HAVE_DRUMS
   if (drum_ok_[drum_r_]) { const float* dl = drum_->out[drum_r_][0]; const float* dr = drum_->out[drum_r_][1]; for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += dl[n]; blk_r_[n] += dr[n]; } }   // ... and the dry part, after them
 #endif
-  for (int n = 0; n < BLOCK; ++n) { blk_l_[n] *= master_ * 0.9f; blk_r_[n] *= master_ * 0.9f; }
-  run_master(blk_l_, blk_r_);
-  for (int n = 0; n < BLOCK; ++n) { blk_l_[n] = SoftClip(blk_l_[n]); blk_r_[n] = SoftClip(blk_r_[n]); }
+  run_master(blk_l_, blk_r_, master_ * 0.9f);   // (the master gain and the soft clip are inside it, 2.36)
 }
 
 EXPORT void render(int n) {
   if (n > OUTN) n = OUTN;
-  for (int i = 0; i < n; ++i) {
+  float pkl = peak_l_, pkr = peak_r_;   // 2.36: the block's samples copied a run at a time, the peak taken in the same pass (the same values as before)
+  for (int i = 0; i < n;) {
     if (blk_pos_ >= BLOCK) { process_block(); blk_pos_ = 0; }
-    out_l_[i] = blk_l_[blk_pos_]; out_r_[i] = blk_r_[blk_pos_]; ++blk_pos_;
+    int k = n - i < BLOCK - blk_pos_ ? n - i : BLOCK - blk_pos_;
+    const float* sl = blk_l_ + blk_pos_; const float* sr = blk_r_ + blk_pos_;
+    float* dl = out_l_ + i; float* dr = out_r_ + i;
+    for (int j = 0; j < k; ++j) {
+      float x = sl[j], y = sr[j];
+      dl[j] = x; dr[j] = y;
+      float a = fabsf(x), b = fabsf(y); if (a > pkl) pkl = a; if (b > pkr) pkr = b;
+    }
+    blk_pos_ += k; i += k;
   }
+  peak_l_ = pkl; peak_r_ = pkr;
 #ifndef RACK_FM1
   for (int i = 0; i < 128 && i < n; ++i) scope_[i] = (out_l_[i] + out_r_[i]) * 0.5f;
 #endif
-  for (int i = 0; i < n; ++i) { float a = fabsf(out_l_[i]), b = fabsf(out_r_[i]); if (a > peak_l_) peak_l_ = a; if (b > peak_r_) peak_r_ = b; }
 }
 
 // monitor: what the screen draws. 0-15 modulated params of `slot` (as the most recent voice hears them),

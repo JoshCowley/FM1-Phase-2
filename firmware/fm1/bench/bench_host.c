@@ -14,6 +14,13 @@
 #include <math.h>
 #include <stdlib.h>
 #include "bench.c"
+#ifdef BENCH_IR
+#include <valgrind/callgrind.h>
+static int ir_mode, ir_on;     /* bench_ir: 0 both cores, 1 the first core only, 2 the second core's job only (callgrind collects when asked) */
+#define IR_JOB(call) do { if (ir_on && ir_mode) CALLGRIND_TOGGLE_COLLECT; call; if (ir_on && ir_mode) CALLGRIND_TOGGLE_COLLECT; } while (0)
+#else
+#define IR_JOB(call) call
+#endif
 #include "cases_full.h"
 
 /* update 59: a case's Clouds the way the two-core check needs it: the pipelined second-core Clouds (a block late) is for the 32 kHz build only, so a row with 48 kHz runs as
@@ -40,13 +47,13 @@ static uint32_t host_arg;
  * (Clouds' random numbers in the one-core order: the output is then one core's, a block later); the voices' job still waits for the join */
 static int host_cpu2_run(void (*fn)(uint32_t), uint32_t arg)
 {
-    if (rk_fx_core2_active()) { fn(arg); host_job = 0; return 1; }
+    if (rk_fx_core2_active()) { IR_JOB(fn(arg)); host_job = 0; return 1; }
     host_job = fn; host_arg = arg;
     return 1;
 }
 static void host_cpu2_sync(void) { __sync_synchronize(); }
 static int host_cpu2_on(void) { return 1; }
-static int host_cpu2_wait(void) { if (host_job) { host_job(host_arg); host_job = 0; } return 0; }
+static int host_cpu2_wait(void) { if (host_job) { IR_JOB(host_job(host_arg)); host_job = 0; } return 0; }
 
 static uint32_t host_ticks(void)   /* 24 ticks a microsecond, as the FM-1's plat_ticks24 */
 {
@@ -134,6 +141,31 @@ int main(int argc, char **argv)
         fwrite(a, sizeof(float), 48000, stdout);
         return 0;
     }
+#ifdef BENCH_IR
+    if (argc >= 4 && !strcmp(argv[1], "--ir")) {   /* bench_ir NAME MODE: one case, 20 timed blocks under callgrind (--collect-atstart=no), the instructions of the first core (1), the second's job (2) or both (0) */
+        bench_cpu2_run = host_cpu2_run;
+        bench_cpu2_wait = host_cpu2_wait;
+        bench_cpu2_sync = host_cpu2_sync;
+        bench_cpu2_on = host_cpu2_on;
+        bench_cases();
+        for (k = 0; k < bncases; k++)
+            if (!strcmp(bcases[k].name, argv[2])) break;
+        if (k == bncases) { fprintf(stderr, "no case %s\n", argv[2]); return 2; }
+        ir_mode = atoi(argv[3]);
+        bench_setup(k);
+        if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(0);   /* bench_ir NAME MODE [REV|LIM|BOTH]: the 2.35 reverb input / limiter */
+        if (argc > 4 && (!strcmp(argv[4], "LIM") || !strcmp(argv[4], "BOTH"))) rk_lim_fast(0);
+        for (i = 0; i < bench_warm_steps(k); i++) bench_warm(k, i + 1);
+        CALLGRIND_START_INSTRUMENTATION;
+        if (ir_mode != 2) CALLGRIND_TOGGLE_COLLECT;
+        ir_on = 1;
+        for (i = 0; i < 20; i++) bench_run(k, host_ticks);
+        ir_on = 0;
+        if (ir_mode != 2) CALLGRIND_TOGGLE_COLLECT;
+        CALLGRIND_STOP_INSTRUMENTATION;
+        return 0;
+    }
+#endif
     if (argc >= 2 && !strcmp(argv[1], "--proxy")) {   /* update 10: each core's own work on this computer, a PROXY (not the FM-1's cores): the 2 CORES cases named, best of 400 runs of 10 ms */
         bench_cpu2_run = host_cpu2_run;
         bench_cpu2_wait = host_cpu2_wait;
@@ -214,6 +246,44 @@ int main(int argc, char **argv)
         }
         printf("MODSUM: %d OLD/NEW pairs, %d differ\n", nm, bad);
         fails += bad;
+    }
+    /* the ENGINE cases (24 Nov 2026, engine 2.36): the block-wise limiter peak against the falling queue: the same samples, bit for bit (OLD LIM, OLD BOTH against OLD REV); the
+     * reverb tank's one sum against both sides: the largest and the rms difference of the first second are printed (not the same samples: the tank's 12-bit steps) */
+    {
+        int ko, nm = 0, bad = 0;
+        for (ko = 0; ko < bncases; ko++) {
+            uint32_t s1 = 0, s2 = 0;
+            if (bcases[ko].group != G_CORES2 || !bcases[ko].ms || bcases[ko].kmax || bcases[ko].kit || (!bcases[ko].rvs && !bcases[ko].limold))
+                continue;
+            {   /* the twin by name: "X 2C NEW" (OLD LIM) and "X 2C OLD REV" (OLD BOTH) */
+                char tw[64]; int t;
+                size_t len = strlen(bcases[ko].name);
+                snprintf(tw, sizeof tw, "%s", bcases[ko].name);
+                if (bcases[ko].rvs && !bcases[ko].limold) continue;
+                if (bcases[ko].limold && !bcases[ko].rvs) snprintf(tw + len - 7, sizeof tw - len + 7, "NEW");   /* "OLD LIM" -> "NEW" */
+                else snprintf(tw + len - 8, sizeof tw - len + 8, "OLD REV");                                       /* "OLD BOTH" -> "OLD REV" */
+                for (t = 0; t < bncases; t++) if (!strcmp(bcases[t].name, tw)) break;
+                if (t == bncases || case_played(argv[0], t, a, &s1) || case_played(argv[0], ko, b, &s2) || memcmp(a, b, sizeof a)) {
+                    printf("ENGINE %-26s differs from %s   FAIL\n", bcases[ko].name, tw);
+                    bad++;
+                }
+                nm++;
+            }
+        }
+        printf("ENGINE: %d limiter pairs, %d differ\n", nm, bad);
+        fails += bad;
+        for (ko = 0; ko < bncases; ko++) {   /* the reverb input: OLD REV against NEW */
+            uint32_t s1 = 0, s2 = 0;
+            double mx = 0, ea = 0, ed = 0;
+            char tw[64]; int t; size_t len;
+            if (bcases[ko].group != G_CORES2 || !bcases[ko].ms || !bcases[ko].rvs || bcases[ko].limold) continue;
+            len = strlen(bcases[ko].name);
+            snprintf(tw, sizeof tw, "%s", bcases[ko].name); snprintf(tw + len - 7, sizeof tw - len + 7, "NEW");
+            for (t = 0; t < bncases; t++) if (!strcmp(bcases[t].name, tw)) break;
+            if (t == bncases || case_played(argv[0], t, a, &s1) || case_played(argv[0], ko, b, &s2)) { printf("ENGINE %-26s could not play   FAIL\n", bcases[ko].name); fails++; continue; }
+            for (i = 0; i < 48000; i++) { double d = (double)a[i] - b[i]; if (fabs(d) > mx) mx = fabs(d); ed += d * d; ea += (double)a[i] * a[i]; }
+            printf("ENGINE %-26s one sum against both sides: largest difference %.2g, rms %.1f dB below the signal\n", bcases[ko].name, mx, 10 * log10(ea / (ed + 1e-30)));
+        }
     }
     /* each 2 CORES case against its one-core twin (same preset and notes): the same sound but for the order the
      * voices are added in (a Clouds case: a block late, Clouds on the second core), and the second core really took its share */
