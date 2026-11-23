@@ -150,11 +150,12 @@ int main(int argc, char **argv)
         bench_cases();
         for (k = 0; k < bncases; k++)
             if (!strcmp(bcases[k].name, argv[2])) break;
-        if (k == bncases) { fprintf(stderr, "no case %s\n", argv[2]); return 2; }
+        if (k == bncases) { fprintf(stderr, "no case %s (%d cases)\n", argv[2], bncases); return 2; }
         ir_mode = atoi(argv[3]);
         bench_setup(k);
         if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(1);   /* bench_ir NAME MODE [REV|LIM|BOTH]: REV = the summed reverb input (not bit-identical), LIM = the 2.35 limiter */
         if (argc > 4 && (!strcmp(argv[4], "LIM") || !strcmp(argv[4], "BOTH"))) rk_lim_fast(0);
+        if (getenv("IR_Q")) rk_quality((unsigned)atoi(getenv("IR_Q")));   /* bench_ir: the quality mask (0 = 2.37's sound), else the engine's own */
         for (i = 0; i < bench_warm_steps(k); i++) bench_warm(k, i + 1);
         CALLGRIND_START_INSTRUMENTATION;
         if (ir_mode != 2) CALLGRIND_TOGGLE_COLLECT;

@@ -23,6 +23,16 @@ void rk_set_macro(int i, float v);
 void rk_set_macro_glide(int i, float v);
 void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve);
 void rk_rv_mono(int on);       /* 24 Nov 2026: the reverb tank takes both sides down-sampled (0, as 2.35: the default) or one sum (1): the ENGINE cases A/B (RACK_BENCH_AB) */
+void rk_quality(unsigned m);   /* 2.38: the quality trims as a mask (0 = the 2.37 sound) */
+unsigned rk_quality_default(void);
+static unsigned bench_q = 0xFFFFFFFFu;
+#ifdef BENCH_MSALL
+static int ir_notes(void)   /* bench_ir only: the voices and notes held (4, or 6 for the 6-voice figures; env IR_NOTES), default 4 */
+{
+    const char *e = getenv("IR_NOTES");
+    return e && atoi(e) >= 1 && atoi(e) <= 6 ? atoi(e) : 4;
+}
+#endif   /* the mask every case runs with: all ones = the engine's own default */
 void rk_lim_fast(int on);      /* the limiters peak block-wise (1) or by the falling queue (0, as 2.35) */
 void rk_modsum_precompute(int on);   /* 23 Nov 2026: the engine's mod_sum sums ahead (on) or scans as 2.32 did (off): the MODSUM cases' A/B (RACK_BENCH_AB) */
 void rk_set_master(float v);
@@ -123,12 +133,12 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 /* c2off: a 2 CORES case with the Clouds-on-the-second-core arrangement switched off at run time (rk_fx_core2(0)): update 8's, the voices split, Clouds on the first core */
 /* v1 (update 10): a 2 CORES case with the voices above the fourth kept on the first core (rk_fx_core2_voices(0)): update 9's arrangement, for comparison */
 /* kit, dv, ease (step 1 of the drum track): a DRUMS case: the kit struck every step (1 cheap, 2 rich), its voices (3 or 4), IF BUSY = CLOUD on (the guard: Clouds' DENSITY held at 0.9) */
-typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov, ms, kmax, rvs, limold; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov, ms, kmax, rvs, limold, qold; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
 #ifdef BENCH_MSALL
 #define NCASE_MAX 700
 #else
-#define NCASE_MAX 320
+#define NCASE_MAX 380
 #endif
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
@@ -144,7 +154,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->c2off = 0;
     c->v1 = 0;
     c->kit = c->dv = c->ease = 0;
-    c->ab = c->mov = c->ms = c->kmax = c->rvs = c->limold = 0;
+    c->ab = c->mov = c->ms = c->kmax = c->rvs = c->limold = c->qold = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -445,7 +455,7 @@ static void bench_cases(void)
                 int kn, ko;
                 snprintf(msname[m][mv][0], 40, "%s %s NEW", MSNAMES[m], mv ? "moving" : "still");
                 snprintf(msname[m][mv][1], 40, "%s %s OLD", MSNAMES[m], mv ? "moving" : "still");
-                kn = bc_add(G_MODSUM, m, 4, msname[m][mv][0]); ko = bc_add(G_MODSUM, m, 4, msname[m][mv][1]);
+                kn = bc_add(G_MODSUM, m, ir_notes(), msname[m][mv][0]); ko = bc_add(G_MODSUM, m, ir_notes(), msname[m][mv][1]);
 #else
                 int kn = bc_add(G_MODSUM, m, 4, MSN[m][mv][0]), ko = bc_add(G_MODSUM, m, 4, MSN[m][mv][1]);
 #endif
@@ -525,10 +535,11 @@ static void bench_cases(void)
     {   /* every preset whole on two cores, four notes, the knobs still or moving (bench_ir) */
         static char n2c[NMSPRESETS][2][48];
         int m, mv;
+        int nn = ir_notes();
         for (m = 0; m < NMSPRESETS; m++)
             for (mv = 0; mv < 2; mv++) {
                 snprintf(n2c[m][mv], 48, "%s 2C %s", MSNAMES[m], mv ? "moving" : "still");
-                k = bc_add(G_CORES2, m, 4, n2c[m][mv]);
+                k = bc_add(G_CORES2, m, nn, n2c[m][mv]);
                 bcases[k].ms = 1; bcases[k].mov = (uint8_t)mv;
             }
     }
@@ -566,6 +577,27 @@ static void bench_cases(void)
     for (i = P_PLAYED; i < NPRESETS; i++)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
+#ifndef BENCH_MSALL
+    {   /* 2.38 (24 Nov 2026, Josh: about 10 % less CPU for lower quality, full voices, no shedding): every preset at SIX voices (the mono presets one note) on two cores, as the engine is (NAME x6) and with
+         * the 2.37 quality (NAME x6 OLDQ: the quality mask 0, the reverb summed / halfband / diffusion trims off). Only the pairs differ by the quality trims; the engine's exact
+         * savings (the SRC level once a block) are in both. A worst block over 90 % of the core is where the overload guard, when switched ON, would shed a voice; OFF (the
+         * default) it plays on and may glitch. */
+        static char qn[2][NPRESETS][24];
+        int q;
+        for (i = P_PLAYED; i < NPRESETS; i++)
+            for (q = 0; q < 2; q++) {   /* (the mono presets, PRESETS[].mode: one note, x1) */
+                {   /* (no snprintf on the device) */
+                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : " x6", *old = " OLDQ";
+                    char *d = qn[q][i];
+                    while (*src) *d++ = *src++;
+                    while (*suf) *d++ = *suf++;
+                    if (q) for (; *old; ) *d++ = *old++;
+                    *d = 0;
+                }
+                bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : 6, qn[q][i])].qold = (uint8_t)q;
+            }
+    }
+#endif
     }
 }
 
@@ -683,7 +715,8 @@ static void bench_setup(int k)
     for (i = 0; i < c->notes; i++)
         rk_note_on(CHORD[i], 0.8f);
     rk_drum_run(c->kit != 0);
-    rk_rv_mono(c->rvs);                        /* (ENGINE cases: the summed reverb input or the 2.35 limiter; every other case runs the engine as it is) */
+    rk_quality(c->qold ? 0u : bench_q == 0xFFFFFFFFu ? rk_quality_default() : bench_q);
+    if (c->rvs) rk_rv_mono(1);                 /* (ENGINE cases: the summed reverb input or the 2.35 limiter; every other case runs the engine as it is) */
     rk_lim_fast(!c->limold);
     rk_modsum_precompute(c->ab != 2);          /* (MODSUM: OLD scans; every other case runs the engine as it is) */
     bench_knob_step = 0;
