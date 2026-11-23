@@ -22,7 +22,7 @@ void rk_set_route(int i, int src, int slot, int param, float amt, int via);
 void rk_set_macro(int i, float v);
 void rk_set_macro_glide(int i, float v);
 void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int start, int end, int curve);
-void rk_rv_mono(int on);       /* 24 Nov 2026: the reverb tank takes one sum (1) or both sides down-sampled (0, as 2.35): the ENGINE cases A/B (RACK_BENCH_AB) */
+void rk_rv_mono(int on);       /* 24 Nov 2026: the reverb tank takes both sides down-sampled (0, as 2.35: the default) or one sum (1): the ENGINE cases A/B (RACK_BENCH_AB) */
 void rk_lim_fast(int on);      /* the limiters peak block-wise (1) or by the falling queue (0, as 2.35) */
 void rk_modsum_precompute(int on);   /* 23 Nov 2026: the engine's mod_sum sums ahead (on) or scans as 2.32 did (off): the MODSUM cases' A/B (RACK_BENCH_AB) */
 void rk_set_master(float v);
@@ -537,12 +537,12 @@ static void bench_cases(void)
      * the knobs at rest, all four at the top, and each of them with the CHEAP drum kit playing (kit 1, four voices). No one-core twin: the cases of the MODSUM group hold it whole */
 #ifndef BENCH_MSALL
     {   /* ENGINE (24 Nov 2026, engine 2.36): the three whole presets of the MODSUM group on two cores, four notes, knobs still: with the engine as it is (NEW), with the 2.35
-         * reverb input (OLD REV: both sides down-sampled), with the 2.35 limiter (OLD LIM: the falling queue) and with both (OLD BOTH). The rest of 2.36's changes (loops written
+         * reverb input summed to one side (MONO IN: not the same samples, the 12-bit tank's steps), with the 2.35 limiter (OLD LIM: the falling queue) and with both (MONO+LIM). The rest of 2.36's changes (loops written
          * out, copies dropped, shorter scans, the same samples) have no switch: compare the PRESETS and 2 CORES cases with the 2.35 run (fm1-bench-k48cap1-2026-11-21.csv) */
         static const char *const EN[NMSPRESETS][4] = {
-            {"ROTARY ORGAN 2C NEW", "ROTARY ORGAN 2C OLD REV", "ROTARY ORGAN 2C OLD LIM", "ROTARY ORGAN 2C OLD BOTH"},
-            {"TIDE PAD 2C NEW", "TIDE PAD 2C OLD REV", "TIDE PAD 2C OLD LIM", "TIDE PAD 2C OLD BOTH"},
-            {"SHIMMER PAD 2C NEW", "SHIMMER PAD 2C OLD REV", "SHIMMER PAD 2C OLD LIM", "SHIMMER PAD 2C OLD BOTH"}};
+            {"ROTARY ORGAN 2C NEW", "ROTARY ORGAN 2C MONO IN", "ROTARY ORGAN 2C OLD LIM", "ROTARY ORGAN 2C MONO+LIM"},
+            {"TIDE PAD 2C NEW", "TIDE PAD 2C MONO IN", "TIDE PAD 2C OLD LIM", "TIDE PAD 2C MONO+LIM"},
+            {"SHIMMER PAD 2C NEW", "SHIMMER PAD 2C MONO IN", "SHIMMER PAD 2C OLD LIM", "SHIMMER PAD 2C MONO+LIM"}};
         int m, t;
         for (m = 0; m < NMSPRESETS; m++)
             for (t = 0; t < 4; t++) {
@@ -683,7 +683,7 @@ static void bench_setup(int k)
     for (i = 0; i < c->notes; i++)
         rk_note_on(CHORD[i], 0.8f);
     rk_drum_run(c->kit != 0);
-    rk_rv_mono(!c->rvs);                       /* (ENGINE cases: the 2.35 reverb input or limiter; every other case runs the engine as it is) */
+    rk_rv_mono(c->rvs);                        /* (ENGINE cases: the summed reverb input or the 2.35 limiter; every other case runs the engine as it is) */
     rk_lim_fast(!c->limold);
     rk_modsum_precompute(c->ab != 2);          /* (MODSUM: OLD scans; every other case runs the engine as it is) */
     bench_knob_step = 0;

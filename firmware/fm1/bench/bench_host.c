@@ -153,7 +153,7 @@ int main(int argc, char **argv)
         if (k == bncases) { fprintf(stderr, "no case %s\n", argv[2]); return 2; }
         ir_mode = atoi(argv[3]);
         bench_setup(k);
-        if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(0);   /* bench_ir NAME MODE [REV|LIM|BOTH]: the 2.35 reverb input / limiter */
+        if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(1);   /* bench_ir NAME MODE [REV|LIM|BOTH]: REV = the summed reverb input (not bit-identical), LIM = the 2.35 limiter */
         if (argc > 4 && (!strcmp(argv[4], "LIM") || !strcmp(argv[4], "BOTH"))) rk_lim_fast(0);
         for (i = 0; i < bench_warm_steps(k); i++) bench_warm(k, i + 1);
         CALLGRIND_START_INSTRUMENTATION;
@@ -247,7 +247,7 @@ int main(int argc, char **argv)
         printf("MODSUM: %d OLD/NEW pairs, %d differ\n", nm, bad);
         fails += bad;
     }
-    /* the ENGINE cases (24 Nov 2026, engine 2.36): the block-wise limiter peak against the falling queue: the same samples, bit for bit (OLD LIM, OLD BOTH against OLD REV); the
+    /* the ENGINE cases (24 Nov 2026, engine 2.36): the block-wise limiter peak against the falling queue: the same samples, bit for bit (OLD LIM, MONO+LIM against MONO IN); the
      * reverb tank's one sum against both sides: the largest and the rms difference of the first second are printed (not the same samples: the tank's 12-bit steps) */
     {
         int ko, nm = 0, bad = 0;
@@ -255,13 +255,13 @@ int main(int argc, char **argv)
             uint32_t s1 = 0, s2 = 0;
             if (bcases[ko].group != G_CORES2 || !bcases[ko].ms || bcases[ko].kmax || bcases[ko].kit || (!bcases[ko].rvs && !bcases[ko].limold))
                 continue;
-            {   /* the twin by name: "X 2C NEW" (OLD LIM) and "X 2C OLD REV" (OLD BOTH) */
+            {   /* the twin by name: "X 2C NEW" (OLD LIM) and "X 2C MONO IN" (MONO+LIM) */
                 char tw[64]; int t;
                 size_t len = strlen(bcases[ko].name);
                 snprintf(tw, sizeof tw, "%s", bcases[ko].name);
                 if (bcases[ko].rvs && !bcases[ko].limold) continue;
                 if (bcases[ko].limold && !bcases[ko].rvs) snprintf(tw + len - 7, sizeof tw - len + 7, "NEW");   /* "OLD LIM" -> "NEW" */
-                else snprintf(tw + len - 8, sizeof tw - len + 8, "OLD REV");                                       /* "OLD BOTH" -> "OLD REV" */
+                else snprintf(tw + len - 8, sizeof tw - len + 8, "MONO IN");                                       /* "MONO+LIM" -> "MONO IN" */
                 for (t = 0; t < bncases; t++) if (!strcmp(bcases[t].name, tw)) break;
                 if (t == bncases || case_played(argv[0], t, a, &s1) || case_played(argv[0], ko, b, &s2) || memcmp(a, b, sizeof a)) {
                     printf("ENGINE %-26s differs from %s   FAIL\n", bcases[ko].name, tw);
@@ -272,7 +272,7 @@ int main(int argc, char **argv)
         }
         printf("ENGINE: %d limiter pairs, %d differ\n", nm, bad);
         fails += bad;
-        for (ko = 0; ko < bncases; ko++) {   /* the reverb input: OLD REV against NEW */
+        for (ko = 0; ko < bncases; ko++) {   /* the reverb input: MONO IN against NEW */
             uint32_t s1 = 0, s2 = 0;
             double mx = 0, ea = 0, ed = 0;
             char tw[64]; int t; size_t len;

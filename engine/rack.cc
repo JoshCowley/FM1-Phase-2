@@ -2243,7 +2243,8 @@ static void master_reset() {
   memset(lim_sfx_, 0, sizeof(lim_sfx_)); lim_gain_ = 1.0f;
 #ifdef RACK_BENCH_AB
   lim_qh_ = lim_qt_ = 0;
-#endif comp_env_ = 0.0f; comp_g_ = 0.0f;
+#endif
+  comp_env_ = 0.0f; comp_g_ = 0.0f;
 }
 EXPORT void set_master_fx(float low, float mid, float high, float comp) { eq_db_[0] = low; eq_db_[1] = mid; eq_db_[2] = high; comp_amt_ = comp; }
 // 2.36: the master gain (mg), the limiter and the soft clip in one pass when the EQ is flat and the compressor off (the usual case): the same multiplications in the same order
@@ -2333,13 +2334,13 @@ static void run_master(float* l, float* r, float mg) {
 // ------------------------------------------------------------------ FX
 // 2.36: the reverb tank takes the sum of its two inputs: one down-sampler, not two. RACK_RV_STEREO (host checks) or, in the benchmark build (RACK_BENCH_AB), set_rv_mono(0): the two-sided path of 2.35
 #if defined(RACK_BENCH_AB)
-static bool rv_mono_ = true;
+static bool rv_mono_ = false;
 EXPORT void set_rv_mono(int on) { rv_mono_ = on != 0; }
 #define RV_MONO rv_mono_
-#elif defined(RACK_RV_STEREO)
-#define RV_MONO false
+#elif defined(RACK_RV_MONO)
+#define RV_MONO true    // the summed tank: about 3 points less, but not bit-identical (differences -62 to -140 dB RMS)
 #else
-#define RV_MONO true
+#define RV_MONO false   // default: the two-sided path, bit-identical to 2.35 (RACK_RV_STEREO kept as a no-op name)
 #endif
 // 2.36: the reverb's input stage (16-bit pre-delay line, LO CUT) with the PRE and LO CUT tests outside the loop: four copies of it, one for each case; the shimmer has its own loop in reverb_wet.
 // The same operations in the same order as the general loop below it. (RACK_FM1: the sum or the two sides, as RV_MONO says.)
@@ -2412,13 +2413,13 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
 #ifdef RACK_FM1
     {
       static Half24Down dl; static Half24Up ul, ur;
-#if defined(RACK_BENCH_AB) || defined(RACK_RV_STEREO)
-      static Half24Down dr;   // (the one-sum path above needs no second down-sampler: the production build leaves it out, 344 B)
+#if defined(RACK_BENCH_AB) || !defined(RACK_RV_MONO)
+      static Half24Down dr;   // (only the RACK_RV_MONO build (one sum) needs no second down-sampler: it leaves it out, 344 B)
 #endif
       float yl[BLOCK / 2], yr[BLOCK / 2];
       clouds::FloatFrame h[BLOCK / 2];
       dl.run(xl, yl);
-#if defined(RACK_BENCH_AB) || defined(RACK_RV_STEREO)
+#if defined(RACK_BENCH_AB) || !defined(RACK_RV_MONO)
       if (!RV_MONO) { dr.run(xr, yr); for (int m = 0; m < BLOCK / 2; ++m) { h[m].l = yl[m]; h[m].r = yr[m]; } }
       else
 #endif
