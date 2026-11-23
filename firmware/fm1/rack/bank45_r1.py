@@ -69,6 +69,7 @@ def round1(pool):
             "ROW @1 .05 .7 1 SL; SRC.BITS -.4 .88 1 T; SRC.DRIFT .5 .3 1 L")]))
 
     a(S("TIDE PAD", cat="PAD", move="bold", level=0.6, rows=[["RANDOM", "PITCH", 0.0]],
+        drop=[(3, "FX 2.MIX"), (3, "FX 2.SIZE")], slots={"FX2": None}, edit={"FX1": {"REVERB": 0.3}},
         lfo_tgt=[("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 1.BLEND", 0.1), None, ("SRC.TIMBRE", 0.1), ("AMP.LEVEL", 0.0)],
         summary="A saw pad through light Clouds with a Tides AR that moves the colour, the cutoff and the grain blend.",
         k=[("COLOUR", "A dark saw at 0, colour and cutoff opening and the Tides speed rising to the middle; the top scans the grains hard.",
@@ -76,7 +77,7 @@ def round1(pool):
            ("MOTION", "The shape of the Tides AR and the LFO speeds move together; the top is a restless, fast-moving cloud.",
             "LFO.RATE 1 .45 .3 1 SL; LFO.RATE 2 .4 .4 1 SL; ROW 13 .3 .5 1 SL; ROW 14 .3 .5 1 SL; LFO.RATE 3 .5 .4 1 SL; ROW 18 .6 .5 1 SL"),
            ("CLOUD", "The reverb opens; Clouds' own reverb and feedback follow, and the tails run on and on.",
-            "FX 1.REVERB .5 .4 1 SL; FX 1.FEEDBACK .45 .65 1 SL; AMP.RELEASE .3 .5 1 S"),
+            "FX 1.REVERB .5 .4 1 SL; FX 1.FEEDBACK .45 .65 1 SL; AMP.RELEASE .3 .5 1 S; FX 1.TONE .25 .5 1 SL"),
            ("SCATTER", "Resonance and drive, then Clouds' grain spray and pitch random: the pad breaks into drifting pitched grains.",
             "FX 1.SPRAY .7 .5 1 SL; FX 1.PITCH RND .7 .55 1 SL; ROW @1 .08 .7 1 SL; FX 1.TONE -.5 .7 1 L; FX 1.SIZE RND .6 .6 1 SL; FX 1.BLEND .4 .6 1 SL")]))
 

@@ -23,7 +23,7 @@ static int host_cl_piped(const bcase_t *c)
     if (c->cl) return CL_ON(c) && !CLC[c->cl - 1].no32;
     if (c->group == G_MODSUM) return 0;
     {
-        const bpreset_t *p = &PRESETS[c->preset];
+        const bpreset_t *p = c->ms ? &MSPRESETS[c->preset] : &PRESETS[c->preset];
         int i;
         for (i = 0; i < p->nops; i++)
             if (p->ops[i].fn == 1 && p->ops[i].b == M_CLOUDS) return 1;
@@ -221,7 +221,7 @@ int main(int argc, char **argv)
         int c2, c1, worst_k = -1;
         float worst = 0;
         for (c2 = 0; c2 < bncases; c2++) {
-            if (bcases[c2].group != G_CORES2)
+            if (bcases[c2].group != G_CORES2 || bcases[c2].ms)
                 continue;
             for (c1 = 0; c1 < bncases; c1++)
                 if (bcases[c1].group != G_CORES2 && bcases[c1].preset == bcases[c2].preset

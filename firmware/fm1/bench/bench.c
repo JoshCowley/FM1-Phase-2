@@ -117,7 +117,7 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 /* c2off: a 2 CORES case with the Clouds-on-the-second-core arrangement switched off at run time (rk_fx_core2(0)): update 8's, the voices split, Clouds on the first core */
 /* v1 (update 10): a 2 CORES case with the voices above the fourth kept on the first core (rk_fx_core2_voices(0)): update 9's arrangement, for comparison */
 /* kit, dv, ease (step 1 of the drum track): a DRUMS case: the kit struck every step (1 cheap, 2 rich), its voices (3 or 4), IF BUSY = CLOUD on (the guard: Clouds' DENSITY held at 0.9) */
-typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
+typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov, ms, kmax; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
 #define NCASE_MAX 320
 static bcase_t bcases[NCASE_MAX];
@@ -134,7 +134,7 @@ static int bc_add(int group, int preset, int notes, const char *name)
     c->c2off = 0;
     c->v1 = 0;
     c->kit = c->dv = c->ease = 0;
-    c->ab = c->mov = 0;
+    c->ab = c->mov = c->ms = c->kmax = 0;
     c->minus = -1;
     c->name = name;
     return bncases++;
@@ -429,6 +429,7 @@ static void bench_cases(void)
                 int kn = bc_add(G_MODSUM, m, 4, MSN[m][mv][0]), ko = bc_add(G_MODSUM, m, 4, MSN[m][mv][1]);
                 bcases[kn].ab = 1; bcases[ko].ab = 2;
                 bcases[kn].mov = bcases[ko].mov = (uint8_t)mv;
+                bcases[kn].ms = bcases[ko].ms = 1;
                 bcases[ko].minus = (int8_t)kn;
             }
     }
@@ -496,6 +497,18 @@ static void bench_cases(void)
             g = bc_cl(G_CORES2, 4, V[v].row, V[v].g, -1);
             k = bc_cl(G_CORES2, 4, V[v].row, V[v].c, g); bcases[k].kit = 1; bcases[k].dv = 4;
             k = bc_cl(G_CORES2, 4, V[v].row, V[v].r, g); bcases[k].kit = 2; bcases[k].dv = 4;
+        }
+    }
+    /* TIDE PAD (24 Nov 2026: Clouds' own reverb in place of the second reverb, to bring the first core down), whole with its knob layer, four notes, on two cores:
+     * the knobs at rest, all four at the top, and each of them with the CHEAP drum kit playing (kit 1, four voices). No one-core twin: the cases of the MODSUM group hold it whole */
+    {
+        static const char *const TN[4] = {"TIDE PAD K0", "TIDE PAD K1", "TIDE PAD K0 +CHEAP", "TIDE PAD K1 +CHEAP"};
+        int t;
+        for (t = 0; t < 4; t++) {
+            k = bc_add(G_CORES2, 1, 4, TN[t]);
+            bcases[k].ms = 1;
+            bcases[k].kmax = (uint8_t)(t & 1);
+            if (t >= 2) { bcases[k].kit = 1; bcases[k].dv = 4; }
         }
     }
     for (i = P_PLAYED; i < NPRESETS; i++)
@@ -585,7 +598,7 @@ static void cl_setup(const clc_t *r)
 static void bench_setup(int k)
 {
     const bcase_t *c = &bcases[k];
-    const bpreset_t *p = c->group == G_MODSUM ? &MSPRESETS[c->preset] : &PRESETS[c->preset];
+    const bpreset_t *p = c->ms ? &MSPRESETS[c->preset] : &PRESETS[c->preset];
     int i;
     rk_seed(0x21u);
     rk_clouds_opts(1, 1, 40);                  /* (update 8: the build's own Clouds settings, unless a case's row changes them) */
@@ -597,7 +610,7 @@ static void bench_setup(int k)
     rk_drum_busy(c->ease ? 1 : 0);             /* IF BUSY: NONE, except in the EASED cases */
     rk_init();
     run_ops(PRESETS[P_INIT].ops, PRESETS[P_INIT].nops);
-    if (c->preset != P_INIT || c->group == G_MODSUM)
+    if (c->preset != P_INIT || c->ms)
         run_ops(p->ops, p->nops);
 #ifdef RACK_WITH_GRAIN
     if (c->grains)
@@ -635,6 +648,11 @@ static void bench_setup(int k)
 static void bench_knob(int k)
 {
     int j;
+    if (bcases[k].kmax) {                      /* the four knobs held at the top (their targets at the end of their travel) */
+        for (j = 0; j < 4; j++)
+            rk_set_macro_glide(j, 1.0f);
+        return;
+    }
     if (!bcases[k].mov)
         return;
     for (j = 0; j < 4; j++) {
@@ -665,7 +683,7 @@ static void bench_warm(int k, int n)
     if (bcases[k].cl && CLC[bcases[k].cl - 1].freeze && n == CL_WARM_STEPS / 2)
         rk_set_param(S_FX1, 10, 1.0f);
 }
-static int bench_warm_steps(int k) { return bcases[k].cl ? CL_WARM_STEPS : WARM_STEPS; }
+static int bench_warm_steps(int k) { return bcases[k].cl || (bcases[k].ms && bcases[k].group == G_CORES2) ? CL_WARM_STEPS : WARM_STEPS; }
 
 /* one timed run (ticks: the platform's microsecond clock times PLAT_TICKS_PER_US) */
 static void bench_run(int k, uint32_t (*ticks)(void))
