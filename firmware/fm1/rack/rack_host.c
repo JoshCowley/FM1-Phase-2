@@ -178,6 +178,33 @@ static void patch_run(int pk, float sw, int clean, int plain, float lfo, int nwi
     }
 }
 
+/* 5b (update 63): VOICE GUARD OFF (the default): 400 overloads shed nothing, six voices stay six; ON: they shed to one. Run last (below): its renders move the engine's clock,
+ * which checks 10, 15 and 16 read where they start */
+static int check_guard_5b(void)
+{
+    int i, fails = 0;
+        {
+            int off_default, off_voices, on_voices;
+            rc_set_guard(0);
+            off_default = !rc_guard;
+            rc_do(RCE_VOICES, 6, 0.0f, 0.0f);
+            rc_note_on(60, 0.8f);
+            for (i = 0; i < 400; i++) { rc_render(lr, 256, 8388607.0f); rc_overload(); }
+            off_voices = rc_patch.voices_now;
+            rc_pause(); rc_load(0); rc_resume();
+            rc_set_guard(1);
+            rc_do(RCE_VOICES, 6, 0.0f, 0.0f);
+            for (i = 0; i < 400; i++) { rc_render(lr, 256, 8388607.0f); rc_overload(); }
+            on_voices = rc_patch.voices_now;
+            rc_set_guard(0);
+            rc_pause(); rc_load(0); rc_resume();
+            printf("5b voice guard: OFF 400 overloads leave %d voices (expected 6), ON leaves %d (expected 1), set_guard(0) reads %d\n", off_voices, on_voices, off_default);
+            if (off_voices != 6 || on_voices != 1 || !off_default)
+                fails++;
+        }
+    return fails;
+}
+
 #include "gate_check.c"
 #include "shape_check.c"
 int main(int argc, char **argv)
@@ -341,26 +368,6 @@ int main(int argc, char **argv)
         if (shed_to != 1 || !heavy_close || !quiet || !back || heavy_spaced)
             fails++;
         rc_pause(); rc_load(0); rc_resume();
-        /* 5b (update 63): VOICE GUARD OFF (the default): 400 overloads shed nothing, six voices stay six, and the one-voice mute is as before */
-        {
-            int off_default, off_voices, on_voices;
-            rc_set_guard(0);
-            off_default = !rc_guard;
-            rc_do(RCE_VOICES, 6, 0.0f, 0.0f);
-            rc_note_on(60, 0.8f);
-            for (i = 0; i < 400; i++) { rc_render(lr, 256, 8388607.0f); rc_overload(); }
-            off_voices = rc_patch.voices_now;
-            rc_pause(); rc_load(0); rc_resume();
-            rc_set_guard(1);
-            rc_do(RCE_VOICES, 6, 0.0f, 0.0f);
-            for (i = 0; i < 400; i++) { rc_render(lr, 256, 8388607.0f); rc_overload(); }
-            on_voices = rc_patch.voices_now;
-            rc_set_guard(0);
-            rc_pause(); rc_load(0); rc_resume();
-            printf("5b voice guard: OFF 400 overloads leave %d voices (expected 6), ON leaves %d (expected 1), set_guard(0) reads %d\n", off_voices, on_voices, off_default);
-            if (off_voices != 6 || on_voices != 1 || !off_default)
-                fails++;
-        }
     }
     /* 6: CLOUDS (clouds_check.c) */
     fails += check_clouds();
@@ -680,6 +687,8 @@ int main(int argc, char **argv)
     gc_self = argv[0];
     gate_checks(&fails);           /* 15 (the GATE PATTERN: gatepat.c, and the engine's GATE 1 / 2 sources) */
     shape_checks(&fails);          /* 16 (update 61: the withdrawn Braids shapes and Rings models) */
+    fails += check_guard_5b();     /* 5b and 7h's guard half (update 63) run last: their renders move the engine's clock, which 10, 15 and 16 read */
+    fails += check_guard_7h();
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }

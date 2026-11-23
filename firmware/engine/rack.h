@@ -46,6 +46,8 @@ void set_master(float v);
 void set_master_fx(float low_db, float mid_db, float high_db, float comp);
 void set_modsum_precompute(int on);   // the benchmark's A/B of mod_sum's sums ahead (-DRACK_BENCH_AB only)
 void set_rv_mono(int on);             // the benchmark's A/B of the reverb tank taking one sum (1) or both sides down-sampled (0: 2.35) (-DRACK_BENCH_AB only)
+void set_quality(unsigned mask);       // the 2.38 quality trims as a mask (QB_* in rack.cc: 1 reverb sum, 2 short halfband, 4 lighter reverb diffusion; 0 = the 2.37 sound; -DRACK_BENCH_AB only)
+unsigned quality_default(void);        // the build's own mask (-DRACK_BENCH_AB only)
 void set_lim_fast(int on);            // the benchmark's A/B of the limiter's block-wise peak (1) or the falling queue (0: 2.35) (-DRACK_BENCH_AB only)
 void set_clouds_opts(int k32, int skip_rev, int grains);   // update 8: the Clouds changes' runtime switches (the benchmark's comparison cases only)
 void set_voices(int n);          // 1-6; the FM-1 build caps this at what fits

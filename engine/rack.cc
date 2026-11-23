@@ -638,13 +638,55 @@ static inline float fast_sin01_u(float p) {
 #define TANHF fast_tanh
 #define SIN01(p) fast_sin01(p)
 #define SIN01U(p) fast_sin01_u(p)
-// 48 kHz <-> 24 kHz for the modules the FM-1 runs at half rate (Rings, the reverb): a 39-tap halfband filter (flat to
-// 10 kHz, -75 dB from 16 kHz), as its 10 taps either side of the middle (0.5); the others are 0
+// ---- 2.38 quality trims (24 Nov 2026, Josh: "reduce the sound quality by about another 10 %"). Each is a bit of Q_DEFAULT; -DRACK_Q_FULL builds the 2.37 sound again,
+// -DRACK_Q_OFF=n takes bit n off. In the benchmark build (RACK_BENCH_AB) the mask is a variable (set_quality) so one binary plays both.
+enum { QB_RVMONO = 1,   // the reverb tank takes one sum of its two inputs (one down-sampler less)
+       QB_HB = 2,       // the 24 kHz halfband filters have 23 taps, not 39 (-45 dB from 14.4 kHz, not -75 dB)
+       QB_RVAP = 4 };   // the reverb tank: no smear of its first input allpass, three input allpasses, not four (engine/shim/clouds/dsp/fx/reverb.h set_lite)
+#ifdef RACK_Q_FULL
+#define Q_DEFAULT 0
+#else
+#ifdef RACK_Q_OFF
+#define Q_DEFAULT (7 & ~(1 << (RACK_Q_OFF)))
+#else
+#define Q_DEFAULT 7
+#endif
+#endif
+#ifdef RACK_BENCH_AB
+static unsigned q_mask_ = Q_DEFAULT;
+EXPORT void set_quality(unsigned m) { q_mask_ = m; }
+EXPORT unsigned quality_default() { return Q_DEFAULT; }
+#define Q_ON(b) ((q_mask_ & (b)) != 0)
+#else
+#define Q_ON(b) (((Q_DEFAULT) & (b)) != 0)
+#endif
+// 48 kHz <-> 24 kHz for the modules the FM-1 runs at half rate (Rings, the reverb): a halfband filter, as its taps either side of the middle (0.5); the others are 0.
+// 2.37 and before: 39 taps (10 either side; flat to 10 kHz, -75 dB from 16 kHz). 2.38 (QB_HB): 23 taps (6 either side; equiripple, flat within 0.3 dB to 9.6 kHz,
+// -45 dB from 14.4 kHz), 8 samples (0.17 ms) less delay each way
 static const float HB24[10] = {0.315457678f, -0.097823539f, 0.050681315f, -0.028869892f, 0.016396910f,
                                -0.008843422f, 0.004345613f, -0.001840541f, 0.000600712f, -0.000099368f};
-struct Half24Down {   // a block at 48 kHz in, half a block at 24 kHz out (19 samples late)
-  float h[38 + BLOCK];
+static const float HB24S[6] = {0.315005296f, -0.096462581f, 0.048607596f, -0.026280664f, 0.013616926f, -0.007193324f};
+#ifdef RACK_BENCH_AB
+#define HB_N_MAX 10
+#else
+#define HB_N_MAX (Q_ON(QB_HB) ? 6 : 10)
+#endif
+struct Half24Down {   // a block at 48 kHz in, half a block at 24 kHz out (19 samples late; 11 with QB_HB)
+  float h[4 * HB_N_MAX - 2 + BLOCK];
   void run(const float* x, float* y) {
+    if (Q_ON(QB_HB)) {
+      for (int n = 0; n < BLOCK; ++n) h[22 + n] = x[n];
+      for (int m = 0; m < BLOCK / 2; ++m) {
+        const float* c = h + 11 + 2 * m;
+        float v = 0.5f * c[0];
+        v += HB24S[0] * (c[-1] + c[1]);   v += HB24S[1] * (c[-3] + c[3]);   v += HB24S[2] * (c[-5] + c[5]);
+        v += HB24S[3] * (c[-7] + c[7]);   v += HB24S[4] * (c[-9] + c[9]);   v += HB24S[5] * (c[-11] + c[11]);
+        y[m] = v;
+      }
+      for (int n = 0; n < 22; ++n) h[n] = h[n + BLOCK];
+      return;
+    }
+#ifdef RACK_BENCH_AB
     for (int n = 0; n < BLOCK; ++n) h[38 + n] = x[n];
     for (int m = 0; m < BLOCK / 2; ++m) {
       const float* c = h + 19 + 2 * m;
@@ -655,24 +697,57 @@ struct Half24Down {   // a block at 48 kHz in, half a block at 24 kHz out (19 sa
       y[m] = v;
     }
     for (int n = 0; n < 38; ++n) h[n] = h[n + BLOCK];   // (the FM-1 has no memmove)
+#else
+    if (!Q_ON(QB_HB)) {
+      for (int n = 0; n < BLOCK; ++n) h[38 + n] = x[n];
+      for (int m = 0; m < BLOCK / 2; ++m) {
+        const float* c = h + 19 + 2 * m;
+        float v = 0.5f * c[0];
+        v += HB24[0] * (c[-1] + c[1]);   v += HB24[1] * (c[-3] + c[3]);   v += HB24[2] * (c[-5] + c[5]);   v += HB24[3] * (c[-7] + c[7]);
+        v += HB24[4] * (c[-9] + c[9]);   v += HB24[5] * (c[-11] + c[11]); v += HB24[6] * (c[-13] + c[13]); v += HB24[7] * (c[-15] + c[15]);
+        v += HB24[8] * (c[-17] + c[17]); v += HB24[9] * (c[-19] + c[19]);
+        y[m] = v;
+      }
+      for (int n = 0; n < 38; ++n) h[n] = h[n + BLOCK];
+    }
+#endif
   }
 };
 struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each sample, then the one halfway to the next
-  float h[20 + BLOCK / 2];
+  float h[2 * HB_N_MAX + BLOCK / 2];
   void run(const float* y, float* x) {
-    for (int m = 0; m < BLOCK / 2; ++m) h[20 + m] = y[m];
-    for (int k = 0; k < BLOCK / 2; ++k) {
-      const float* u = h + 9 + k;
-      float v = 0.0f;
-      v += HB24[0] * (u[0] + u[1]);   v += HB24[1] * (u[-1] + u[2]);  v += HB24[2] * (u[-2] + u[3]);  v += HB24[3] * (u[-3] + u[4]);
-      v += HB24[4] * (u[-4] + u[5]);  v += HB24[5] * (u[-5] + u[6]);  v += HB24[6] * (u[-6] + u[7]);  v += HB24[7] * (u[-7] + u[8]);
-      v += HB24[8] * (u[-8] + u[9]);  v += HB24[9] * (u[-9] + u[10]);
-      x[2 * k] = u[0]; x[2 * k + 1] = 2.0f * v;
+    if (Q_ON(QB_HB)) {
+      for (int m = 0; m < BLOCK / 2; ++m) h[12 + m] = y[m];
+      for (int k = 0; k < BLOCK / 2; ++k) {
+        const float* u = h + 5 + k;
+        float v = 0.0f;
+        v += HB24S[0] * (u[0] + u[1]);   v += HB24S[1] * (u[-1] + u[2]);  v += HB24S[2] * (u[-2] + u[3]);
+        v += HB24S[3] * (u[-3] + u[4]);  v += HB24S[4] * (u[-4] + u[5]);  v += HB24S[5] * (u[-5] + u[6]);
+        x[2 * k] = u[0]; x[2 * k + 1] = 2.0f * v;
+      }
+      for (int n = 0; n < 12; ++n) h[n] = h[n + BLOCK / 2];
+      return;
     }
-    for (int n = 0; n < 20; ++n) h[n] = h[n + BLOCK / 2];
+#ifdef RACK_BENCH_AB
+    {
+#else
+    if (!Q_ON(QB_HB)) {
+#endif
+      for (int m = 0; m < BLOCK / 2; ++m) h[20 + m] = y[m];
+      for (int k = 0; k < BLOCK / 2; ++k) {
+        const float* u = h + 9 + k;
+        float v = 0.0f;
+        v += HB24[0] * (u[0] + u[1]);   v += HB24[1] * (u[-1] + u[2]);  v += HB24[2] * (u[-2] + u[3]);  v += HB24[3] * (u[-3] + u[4]);
+        v += HB24[4] * (u[-4] + u[5]);  v += HB24[5] * (u[-5] + u[6]);  v += HB24[6] * (u[-6] + u[7]);  v += HB24[7] * (u[-7] + u[8]);
+        v += HB24[8] * (u[-8] + u[9]);  v += HB24[9] * (u[-9] + u[10]);
+        x[2 * k] = u[0]; x[2 * k + 1] = 2.0f * v;
+      }
+      for (int n = 0; n < 20; ++n) h[n] = h[n + BLOCK / 2];
+    }
   }
 };
 #else
+#define Q_ON(b) 0
 #define TANHF tanhf
 #define SIN01(p) sinf((p) * 6.2831853f)
 #define SIN01U(p) SIN01(p)
@@ -1995,13 +2070,17 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
     int bits = bits_tab[PI(S_SRC, 4, &v)], div = rate_div[PI(S_SRC, 5, &v)];
     float sign = P(S_SRC, 6, &v);
     int16_t held = buf[0];
+    const float slvl = P(S_SRC, 7, &v);   // (2.38: once a block, not once a sample: the same value)
+    if (bits == 16 && div == 1 && !(sign > 0.01f)) {   // the usual case (2.38): the samples as they are
+      for (int n = 0; n < BLOCK; ++n) vbuf_[n] = (buf[n] / 32768.0f) * slvl;
+    } else
     for (int n = 0; n < BLOCK; ++n) {
       if (n % div == 0) held = buf[n];
       int32_t s = held;
       if (bits < 16) { int sh = 16 - bits; s = (s >> sh) << sh; }
       float f = s / 32768.0f;
       if (sign > 0.01f) f = f * (1.0f - sign) + sign * f * fabsf(f) * 1.6f;
-      vbuf_[n] = f * P(S_SRC, 7, &v);
+      vbuf_[n] = f * slvl;
     }
     if (vca) for (int n = 0; n < BLOCK; ++n) vbuf_[n] *= v.benv;
 #ifdef RACK_WITH_GRAIN
@@ -2333,15 +2412,10 @@ static void run_master(float* l, float* r, float mg) {
 
 // ------------------------------------------------------------------ FX
 // 2.36: the reverb tank takes the sum of its two inputs: one down-sampler, not two. RACK_RV_STEREO (host checks) or, in the benchmark build (RACK_BENCH_AB), set_rv_mono(0): the two-sided path of 2.35
-#if defined(RACK_BENCH_AB)
-static bool rv_mono_ = false;
-EXPORT void set_rv_mono(int on) { rv_mono_ = on != 0; }
-#define RV_MONO rv_mono_
-#elif defined(RACK_RV_MONO)
-#define RV_MONO true    // the summed tank: about 3 points less, but not bit-identical (differences -62 to -140 dB RMS)
-#else
-#define RV_MONO false   // default: the two-sided path, bit-identical to 2.35 (RACK_RV_STEREO kept as a no-op name)
+#ifdef RACK_BENCH_AB
+EXPORT void set_rv_mono(int on) { q_mask_ = on ? (q_mask_ | QB_RVMONO) : (q_mask_ & ~(unsigned)QB_RVMONO); }
 #endif
+#define RV_MONO Q_ON(QB_RVMONO)   // 2.38: the summed tank is the default (differences from the two-sided path: -62 to -140 dB RMS); QB_RVMONO off = 2.35-2.37
 // 2.36: the reverb's input stage (16-bit pre-delay line, LO CUT) with the PRE and LO CUT tests outside the loop: four copies of it, one for each case; the shimmer has its own loop in reverb_wet.
 // The same operations in the same order as the general loop below it. (RACK_FM1: the sum or the two sides, as RV_MONO says.)
 template <bool PRE, bool LC>
@@ -2372,6 +2446,7 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
     // pass loses what two did (time squared), and its damping is per sample, so twice as much a sample
     time *= time; rlp = 1.0f - (1.0f - rlp) * (1.0f - rlp);
 #endif
+    reverb_.set_lite(Q_ON(QB_RVAP));   // 2.38
     reverb_.set_amount(1.0f);
     reverb_.set_time(time);
     reverb_.set_diffusion(0.3f + 0.6f * P(slot, 2, 0));
@@ -2413,13 +2488,13 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
 #ifdef RACK_FM1
     {
       static Half24Down dl; static Half24Up ul, ur;
-#if defined(RACK_BENCH_AB) || !defined(RACK_RV_MONO)
+#if defined(RACK_BENCH_AB) || !(Q_DEFAULT & 1)
       static Half24Down dr;   // (only the RACK_RV_MONO build (one sum) needs no second down-sampler: it leaves it out, 344 B)
 #endif
       float yl[BLOCK / 2], yr[BLOCK / 2];
       clouds::FloatFrame h[BLOCK / 2];
       dl.run(xl, yl);
-#if defined(RACK_BENCH_AB) || !defined(RACK_RV_MONO)
+#if defined(RACK_BENCH_AB) || !(Q_DEFAULT & 1)
       if (!RV_MONO) { dr.run(xr, yr); for (int m = 0; m < BLOCK / 2; ++m) { h[m].l = yl[m]; h[m].r = yr[m]; } }
       else
 #endif
