@@ -1347,6 +1347,7 @@ void app_init(void)
     dr_load_store();
     if (set.preset >= NPRESETS && !us.used[set.preset - NPRESETS])
         set.preset = 0;
+    rc_set_guard((set.rsv >> 1) & 1);         /* the VOICE GUARD (update 63): OFF unless saved ON (rsv bit 1; bit 0 is the bank marker) */
     pal_set(GI(G_DISP));                      /* the palette (update 55: NORMAL or DAYLIGHT) */
     load_entry(set.preset);
     vz.t0 = vz.at_ms = plat_ms();

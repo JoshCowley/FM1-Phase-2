@@ -802,8 +802,13 @@ static void system_cells(uint16_t c)
         int_text(rk_fm1_status(2), m);
         cat(t, m);
     }
-    info_cell(2, "VOICES", t, (float)rc_patch.voices_now / 6.0f, c, 0);
-    info_cell(3, "CORES", plat_cpu2_on() ? "2" : plat_cpu2_gave_up() ? "1 (FELL BACK)" : "1", plat_cpu2_on() ? 1.0f : 0.5f, c, 0);
+    {
+        char lab[24];
+        lab[0] = 0;
+        cat(lab, plat_cpu2_on() ? "VOICES  2 CORES" : plat_cpu2_gave_up() ? "VOICES  1 (FELL BACK)" : "VOICES  1 CORE");
+        info_cell(2, lab, t, (float)rc_patch.voices_now / 6.0f, c, 0);
+    }
+    info_cell(3, "VOICE GUARD (K4)", rc_guard ? "ON" : "OFF", rc_guard ? 1.0f : 0.0f, c, 0);   /* update 63: ON sheds voices on an overload, OFF (default) never */
 }
 
 /* the home page's well: what plays the keys besides the preset (SEL, ARP, a tuning), as small tabs over the scope */

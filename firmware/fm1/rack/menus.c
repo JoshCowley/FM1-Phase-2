@@ -1018,7 +1018,7 @@ static void gate_controls(void);
 /* a fixed page's one-line help (the line under the controls) */
 static const char *fixed_help(int pg)
 {
-    if (pg == PG_GLO && mn.sub == 5) return "SELECT: PAGE   (MEASURED LIVE)";
+    if (pg == PG_GLO && mn.sub == 5) return "K4: VOICE GUARD   SELECT: PAGE";
     if (rhy_pi(pg, mn.sub, 0) >= 0)
         return data_sub(pg, mn.sub) == RHY_PG ? "HITS SPREAD EVENLY; TURN MOVES THEM" : "PATTERN: WHAT PLAYS  CHANCE: PER HIT";
     if (pg == PG_GLO && mn.sub == 8) return "EACH LAYER'S MIDI CHANNEL: OFF OR 1-16";
@@ -1650,6 +1650,16 @@ static void knob(int k, int32_t e)
     }
     if (!m)
         return;
+    if (mn.page == PG_GLO && mn.sub == 5) {   /* CPU + MEMORY (update 63): K4 turns the VOICE GUARD on or off (saved) */
+        if (k == 3 && e) {
+            set.rsv = (uint8_t)((set.rsv & ~2u) | (rc_guard ? 0u : 2u));
+            rc_set_guard((set.rsv >> 1) & 1);
+            settings_touch();
+            ui.redraw = 1;
+            app_say("VOICE GUARD", rc_guard ? "ON" : "OFF");
+        }
+        return;
+    }
     if (is_fixed(mn.page)) {
         int dp = data_pg(mn.page), pi;
         float *fv = page_vals(dp), old;

@@ -649,7 +649,7 @@ GLO opens ten pages:
 3. **TUNING + BEND**: TUNING (13: equal, just, Pythagorean, meantone, Werckmeister III, Kirnberger III, rast, bayati, slendro, pelog, 19-, 24- and 31-EDO), T ROOT, A4 HZ, BEND (the pitch-bend range)
 4. **MIDI**: PROG CHG, MIDI OUT, OUT CH, LOCAL
 5. **EQ + COMP**: LOW, MID and HIGH EQ and COMP, over every preset
-6. **CPU + MEMORY**: measured, not set: CPU history, memory, voices, cores
+6. **CPU + MEMORY**: CPU, memory, voices, cores measured; K4 turns the VOICE GUARD ON or OFF (OFF by default: an overload never sheds a voice, every preset plays all its voices and may glitch; ON sheds one voice at a time as before; saved)
 7. **CLICK + COUNT IN**: the click track (section 11):
     - **CLICK**: OFF, REC (a click on every beat while recording; to start with) or REC+PLAY (whenever the sequencer runs);
     - **COUNT IN**: OFF, 1 BAR (to start with) or 2 BARS;

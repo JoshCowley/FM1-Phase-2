@@ -6,6 +6,12 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 63: VOICE GUARD off by default (24 Nov 2026, Josh's request; host-tested, NOT heard, NOT run on an FM-1)
+
+The core-1 overload guard (`rack_core.c` `rc_overload`: one voice shed per overload, at most one per 8 blocks) is now behind a GLOBAL setting, **GLOBAL > CPU + MEMORY, K4: VOICE GUARD OFF / ON**, default OFF, saved (settings record `rsv` bit 1; bit 0 stays the bank marker; no new record format, older records read OFF).
+OFF: an overload sheds nothing, every preset plays its full voice count, a block that overruns glitches. ON: the shedding as in 2.37. The one-voice mute (16 overloads close together at one voice) is unchanged either way. The drum track's IF BUSY Clouds easing is separate and unchanged.
+Checks: rack_host 5 runs with the guard ON, new 5b tests OFF (400 overloads, six voices stay six) and ON (sheds to one); 7h also tests the setting both ways on the made-up clock (second core slow, 6 voices: ON sheds to 5, OFF keeps 6).
+
 ## Update 61: Braids and Rings lose what the drum track and the sound no longer need (21 Nov 2026; host-tested, NOT heard, NOT run on an FM-1)
 
 **Withdrawn from the MODEL lists** (the numbers stay Mutable's, so saves, presets, matrix rows, knob targets and MIDI keep working; `engine/rack.cc` `BR_KEPT`, `list_norm`): the five FBFM, PLUK, BOWD, BLOW, FLUT, and Braids' nine drum shapes

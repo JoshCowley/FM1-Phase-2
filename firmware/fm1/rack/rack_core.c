@@ -308,6 +308,10 @@ static uint32_t rc_shed_count;
 static uint32_t rc_shed_skipped;              /* overloads where shedding a voice would not have helped (update 10) */
 static uint32_t rc_blocks, rc_heavy_last, rc_heavy_streak;
 static volatile int rc_heavy;                 /* 1: muted, too heavy for one core (shown on the screen) */
+/* update 63 (24 Nov 2026, Josh): the VOICE GUARD (GLOBAL > CPU + MEMORY, K4): OFF (the default) = an overload sheds no voice, every preset keeps its full voice
+ * count and the block may overrun (a glitch); ON = the shedding above, as before 2.38. Saved (settings record rsv bit 1). A one-voice patch's mute stays either way. */
+static volatile int rc_guard;
+static void rc_set_guard(int on) { rc_guard = on ? 1 : 0; }
 static void rc_overload(void)
 {
     if (rc_patch.voices_now <= 1) {
@@ -317,7 +321,7 @@ static void rc_overload(void)
             rc_heavy = 1;
         return;
     }
-    if (rc_shed_wait)
+    if (!rc_guard || rc_shed_wait)
         return;
     /* update 10: with Clouds on the second core the block takes as long as the slower core; a voice is shed only if that voice is on the core that is
      * the slow one (the top voice is the one that goes: from the fifth up it is the second core's, otherwise the first's). Otherwise nothing is

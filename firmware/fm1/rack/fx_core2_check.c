@@ -375,6 +375,27 @@ static int check_fx_core2(const char *self)
         rk_set_worker(hc2_cpu_run, hc2_cpu_wait);
         cl_patch(30, 32, 0); rk_set_voices(4);
         if (rk_shed_helps() != 1) { printf("7h without a clock: shed helps %d, expected 1   FAIL\n", rk_shed_helps()); fails++; }
+        {   /* update 63: the VOICE GUARD setting both ways, on the made-up clock's one case where a voice would be shed (CLOUDS>REVERB, 6 voices, the second core slow) */
+            int on_v, off_v, g, b;
+            for (g = 1; g >= 0; g--) {
+                rk_set_worker(fc_run, fc_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on); rk_set_ticks(fc_clock);
+                hc2_mode = HC2_NOW; hc2_giveup_pct = hc2_norun_pct = 0;
+                rc_pause(); rc_load(0); rc_resume();
+                cl_patch(30, 32, 0);
+                rc_set_guard(g);
+                rc_do(RCE_VOICES, 6, 0.0f, 0.0f);
+                fc_wait_ticks = 6000;
+                { int32_t lr7[512]; for (b = 0; b < 40; b++) rc_render(lr7, 256, 8388607.0f); }
+                if (rk_shed_helps() != 1) { printf("7h guard test: the made-up clock did not make the second core slow   FAIL\n"); fails++; }
+                rc_overload();
+                { int32_t lr7[512]; for (b = 0; b < 4; b++) rc_render(lr7, 256, 8388607.0f); }
+                if (g) on_v = rc_patch.voices_now; else off_v = rc_patch.voices_now;
+            }
+            rc_set_guard(0);
+            rk_set_ticks(0); rk_set_worker(hc2_cpu_run, hc2_cpu_wait);
+            printf("7h guard setting: the second core slow with 6 voices: guard ON sheds to %d (expected 5), OFF keeps %d (expected 6)\n", on_v, off_v);
+            if (on_v != 5 || off_v != 6) fails++;
+        }
         printf("7h overload guard: %d cases with a made-up clock (the first core waits 0 or 6000 ticks of a 10,000-tick block): a voice is shed only when it is on the slow core; no clock, or no Clouds on two cores: as before; %d wrong\n", (int)(sizeof T / sizeof *T), bad);
     }
     return fails;
