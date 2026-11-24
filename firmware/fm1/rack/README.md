@@ -6,6 +6,12 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 41, step 1: live chord changes (24 Nov 2026, Josh's request; host-tested, NOT heard, NOT run on an FM-1)
+
+Josh: "In chord mode I want the zone keys to change the chord quality when pressed without having to release and replay the note. When changing the voicing it should immediately change the chord without having to replay it."
+`play.c` `pl_rechord_all` / `pl_rechord_one`: a zone key pressed or let go (SEL > ZONE ON) or VOICING changed (knob or CC, seen once a block) makes every held key's chord again from the zone keys held now (the rule is unchanged: the last quality key held, MIN + MAJ together sus, none held: the chord's own quality, so letting go returns). Notes in both chords go on sounding (no retrigger); new notes start at once, before the old ones end (a legato preset joins the held envelope); gone notes end. On the FM-1, over CHD SEND, on the chord layer and in STYLE (its chord follows, the HELD bass is not retriggered unless its root moved) only the changed notes get a note-on or note-off. The arp's pool is replaced and read on its next step. Strum: not repeated; the new notes sound together at once, and a strum still under way is dropped (its remaining notes are the new chord's, sounded now). RAM: 24 B (`pl_keynote`). VOICING LEAD alone (closest to the last chord) leaves a held chord as it is. `sim_chordlive.txt` proves it (MIDI note-ons and -offs of a quality change, a voicing change, the arp, strum, STYLE; no hung notes).
+Checks: fm1_presets --check, all 46 presets rendered bit-identical to 2.39, rack_host all passed, all sims.
+
 ## Update 40: HOME is the signal path again, with icons and slider macros (24 Nov 2026, Josh's request; host-tested, NOT seen on an FM-1)
 
 Josh: "I want to improve the main screen images. I want to go back to the same style as the FM1 firmware development project. Create individual icons for each type of FX, sound engine and modulation and have them on the main page in their order of signal chain. Dials in the main page should be sliders."

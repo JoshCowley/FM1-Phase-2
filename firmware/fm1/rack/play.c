@@ -499,6 +499,22 @@ static float human_vel(float v)
     v *= 1.0f + d;
     return v < 0.02f ? 0.02f : v > 1.0f ? 1.0f : v;
 }
+static int zone_q(void)                       /* the quality the zone keys held make: the last one held, MIN + MAJ together sus */
+{
+    int i, q = Q_NONE, mi = 0, ma = 0;
+    if (!pl_nzone || !zone_on())
+        return Q_NONE;
+    for (i = 0; i < pl_nzone; i++) {
+        int z = pl_zone_order[i];
+        if (!ZONE[z].ext) {
+            q = ZONE[z].v;
+            mi |= q == Q_MIN;
+            ma |= q == Q_MAJ;
+        }
+    }
+    return mi && ma ? Q_SUS : q;
+}
+static uint8_t pl_keynote[NKEYS];             /* the note each key was played as (update 41: a held chord is re-made live) */
 static void pl_key_on(int raw, int note, float vel)
 {
     pl_raw_t *r;
@@ -521,23 +537,14 @@ static void pl_key_on(int raw, int note, float vel)
         raw_release(raw);
     vel = fm_powf(vel < 0.0f ? 0.0f : vel > 1.0f ? 1.0f : vel, fm_exp2f((0.5f - set.glo[G_VEL]) * 3.0f));
     pl_vel = vel;
-    if (pl_nzone && zone_on()) {              /* the quality: the last zone key held, MIN + MAJ together sus */
-        int mi = 0, ma = 0;
-        for (i = 0; i < pl_nzone; i++) {
-            int z = pl_zone_order[i];
-            if (!ZONE[z].ext) {
-                q = ZONE[z].v;
-                mi |= q == Q_MIN;
-                ma |= q == Q_MAJ;
-            }
-        }
-        if (mi && ma)
-            q = Q_SUS;
-    }
+    q = zone_q();
     n = chord_notes(note, q, zone_on() ? (uint8_t)(pl_zone & 0x55u) : 0u, 0, notes);
     r->active = 1;
     r->sus = 0;
     r->on = 0;
+    r->vel = (uint8_t)(vel * 127.0f);
+    if (raw >= PL_RAW_KEY && raw - PL_RAW_KEY < NKEYS)
+        pl_keynote[raw - PL_RAW_KEY] = (uint8_t)note;
     r->n = (uint8_t)n;
     for (i = 0; i < n; i++)
         r->note[i] = notes[i];
@@ -628,6 +635,107 @@ static void pl_sustain(int down)
                 pl_key_off(i);
             }
 }
+/* update 41: LIVE CHORD. A zone key pressed or let go, or VOICE turned, while keys are held: each held key's chord is made
+ * again at once. The notes in both chords go on sounding (no retrigger), the new ones start now (a legato preset
+ * joins the held envelope; the on comes before the off), the ones that left end; a strum is not repeated, the new notes
+ * all sound together. STYLE's chord, the arp's pool (read on its next step) and the screen follow. */
+static int pl_live;
+static void pl_rechord_one(int raw)
+{
+    pl_raw_t *r = &pl_raw[raw];
+    uint8_t nn[PL_MAXN], old[PL_MAXN];
+    int key = raw >= PL_RAW_KEY ? (raw - PL_RAW_KEY < NKEYS ? pl_keynote[raw - PL_RAW_KEY] : 0) : raw;
+    int q = zone_q(), n, i, j, on0 = r->n, nold = r->n;
+    uint16_t m0 = r->on, m1 = 0;
+    float v = (float)r->vel / 127.0f;
+    n = chord_notes(key, q, zone_on() ? (uint8_t)(pl_zone & 0x55u) : 0u, 0, nn);
+    if (!n)
+        return;
+    for (i = 0; i < nold; i++)
+        old[i] = r->note[i];
+    if (AI(A_MODE) != AM_OFF)                 /* the arp's pool: the next step plays the new notes */
+        for (i = 0; i < pa.count; i++)
+            if (pa.raw[i] == raw) {
+                pa.n[i] = (uint8_t)n;
+                memcpy(pa.note[i], nn, (size_t)n);
+            }
+    for (i = 0; i < pl_npend;)                /* a strum not finished: its notes are the new chord's now */
+        if (pl_pend[i].raw == raw && pl_pend[i].on) {
+            for (j = i; j < pl_npend - 1; j++)
+                pl_pend[j] = pl_pend[j + 1];
+            pl_npend--;
+        } else {
+            i++;
+        }
+    for (i = 0; i < n; i++)
+        r->note[i] = nn[i];
+    if (!on0) {                               /* the arp plays them (no notes of its own) */
+        pv.nchord = (uint8_t)n;
+        for (i = 0; i < n; i++)
+            pv.chord[i] = nn[i];
+        pv.chord_seq++;
+        return;
+    }
+    r->n = (uint8_t)n;
+    if (r->sn) {                              /* STYLE */
+        int rt = CI(C_TYPE) == CT_OFF && !q && !(zone_on() && (pl_zone & 0x55u)) ? nn[0] : CI(C_QNT) ? quantize(key) : key;
+        r->sn = (uint8_t)n;
+        r->root = (uint8_t)(rt < 0 ? 0 : rt > 127 ? 127 : rt);
+    }
+    for (j = 0; j < n; j++) {                 /* kept: sounding in both */
+        for (i = 0; i < nold; i++)
+            if ((m0 >> i & 1u) && old[i] == nn[j])
+                m1 |= (uint16_t)(1u << j);
+    }
+    if (!(r->lay && rg_chord_on())) {
+        for (j = 0; j < n; j++)               /* new: on first (a legato preset joins the held note) */
+            if (!(m1 >> j & 1u)) {
+                if (r->lay) {
+                    lay_on(L_CHORD, nn[j], v);
+                    if (r->dl)
+                        snd_on(nn[j], v, 1, 0);
+                } else {
+                    snd_on(nn[j], v, raw_local(raw), raw_out(raw));
+                }
+                m1 |= (uint16_t)(1u << j);
+            }
+        for (i = 0; i < nold; i++)            /* gone: off */
+            if (m0 >> i & 1u) {
+                int stay = 0;
+                for (j = 0; j < n; j++)
+                    stay |= old[i] == nn[j];
+                if (!stay) {
+                    if (r->lay) {
+                        lay_off(L_CHORD, old[i]);
+                        if (r->dl)
+                            snd_off(old[i], 1, 0);
+                    } else {
+                        snd_off(old[i], raw_local(raw), raw_out(raw));
+                    }
+                }
+            }
+        r->on = m1;
+    }
+    pv.nchord = (uint8_t)n;
+    for (i = 0; i < n; i++)
+        pv.chord[i] = nn[i];
+    pv.chord_seq++;
+}
+static void pl_rechord_all(void)
+{
+    int i, any = 0;
+    for (i = 0; i < PL_NRAW; i++)
+        if ((pl_raw[i].active || pl_raw[i].sus) && pl_raw[i].n + pl_raw[i].sn + pa.count > 0) {
+            pl_rechord_one(i);
+            any = 1;
+        }
+    if (any && style_on()) {
+        pl_live = 1;
+        st.ord = 0;                           /* (the chord changed under the same keys) */
+        style_refresh(0);
+        pl_live = 0;
+    }
+}
 static void st_held_off(void);
 static void st_held_on(void);
 static void pl_zone_key(int k, int on)
@@ -647,6 +755,8 @@ static void pl_zone_key(int k, int on)
                 break;
             }
     }
+    if (zone_on())
+        pl_rechord_all();
     if (zone_bass() && AI(A_STYLE) == ST_HELD && st.on) {   /* HELD: the held bass moves to the new tone now */
         st_held_off();
         st_held_on();
@@ -1033,7 +1143,7 @@ static void style_stop(void)
 /* the chord to play: the latest key held; none held: stop, unless HOLD keeps the last (clear: HOLD's latch ends) */
 static void style_refresh(int clear)
 {
-    int i, best = -1, sc = 0, ns;
+    int i, best = -1, sc = 0, ns, was = st.on, root0 = st.root;
     uint32_t bo = 0;
     for (i = 0; i < PL_NRAW; i++)
         if (pl_raw[i].active && pl_raw[i].sn && pl_raw[i].ord >= bo) {
@@ -1094,7 +1204,7 @@ static void style_refresh(int clear)
         st.running = 0;
         st.ticks = 0;
     }
-    if (AI(A_STYLE) == ST_HELD) {
+    if (AI(A_STYLE) == ST_HELD && !(pl_live && was && st.root == root0)) {
         st_held_off();
         st_held_on();
     }
@@ -1277,6 +1387,14 @@ static void pl_block(uint32_t n)
     if (rc_audio.pause_req)
         return;
     pl_watchdog();
+    {
+        static uint8_t voice0 = 255;
+        if (voice0 != (uint8_t)CI(C_VOICE)) {      /* VOICE turned (knob or CC): the held chords are voiced again */
+            if (voice0 != 255)
+                pl_rechord_all();
+            voice0 = (uint8_t)CI(C_VOICE);
+        }
+    }
     jam_block((float)n / PL_HZ, jam_f16(), (float)n);   /* JAM's moves: the offsets for this block */
     gt_block(n);                              /* GATE PATTERN: its gates for this block */
     if (AI(A_MODE) != AM_OFF && pa.count && GI(G_CLOCK) != 1) {

@@ -1,0 +1,162 @@
+# sim_chordlive (update 41): a chord held changes live. Zone key pressed / let go, VOICING turned: only the notes that change go out (MIDI out
+# checked with expect_out / expect_no_out), the others keep sounding; nothing hangs. Key 12 = F4 (chord F A C), key 3 = G# zone (MIN), key 5 = A# zone (MAJ),
+# key 1 = F# zone (DIM). With the arp, with STYLE, strummed.
+wait 500
+tap GLO
+wait 400
+turn SELECT 3
+wait 200
+turn K2 1
+wait 200
+tap SEL
+wait 100
+tap SEL
+wait 400
+tap HOME
+wait 300
+out
+# (notes are hex MIDI numbers)
+# 1: quality change while held (CHD SEND on)
+key 12 down 100
+wait 400
+expect_out USB 90 41 64
+expect_out USB 90 45 64
+expect_out USB 90 48 64
+out
+key 3 down 100
+wait 300
+expect_out USB 90 44 64
+expect_out USB 80 45 00
+expect_no_out USB 80 41 00
+expect_no_out USB 90 41 64
+expect_no_out USB 80 48 00
+expect_no_out USB 90 48 64
+out
+key 3 up
+wait 300
+expect_out USB 90 45 64
+expect_out USB 80 44 00
+expect_no_out USB 90 41 64
+out
+key 1 down 100
+wait 300
+expect_out USB 90 44 64
+expect_out USB 80 45 00
+out
+key 5 down 100
+wait 300
+out
+key 5 up
+key 1 up
+wait 300
+out
+key 12 up
+wait 1500
+expect voices_on 0
+expect gates_on 0
+out
+# 2: VOICING turned while held. CLOSE -> LEAD leaves the chord as it is (nothing goes out), -> OPEN drops the third an octave:
+# F A C (hex 41 45 48) -> 39 41 48: only the A moves (45 off, 33 on), F and C go on sounding; -> INV1 lifts the root.
+tap SEL
+wait 300
+key 12 down 100
+wait 300
+out
+turn K4 1
+wait 300
+expect_no_out USB 80 41 00
+expect_no_out USB 90 45 64
+out
+turn K4 1
+wait 300
+expect_out USB 90 39 64
+expect_out USB 80 45 00
+expect_no_out USB 80 41 00
+expect_no_out USB 80 48 00
+expect_no_out USB 90 41 64
+expect_no_out USB 90 48 64
+out
+turn K4 1
+wait 300
+out
+key 3 down 100
+wait 300
+out
+key 3 up
+wait 300
+turn K4 -3
+wait 300
+out
+key 12 up
+wait 1500
+expect voices_on 0
+expect gates_on 0
+out
+# 3: with the arp (the pool follows on the next step)
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 300
+out
+key 12 down 100
+wait 700
+out
+key 3 down 100
+wait 900
+expect_out USB 92 44 64
+out
+key 3 up
+wait 600
+key 12 up
+wait 1500
+expect voices_on 0
+expect gates_on 0
+out
+# 4: strummed: the new notes sound together, none hangs (STRUM on the SEL page's second group)
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap SEL
+wait 300
+turn SELECT 1
+wait 200
+turn K4 30
+wait 200
+tap HOME
+wait 300
+key 12 down 100
+wait 100
+key 3 down 100
+wait 100
+key 3 up
+key 5 down 100
+wait 600
+key 5 up
+key 12 up
+wait 1500
+expect voices_on 0
+expect gates_on 0
+out
+# 5: STYLE on (the chord layer, the bass and its arp follow the new chord), the zone key moved while held
+tap SEL
+wait 300
+turn SELECT 2
+wait 300
+turn K1 8
+wait 300
+tap HOME
+wait 300
+key 12 down 100
+wait 1200
+key 3 down 100
+wait 1200
+key 3 up
+wait 800
+key 12 up
+wait 2500
+expect voices_on 0
+expect gates_on 0
+out
