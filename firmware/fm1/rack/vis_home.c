@@ -96,8 +96,8 @@ static void hm_spectrum(uint8_t *lv)
 #define H_MY 16                               /* the mods row's tiles ... */
 #define H_MH 42
 #define H_PH 44                               /* the path's tiles */
-#define H_TW 36                               /* a path tile's width, and the gap between */
-#define H_TG 12
+#define H_TW 38                               /* a path tile's width, and the gap between */
+#define H_TG 11
 #define H_SBOT 174                            /* the scope's bottom */
 typedef struct { int16_t x; uint16_t col; uint8_t hi, act, feed, flag, slot; } h2_t;   /* flag: 1 lost (no room), 2 off (bypassed); slot: a stage's engine slot, a mods tile's kind */
 static struct {
@@ -109,6 +109,7 @@ static struct {
     uint32_t hits;                            /* the drum hits seen, and when the last was */
     uint32_t hit_at;
     uint8_t jam;
+    int8_t sweep;                             /* the filter's SWEEP x 100 */
 } h2;
 static const char *const HI_NAME[HI_N] = {"BRAIDS", "RINGS", "FILTER", "CLOUDS", "LOOP", "SPECTRL", "REVERB", "DELAY", "CHORUS", "LFO", "TIDES", "PEAKS", "FUNC",
                                           "GRIDS", "MSEQ", "GATE", "KNOB", "DRUMS", "JAM"};
@@ -262,6 +263,7 @@ static const float *home_frame(uint32_t dt)
         h2.md[h2.drum].act = h2.ea[HI_DRUMS];
     }
     h2.jam = (uint8_t)jam;
+    h2.sweep = (int8_t)(fm_clampf(rk_get_param(RS_GLO, FLT_SWEEP), -1.0f, 1.0f) * 100.0f);
     /* what each source moves */
     for (i = 0; i < 18; i++) {
         int src, via, tl = -1, st;
@@ -372,6 +374,12 @@ static void h2_tile(const h2_t *t, int32_t y, int32_t w, int32_t h)
     rrect(x, y, w, h, mix565(c, K_BG, 90u + a / 3u), 3);
     rrect(x + 1, y + 1, w - 2, h - 2, K_BG, 2);
     h2_icon(t->hi, x + (w - 24) / 2, y + 4, c, br);
+    if (t->hi == HI_FILTER && h2.sweep && h2_vis(y + 27, 3)) {      /* the SWEEP: a short scale under the curve, a mark where it is, the centre ticked */
+        int32_t bx = x + (w - 24) / 2, mx = bx + 12 + (int32_t)h2.sweep * 11 / 100;
+        cv_rect(bx, y + 28, 24, 1, mix565(c, K_BG, 70));
+        cv_rect(bx + 12, y + 26, 1, 5, mix565(c, K_BG, 110));
+        cv_rect(mx - 1, y + 27, 3, 3, K_FG);
+    }
     if (off) {
         cv_text(x + w / 2 - text_w(&FONT_T, "OFF") / 2, y + h - 13, &FONT_T, "OFF", K_DIM);
         return;

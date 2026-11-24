@@ -1,0 +1,150 @@
+# sim_home2 (update 40): HOME, the signal path. Eight screens: a pad with chorus and reverb (WARM PAD), TIDE PAD (Clouds), a Rings preset (STRING BLOOM),
+# a mono lead with a delay (SAW LEAD), the knobs moving (ACID BASS: K1-K4 turned), the filter swept (ENV held + K1), JAM on (TIDAL WASH), and a drum
+# pattern playing (ARP PLUCK + a kick on four steps). Exit 0 = it ran and every expect held; the shots are the screens to look at (home2_*.png).
+listen
+wait 500
+turn PRESET 1
+wait 500
+expect entry 1
+wait 1200
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 2500
+shot home2_pad.png
+key w0 up
+key w4 up
+key w7 up
+turn PRESET 5
+wait 500
+expect entry 6
+wait 1200
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 2500
+shot home2_clouds.png
+key w0 up
+key w4 up
+key w7 up
+turn PRESET 34
+wait 500
+expect entry 40
+wait 1200
+key w0 down 100
+key w4 down 100
+wait 2500
+shot home2_rings.png
+key w0 up
+key w4 up
+turn PRESET -15
+wait 500
+expect entry 25
+wait 1200
+key w9 down 110
+wait 2500
+shot home2_lead.png
+key w9 up
+turn PRESET 9
+wait 500
+expect entry 34
+wait 1200
+key w0 down 100
+wait 800
+spin K1 20
+spin K2 -10
+spin K3 14
+spin K4 8
+wait 150
+spin K1 6
+spin K3 -6
+wait 600
+shot home2_knobs.png
+key w0 up
+turn PRESET -34
+wait 500
+expect entry 0
+wait 1200
+turn PRESET 25
+wait 500
+expect entry 25
+wait 1000
+key w9 down 110
+press ENV
+wait 100
+spin K1 24
+wait 300
+shot home2_filter.png
+release ENV
+key w9 up
+wait 300
+turn PRESET 18
+wait 500
+expect entry 43
+wait 1200
+tap FX
+wait 100
+tap FX
+wait 600
+expect jam_on 1
+key w0 down 100
+key w4 down 100
+wait 1500
+shot home2_jam.png
+key w0 up
+key w4 up
+tap FX
+wait 100
+tap FX
+wait 400
+expect jam_on 0
+turn PRESET -28
+wait 500
+expect entry 15
+wait 1000
+tap SEQ
+wait 200
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+tap SEQ
+wait 300
+expect sub 6
+press SEQ
+wait 800
+key w0 down 100
+wait 150
+key w0 up
+wait 100
+key w4 down 100
+wait 150
+key w4 up
+wait 100
+key w8 down 100
+wait 150
+key w8 up
+wait 100
+key w12 down 100
+wait 150
+key w12 up
+wait 100
+release SEQ
+wait 300
+tap PLAY
+wait 700
+expect drum_run 1
+tap HOME
+wait 1500
+expect page 0
+shot home2_drums.png
+wait 1200
+shot home2_drums2.png
+tap PLAY
+wait 300
