@@ -10,6 +10,9 @@
  *     CPU % of one core = microseconds for 480 frames / 100.
  * The lowest of the runs is the figure (interrupts only ever add time); the highest is kept as well. */
 #include <stdint.h>
+#ifndef BENCH_FULL
+#define BENCH_AB42 1   /* update 42: the firmware's bench runs the A/B cases only (every preset at 4 and 6 voices, old and new; Clouds HIGH / NORMAL / LITE): all 450 no longer fit its RAM. The host tools build the whole set (BENCH_FULL, bench_host.c) */
+#endif
 
 /* the engine, through rk.cc (its C interface under names of the benchmark's own: the platform's unity build has
  * functions called init, render and so on of its own) */
@@ -76,7 +79,11 @@ static int (*bench_cpu2_on)(void);
 typedef struct { float x; int16_t y, z, w; uint8_t fn, a, b, c, d; } bop_t;   /* 16 bytes (update 59; was 24 with four floats): y z w are whole numbers in every preset */
 typedef struct { const char *name; const bop_t *ops; uint16_t nops; uint8_t voices, mode; } bpreset_t;
 #include "cases.h"
-#ifdef BENCH_MSALL
+#ifdef BENCH_AB42
+static const bpreset_t MSPRESETS[1] = {{0, 0, 0, 0, 0}};   /* (the A/B build has no MODSUM cases) */
+#define NMSPRESETS 0
+static const char *const MSNAMES[1] = {0};
+#elif defined(BENCH_MSALL)
 #include "modsum_all.h"     /* (host tool bench_ir: every preset whole, with the knob layer) */
 #else
 #include "modsum_cases.h"   /* the MODSUM group's three presets, whole, with the knob layer */
@@ -139,7 +146,11 @@ typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, e
 #ifdef BENCH_MSALL
 #define NCASE_MAX 700
 #else
+#ifdef BENCH_AB42
+#define NCASE_MAX 240
+#else
 #define NCASE_MAX 480
+#endif
 #endif
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
@@ -282,11 +293,47 @@ static void bench_drum_cases(int group, int ref0, int ref7, int ref9, int ref10)
     }
 }
 
+static void bc_qpairs(void)
+{
+    int i;
+    {   /* 2.38 (24 Nov 2026, Josh: about 10 % less CPU for lower quality, full voices, no shedding): every preset at SIX voices (the mono presets one note) on two cores, as the engine is (NAME x6) and with
+         * update 42: also at four voices (NAME x4) and OLDQ now is 2.40's (the quality mask 7, Clouds HIGH): only the quality trims differ within a pair, the engine's exact savings are in both. Only the pairs differ by the quality trims; the engine's exact
+         * savings (the SRC level once a block) are in both. A worst block over 90 % of the core is where the overload guard, when switched ON, would shed a voice; OFF (the
+         * default) it plays on and may glitch. */
+        static char qn[4][NPRESETS][24];
+        int q, nv;
+        for (i = P_PLAYED; i < NPRESETS; i++)
+            for (nv = 0; nv < 2; nv++) {   /* update 42: at six voices and at four (a mono preset: one note, once) */
+                if (nv && PRESETS[i].mode) continue;
+                for (q = 0; q < 2; q++) {
+                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = " OLDQ";
+                    char *d = qn[nv * 2 + q][i];
+                    while (*src) *d++ = *src++;
+                    while (*suf) *d++ = *suf++;
+                    if (q) for (; *old; ) *d++ = *old++;
+                    *d = 0;
+                    bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
+                }
+            }
+    }
+}
+
 static void bench_cases(void)
 {
     int i, k, base;
     int r4s = -1, d7s = -1, d9s = -1, d10s = -1, g10c = -1, g10c48 = -1;      /* the CLOUDS group's BRAIDS x4, GRAN D0.7, GRAN 16ST (D0.9), GRAN D1.0: the DRUMS cases are measured against them */
     bncases = 0;
+#ifdef BENCH_AB42
+    {
+        static const char *const QN[18] = {"GRAN D0.7 HIGH", "GRAN D0.7 NORMAL", "GRAN D0.7 LITE", "GRAN D1.0 HIGH", "GRAN D1.0 NORMAL", "GRAN D1.0 LITE",
+                                           "LOOP D0.7 HIGH", "LOOP D0.7 NORMAL", "LOOP D0.7 LITE", "LOOP D1.0 HIGH", "LOOP D1.0 NORMAL", "LOOP D1.0 LITE",
+                                           "SPEC D0.7 HIGH", "SPEC D0.7 NORMAL", "SPEC D0.7 LITE", "SPEC D1.0 HIGH", "SPEC D1.0 NORMAL", "SPEC D1.0 LITE"};
+        int r4 = bc_cl(G_CLOUDS, 4, CL_REF, "BRAIDS x4", -1);
+        for (i = 0; i < 18; i++) bc_cl(G_CLOUDS, 4, 37 + i, QN[i], r4);
+        bc_qpairs();
+        return;
+    }
+#endif
     /* the engine with no source: envelopes, matrix, LFOs, master, for one voice */
     k = bc_add(G_CORE, P_INIT, 1, "NO SOURCE");
     bc_change(k, 0, 1, S_SRC, 0, 0);
@@ -592,26 +639,7 @@ static void bench_cases(void)
         if (!PRESETS[i].mode && PRESETS[i].voices >= 2)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
 #ifndef BENCH_MSALL
-    {   /* 2.38 (24 Nov 2026, Josh: about 10 % less CPU for lower quality, full voices, no shedding): every preset at SIX voices (the mono presets one note) on two cores, as the engine is (NAME x6) and with
-         * update 42: also at four voices (NAME x4) and OLDQ now is 2.40's (the quality mask 7, Clouds HIGH): only the quality trims differ within a pair, the engine's exact savings are in both. Only the pairs differ by the quality trims; the engine's exact
-         * savings (the SRC level once a block) are in both. A worst block over 90 % of the core is where the overload guard, when switched ON, would shed a voice; OFF (the
-         * default) it plays on and may glitch. */
-        static char qn[4][NPRESETS][24];
-        int q, nv;
-        for (i = P_PLAYED; i < NPRESETS; i++)
-            for (nv = 0; nv < 2; nv++) {   /* update 42: at six voices and at four (a mono preset: one note, once) */
-                if (nv && PRESETS[i].mode) continue;
-                for (q = 0; q < 2; q++) {
-                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = " OLDQ";
-                    char *d = qn[nv * 2 + q][i];
-                    while (*src) *d++ = *src++;
-                    while (*suf) *d++ = *suf++;
-                    if (q) for (; *old; ) *d++ = *old++;
-                    *d = 0;
-                    bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
-                }
-            }
-    }
+    bc_qpairs();
 #endif
     }
 }
@@ -691,10 +719,12 @@ static void cl_setup(const clc_t *r)
         else if (p == 10) v = 0.0f;
         else if (p == 11) v = (float)r->qual;
         else if (p == 8 && r->revz) v = 0.0f;       /* REVERB 0 (Clouds' own) */
+#ifdef BENCH_FULL
         if (getenv("CL_PAR")) {   /* update 42: CL_PAR="3=0.7,7=0,8=0" overrides Clouds' parameters (the host evaluation of RENDER) */
             const char *e = getenv("CL_PAR");
             while (*e) { int q = atoi(e); const char *eq = strchr(e, '='); if (!eq) break; if (q == p) v = (float)atof(eq + 1); e = strchr(eq, ','); if (!e) break; e++; }
         }
+#endif
         rk_set_param(S_FX1, p, v);
     }
 }

@@ -13,6 +13,7 @@
 #include <time.h>
 #include <math.h>
 #include <stdlib.h>
+#define BENCH_FULL 1
 #include "bench.c"
 #ifdef BENCH_IR
 #include <valgrind/callgrind.h>
