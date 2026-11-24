@@ -44,7 +44,12 @@ SOURCES = {
     "clouds/dsp/mu_law.cc": [("\nint16_t lut_ulaw[256] = {", "\nconst int16_t lut_ulaw[256] = {")],
     "peaks/modulations/lfo.cc": [("\nLfo::ComputeSampleFn Lfo::compute_sample_fn_table_[] = {", "\nconst Lfo::ComputeSampleFn Lfo::compute_sample_fn_table_[] = {")],
     "rings/dsp/string.cc": RINGS_STRING,
-    "peaks/resources.cc": [("\nconst uint16_t* lookup_table_table[] = {", "\nconst uint16_t* const lookup_table_table[] = {")],
+    "peaks/resources.cc": [("\nconst uint16_t* lookup_table_table[] = {", "\nconst uint16_t* const lookup_table_table[] = {"),
+                           # only the envelope's three curves are read through this table (multistage_envelope.cc: LUT_ENV_LINEAR + shape; the firmware
+                           # uses set_adsr, which uses linear, exponential and quartic); the other entries point at one of them, so the delay-time, gravity
+                           # and three filter tables, which nothing else reads, are not linked (2.5 KB)
+                           ("  lut_delay_times,\n  lut_gravity,\n  lut_env_linear,\n  lut_env_expo,\n  lut_env_quartic,\n  lut_raised_cosine,\n  lut_svf_cutoff,\n  lut_svf_damp,\n  lut_svf_scale,\n};",
+                            "  lut_env_linear,\n  lut_env_linear,\n  lut_env_linear,\n  lut_env_expo,\n  lut_env_quartic,\n  lut_env_linear,\n  lut_env_linear,\n  lut_env_linear,\n  lut_env_linear,\n};")],
 }
 RINGS_PART = [("\nfloat Part::model_gains_[] = {", "\nconst float Part::model_gains_[] = {"),
               # MODAL is never selected (rings_fm1_model, list_norm): its resonators and their code are not in the firmware; if it ever were, it is silent
