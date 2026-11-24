@@ -10,11 +10,11 @@
  * On each page SELECT moves the cursor (the step, the bank, the row), ALGORITHM does the page's action, K1-K4 its four
  * values, drawn as dials. The pages draw a 94-row area in three bands (the canvas holds 40 rows). */
 
-enum { SQP_NOTES, SQP_PATTERN, SQP_SPICE, SQP_GEN, SQP_BANKS, SQP_SONG, SQP_DRUM, SQP_DKIT, SQP_DSOUND, SQP_DMIX, SQP_DFEEL, SQP_DGEN, SQP_DMIDI, SQP_N };   /* (the drum pages: DRUM on; 2.34: DRUM and KIT first, then the lane pages, then GEN and MIDI) */
+enum { SQP_NOTES, SQP_PATTERN, SQP_SPICE, SQP_GEN, SQP_BANKS, SQP_SONG, SQP_DRUM, SQP_DKIT, SQP_DSOUND, SQP_DMIX, SQP_DFEEL, SQP_DGEN, SQP_DMIDI, SQP_DPUMP, SQP_N };   /* (the drum pages: DRUM on; 2.34: DRUM and KIT first, then the lane pages, then GEN and MIDI) */
 /* (2.34) SEQ's groups, a tap of SEQ goes to the next: the note pages, DRUM + KIT, LANE SOUND + MIX + TIMING, DRUM GENERATE + MIDI */
 static const uint8_t SQG_LO[5] = {0, SQP_DRUM, SQP_DSOUND, SQP_DGEN, SQP_N};
 static int sq_group(int sub) { int g = 0; while (g < 3 && sub >= SQG_LO[g + 1]) g++; return g; }
-static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE + CHANCE", "GENERATE", "BANKS", "SONG", "DRUM GRID", "KIT + PATTERNS", "LANE SOUND", "LANE MIX", "LANE TIMING", "DRUM GENERATE", "DRUM MIDI"};
+static const char *const SQP_NAME[SQP_N] = {"NOTES", "PATTERN", "SPICE + CHANCE", "GENERATE", "BANKS", "SONG", "DRUM GRID", "KIT + PATTERNS", "LANE SOUND", "LANE MIX", "LANE TIMING", "DRUM GENERATE", "DRUM MIDI", "KICK PUMP"};
 static const char *const GEN_TOOLS[] = {"EUCLID", "RANDOM", "ACID", "ARP UP", "ARP UPDN", "BERLIN", "OCTAVES", "OFFBEAT",
                                         "ROLLING", "STABS", "PROGRESS", "GATES", "SHIFT >", "SHIFT <", "REVERSE", "DOUBLE",
                                         "HALF", "CLEAR"};
@@ -47,6 +47,7 @@ static void pic_dmix(void);
 static void pic_dfeel(void);
 static void pic_dgen(void);
 static void pic_dmidi(void);
+static void pic_dpump(void);
 static void pic_dkit(void);
 static int drum_save(void);
 static const char *drum_help(void);
@@ -402,6 +403,7 @@ static void seq_area(void)
             case SQP_DFEEL: pic_dfeel(); break;
             case SQP_DGEN: pic_dgen(); break;
             case SQP_DMIDI: pic_dmidi(); break;
+            case SQP_DPUMP: pic_dpump(); break;
             case SQP_DKIT: pic_dkit(); break;
             default: pic_song();
         }
@@ -538,6 +540,7 @@ static void draw_seq_page(void)
     case SQP_DFEEL:
     case SQP_DGEN:
     case SQP_DMIDI:
+    case SQP_DPUMP:
     case SQP_DKIT:
         drum_dials(l, v, f);
         seq_dials(l, v, f, K_C_DRUMS);

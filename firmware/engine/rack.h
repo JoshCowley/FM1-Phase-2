@@ -58,6 +58,7 @@ int fx_bypass(int slot);
 void set_tune(int note, float semitones);
 void set_bend(float semitones);
 void set_ext(int i, float v);    // modulation lanes
+void pump_set(float depth, float release_s, float shape, int target);   // update 41 step 5: the kick ducking the synth (0 depth: off)
 void set_ext_slew(int i, float s);
 void note_on(float note, float velocity);
 void note_off(float note);

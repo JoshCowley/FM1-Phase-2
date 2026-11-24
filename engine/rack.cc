@@ -119,7 +119,7 @@ enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4
              M_CLOUDS = 30, M_DELAY = 31, M_REVERB = 32, M_CHORUS = 33 };
 enum Src { SR_NONE, SR_M1, SR_M2, SR_M3, SR_M4, SR_VELO, SR_KEY, SR_RAND, SR_ENV,
            SR_MA0, SR_MA1, SR_MB0, SR_MB1, SR_LFO1, SR_LFO2, SR_LFO3, SR_MENV,
-           SR_SEQ1, SR_SEQ2, SR_SEQ3, SR_SEQ4, SR_WHEEL, SR_PRESS, SR_GATE1, SR_GATE2, NSRC };
+           SR_SEQ1, SR_SEQ2, SR_SEQ3, SR_SEQ4, SR_WHEEL, SR_PRESS, SR_GATE1, SR_GATE2, SR_PUMP, NSRC };
 // external sources set from the page: 0-3 mod sequencer lanes, 4 mod wheel, 5 pressure (aftertouch), 6-7 the GATE
 // PATTERN's lanes (FM-1 Phase 2, 21 Nov 2026: 1 for the length of a hit, else 0; they retrigger LFOs, PEAKS, TIDES, FUNC)
 static const int NEXT = 8;
@@ -461,6 +461,9 @@ static uint32_t cl_wait_avg_ = 0, cl_blk_avg_ = 0, cl_wait_now_ = 0;   // ticks,
 static void cl_pipe_decide();
 #ifdef HAVE_DRUMS
 static void drums_render();
+// the pump's curve at this block's end (the sources read pump_c_; the gain slides from the last block's to this one's)
+static void pump_step();
+static inline void pump_apply(bool post);
 #endif
 #ifndef RACK_FX_CORE2_V1
 #define RACK_FX_CORE2_V1 4        // the first core keeps this many voices; the ones above go to the second core's job (update 10)
@@ -762,6 +765,13 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
 static inline float randf() { return Random::GetFloat(); }
 
 // ------------------------------------------------------------------ params
+// update 41, step 5: PUMP. The drum track's KICK (voice 0: its lane, MIDI in's kick note, the pad) strikes a curve that is 1 for a moment and falls to 0 over RELEASE:
+// SHAPE bends it ((1 - u)^k, k = 0.5 x 6^SHAPE: low holds the duck and lets go late, high recovers quickly and eases in). It is the source PUMP of the matrix
+// (always, DEPTH or not), and with DEPTH over 0 a gain of 1 - DEPTH x curve on the synth: TARGET 0 before the effects (their tails ring on), 1 after them (the
+// drums' own dry part is added after, untouched; their wet send goes through the effects and is ducked with the rest), 2 both, each taking half the
+// decibels. The gain is worked out at each block's end and slid to sample by sample; the attack is that one block (1 ms). Nothing is done while the curve rests.
+static float pump_depth_ = 0.0f, pump_rel_ = 0.2f, pump_shape_ = 0.5f, pump_c_ = 0.0f, pump_t_ = 1.0e9f, pump_g0_ = 1.0f, pump_g1_ = 1.0f;
+static uint8_t pump_tgt_ = 0, pump_hit_ = 0;
 static float source_value(int s, const VoiceState* v) {
   switch (s) {
     case SR_M1: case SR_M2: case SR_M3: case SR_M4: return macros_[s - SR_M1];
@@ -777,6 +787,7 @@ static float source_value(int s, const VoiceState* v) {
     case SR_MENV: return v ? v->menv : 0.0f;
     case SR_SEQ1: case SR_SEQ2: case SR_SEQ3: case SR_SEQ4: case SR_WHEEL: case SR_PRESS: return ext_cur_[s - SR_SEQ1];
     case SR_GATE1: case SR_GATE2: return ext_cur_[6 + s - SR_GATE1];
+    case SR_PUMP: return pump_c_;
     default: return 0.0f;
   }
 }
@@ -1028,6 +1039,9 @@ static void glide_step() {
   macro_update();
 }
 EXPORT void set_master(float v) { master_ = v; }
+EXPORT void pump_set(float depth, float release_s, float shape, int target) {
+  pump_depth_ = clampf(depth, 0.0f, 1.0f); pump_rel_ = clampf(release_s, 0.02f, 4.0f); pump_shape_ = clampf(shape, 0.0f, 1.0f); pump_tgt_ = (uint8_t)(target < 0 ? 0 : target > 2 ? 2 : target);
+}
 EXPORT void set_ext(int i, float v) { if (i >= 0 && i < NEXT) ext_tgt_[i] = v; }
 EXPORT void set_ext_slew(int i, float s) { if (i >= 0 && i < NEXT) ext_slew_[i] = clampf(s, 0.001f, 1.0f); }
 EXPORT void set_tune(int note, float semis) { if (note >= 0 && note < 128) tune_[note] = semis; }
@@ -3165,6 +3179,25 @@ static void drum_account(uint32_t blk_ticks, bool had_drums) {
     }
 }
 #endif
+static void pump_step() {
+  if (pump_hit_) { pump_hit_ = 0; pump_t_ = 0.0f; }
+  pump_g0_ = pump_g1_;
+  if (pump_t_ < pump_rel_) {
+    pump_t_ += BLOCK / SR;
+    float u = pump_t_ / pump_rel_;
+    if (u >= 1.0f) { pump_c_ = 0.0f; pump_t_ = 1.0e9f; }
+    else pump_c_ = powf(1.0f - u, 0.5f * powf(6.0f, pump_shape_));
+  } else { pump_c_ = 0.0f; pump_t_ = 1.0e9f; }   // (a RELEASE shortened past the curve's place ends it: lengthening it again does not bring it back)
+  pump_g1_ = 1.0f - pump_depth_ * pump_c_;
+}
+static inline void pump_apply(bool post) {
+  if (pump_depth_ <= 0.0f || (pump_g0_ == 1.0f && pump_g1_ == 1.0f)) return;
+  if (pump_tgt_ == (post ? 0 : 1)) return;   // 0: before the effects only, 1: after only, 2: both (each the square root)
+  float a = pump_g0_, b = pump_g1_;
+  if (pump_tgt_ == 2) { a = sqrtf(a); b = sqrtf(b); }
+  float g = a, d = (b - a) * (1.0f / BLOCK);
+  for (int n = 0; n < BLOCK; ++n) { blk_l_[n] *= g; blk_r_[n] *= g; g += d; }
+}
 static void process_block() {
 #ifdef HAVE_DRUMS
   drum_wait_now_ = 0;
@@ -3196,6 +3229,7 @@ static void process_block_() {
     if (done) { nvoices_ = shrink_to_; shrink_to_ = 0; }
   }
   memset(blk_l_, 0, sizeof(blk_l_)); memset(blk_r_, 0, sizeof(blk_r_));
+  pump_step();
 #ifdef RACK_FM1
   if (mod_id_[S_SHP] == M_RINGS) { memset(rings_in_, 0, sizeof(rings_in_)); rings_dry_g_ = 1.0f - P(S_SHP, 6, 0); }
   for (int k = 0; k < 2; ++k)   // an effect switched on again: its buffers cleared (set_fx_bypass)
@@ -3213,6 +3247,7 @@ static void process_block_() {
   cl_fork();          // Clouds' job for the signal staged last block: the second core starts now
 #endif
   render_voices();
+  pump_apply(false);
 #ifdef HAVE_DRUMS
   if (drum_ok_[drum_r_]) { const float* wl = drum_->out[drum_r_][2]; const float* wr = drum_->out[drum_r_][3]; for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += wl[n]; blk_r_[n] += wr[n]; } }   // the drums' wet part, into the effects
 #endif
@@ -3224,9 +3259,11 @@ static void process_block_() {
   }
 #else
   for (int i = 0; i < nvoices_; ++i) render_voice(i, blk_l_, blk_r_);
+  pump_apply(false);
 #endif
   run_fx(S_FX1, blk_l_, blk_r_);
   run_fx(S_FX2, blk_l_, blk_r_);
+  pump_apply(true);
 #ifdef FXC2
   if (cl_forked_ || cl_vjob_) cl_join();   // (a job still out at the block's end: Clouds' slot was not reached; none spans a block)
 #endif
@@ -3309,6 +3346,7 @@ EXPORT void drum_hit(int voice, int model, float note, float p1, float p2, float
     }
     if (n >= (drum_slow_ ? DRUM_MAX_SLOW : DRUM_MAX_SOUNDING) && q >= 0) { drum_->v[q].dec = expf(-6.9077553f / (0.008f * SR)); drum_->v[q].fading = 1; }
   }
+  if (voice == 0) pump_hit_ = 1;                    // the kick: the pump's curve (update 41 step 5)
   if (v.active) v.off = v.last;                     // a hit on a sounding voice (the voice is mono): its last sample carries on and falls away, not a step
   else v.off = 0.0f;
   v.model = (uint8_t)model; v.fading = 0;

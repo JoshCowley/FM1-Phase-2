@@ -36,6 +36,7 @@ void rk_set_fx_bypass(int slot, int off) { set_fx_bypass(slot, off); }
 int rk_fx_bypass(int slot) { return fx_bypass(slot); }
 void rk_set_ext_slew(int i, float s) { set_ext_slew(i, s); }
 void rk_set_ext(int i, float v) { set_ext(i, v); }
+void rk_pump_set(float depth, float release_s, float shape, int target) { pump_set(depth, release_s, shape, target); }   /* update 41 step 5: the kick's ducking of the synth */
 void rk_set_tune(int note, float semis) { set_tune(note, semis); }
 void rk_set_voices(int n) { set_voices(n); }
 void rk_clouds_opts(int k32, int skip_rev, int grains) { set_clouds_opts(k32, skip_rev, grains); }

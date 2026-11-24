@@ -83,6 +83,15 @@ static dr_mid_t dr_mid[DR_LANES];
 static uint8_t dr_in;                         /* the lanes MIDI in plays (bit per lane) */
 static uint8_t dr_busy = 1;                   /* IF BUSY (the engine's numbering): 0 NONE, 1 CLOUD, 2 VOICES */
 static uint8_t dr_style = 1;                  /* STYLE starts and stops the drums */
+/* update 41, step 5: PUMP, the kick ducking the synth (the engine's pump_set, drumrun.c; the DRUM PUMP page). DEPTH 0 is off (the default) */
+#define DR_PREL_N 8
+static const uint16_t DR_PREL_MS[5] = {60, 120, 200, 320, 500};   /* RELEASE: these in ms, then 1/16, 1/8, 1/4 note (the tempo's) */
+static uint8_t dr_pdepth = 0, dr_prel = 2, dr_pshape = 50, dr_ptgt = 0;   /* DEPTH 0-100, RELEASE 0-7, SHAPE 0-100, TARGET 0 SYNTH DRY / 1 FX RETURNS / 2 BOTH */
+static float dr_pump_rel(float step_s)         /* RELEASE in seconds; the note values from a 16th's length (the tempo's, or the clock's) */
+{
+    return dr_prel < 5 ? (float)DR_PREL_MS[dr_prel] * 0.001f : step_s * (float)(1 << (dr_prel - 5));
+}
+static const char *const DR_PRELN[DR_PREL_N] = {"60 MS", "120 MS", "200 MS", "320 MS", "500 MS", "1/16", "1/8", "1/4"};
 #define DR_NDIV 5
 static const uint8_t DR_DIVT[DR_NDIV] = {12, 6, 3, 8, 4};   /* ticks (a sixth of a 16th: the MIDI clock's) a step */
 static const char *const DR_DIVN[DR_NDIV] = {"1/8", "1/16", "1/32", "8T", "16T"};
@@ -129,6 +138,7 @@ static void dr_reset_state(void)              /* power-up (and the checks'): pat
     dr_load_kit(0);
     for (l = 0; l < DR_LANES; l++) { dr_mid[l].note = DR_GM[l]; dr_mid[l].ch = DR_CH; dr_mid[l].out = DO_ALSO; }
     dr_in = 0x3Fu; dr_busy = 1; dr_style = 1;
+    dr_pdepth = 0; dr_prel = 2; dr_pshape = 50; dr_ptgt = 0;
     dr.pat = 0; dr.next = 255; dr.swing = 50; dr.mute = 0; dr.ring = 0; dr.nq = 0; dr.hits = 0;
     for (l = 0; l < DR_LANES; l++) { dr.lstep[l] = 255; dr.lcnt[l] = 0; }
     dr_staged = 0; dr_dirty = 0;

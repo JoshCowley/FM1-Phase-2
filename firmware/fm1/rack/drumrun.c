@@ -7,6 +7,7 @@
 
 void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
 void rk_drum_run(int on);
+void rk_pump_set(float depth, float release_s, float shape, int target);
 void rk_drum_cut(int voice);
 void rk_drum_busy(int mode);
 int rk_drum_status(int what);
@@ -42,6 +43,10 @@ static void dr_audio(uint32_t n)
 {
     if (rc_audio.pause_req)
         return;
+    {   /* the pump's settings, every block (the note-synced release follows the tempo); the kick's strike itself is in the engine's drum_hit */
+        float rel = dr_pump_rel(dr_step_frames() / PL_HZ);
+        rk_pump_set((float)dr_pdepth * 0.01f, rel, (float)dr_pshape * 0.01f, dr_ptgt);
+    }
     if (dr_aud) {                             /* a page asked to hear a lane (it is turning the lane's sound): sound only, once */
         int l = dr_aud - 1;
         dr_aud = 0;

@@ -1,0 +1,126 @@
+# Update 41, step 5: the KICK PUMP page (the drum pages' last): DEPTH (0 = off, the default), RELEASE (60-500 ms, then 1/16, 1/8, 1/4 note, which follow the tempo), SHAPE, TARGET.
+# The starting state (an older save with no pump settings: off), turning each dial and where it stops, ALGO right strikes a kick, SAVE and a power cycle keep it all, a bad
+# object is not half-loaded (the defaults), and the source PUMP is offered by the matrix.
+tap SEQ
+wait 200
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+turn SELECT 1
+wait 100
+tap SEQ
+wait 300
+expect sub 6
+# to the last drum page: DRUM > KIT group... SEL + SELECT through the page group of GEN and MIDI (11, 12) to PUMP (13)
+tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+tap SEQ
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 100
+wait 300
+expect sub 12
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 300
+expect sub 13
+# the starting state: off, RELEASE 200 ms, SHAPE 50, SYNTH DRY
+expect drum_pdepth 0
+expect drum_prel 2
+expect drum_pshape 50
+expect drum_ptgt 0
+shot pump_off.png
+# DEPTH: K1 in twos, 0 to 100 and no further
+turn K1 20
+wait 100
+expect drum_pdepth 40
+shot pump_40.png
+turn K1 -30
+wait 100
+expect drum_pdepth 0
+turn K1 80
+wait 100
+expect drum_pdepth 100
+turn K1 -12
+wait 100
+expect drum_pdepth 76
+expect drum_dirty 2
+# RELEASE: 60 120 200 320 500 1/16 1/8 1/4, one a click, stops at both ends
+turn K2 -9
+wait 100
+expect drum_prel 0
+turn K2 3
+wait 100
+expect drum_prel 3
+expect drum_prel_ms 320
+turn K2 9
+wait 100
+expect drum_prel 7
+# the note values follow the tempo: 1/4 at 112 bpm is 536 ms
+expect drum_prel_ms 536
+turn K2 -2
+wait 100
+expect drum_prel 5
+expect drum_prel_ms 134
+shot pump_sixteenth.png
+# SHAPE: K3 in twos, 0 to 100
+turn K3 -40
+wait 100
+expect drum_pshape 0
+turn K3 70
+wait 100
+expect drum_pshape 100
+turn K3 -25
+wait 100
+expect drum_pshape 50
+# TARGET: SYNTH DRY, SYNTH + FX, BOTH
+turn K4 1
+wait 100
+expect drum_ptgt 1
+turn K4 5
+wait 100
+expect drum_ptgt 2
+shot pump_both.png
+turn K4 -1
+wait 100
+expect drum_ptgt 1
+# ALGO right: a kick, to hear the pump on a held chord (stopped: the sound of it)
+turn ALGO 1
+wait 300
+# SAVE and a power cycle: all four come back; a change not saved does not
+tap SAVE
+wait 800
+expect drum_dirty 0
+turn K1 -50
+wait 100
+expect drum_pdepth 0
+power
+wait 1500
+expect sub 13
+expect drum_pdepth 76
+expect drum_prel 5
+expect drum_pshape 50
+expect drum_ptgt 1
+shot pump_saved.png

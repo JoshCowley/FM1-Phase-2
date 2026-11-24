@@ -75,8 +75,8 @@ static const uint8_t MOD_CH[] = {20, 21, 23, 24, 0};
 static const uint8_t FX_CH[] = {30, 31, 32, 33, 0};
 static const char *const SRC_NAMES[] = {"-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1",
                                         "A OUT 2", "B OUT 1", "B OUT 2", "LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1",
-                                        "SEQ 2", "SEQ 3", "SEQ 4", "WHEEL", "PRESS", "GATE 1", "GATE 2"};
-#define NSRC_UI 25                            /* (21 Nov 2026: + GATE 1 and GATE 2, the GATE PATTERN's lanes; WHEEL and PRESS are not offered) */
+                                        "SEQ 2", "SEQ 3", "SEQ 4", "WHEEL", "PRESS", "GATE 1", "GATE 2", "PUMP"};
+#define NSRC_UI 26                            /* (21 Nov 2026: + GATE 1 and GATE 2, the GATE PATTERN's lanes; WHEEL and PRESS are not offered) */
 
 static const ui_mod_t *ui_mod(int id)
 {
@@ -431,6 +431,7 @@ static uint16_t src_colour(int s)             /* the colour a modulation source 
     if (s >= 9 && s <= 12) return MC_MOD;      /* MOD A and B's outputs: orange */
     if (s >= 13 && s <= 15) return MC_LFO;    /* the LFOs: violet */
     if (s >= 17 && s <= 20) return MC_MSEQ;    /* MSEQ's lanes: pink */
+    if (s == 25) return K_C_DRUMS;             /* PUMP, the kick's curve: the drums' colour (update 41, step 5) */
     if (s >= 23) return K_GOLD;                /* the GATE PATTERN's lanes: gold */
     return K_DIM;
 }

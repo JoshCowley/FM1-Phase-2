@@ -231,7 +231,7 @@ static const float *home_frame(uint32_t dt)
 {
     const float *mon = rk_monitor(RS_AMP);
     float raw = mon[48] > mon[49] ? mon[48] : mon[49], env = 0.0f, pkl3 = raw * 3.0f, tr = 0.0f, tg = 0.0f, tb = 0.0f, tw = 0.0f;
-    int i, k, ti[8], jam = jam_v[JV_ON] > 0.5f, lfo = 0, mseq = 0, gate = 0, knob = 0, ma, mb;
+    int i, k, ti[8], jam = jam_v[JV_ON] > 0.5f, lfo = 0, mseq = 0, gate = 0, pump = 0, knob = 0, ma, mb;
     cp_level(raw, dt);
     cp.nlive = 0;
     h2.ms = plat_ms();
@@ -305,7 +305,8 @@ static const float *home_frame(uint32_t dt)
         if (!d || fm_fabsf(amt) < 0.001f) continue;
         lfo |= src >= 13 && src <= 15;
         mseq |= src >= 17 && src <= 20;
-        gate |= src >= 23;
+        gate |= src >= 23 && src <= 24;
+        pump |= src == 25;
         knob |= src >= 1 && src <= 4;
     }
     h2.nm = 0;
@@ -321,7 +322,7 @@ static const float *home_frame(uint32_t dt)
         case 4: hi = gate ? HI_GATE : -1; for (k = 0; k < 2; k++) a = gp[k].on ? 1.0f : a; break;
         case 5: hi = knob ? HI_KNOB : -1; break;
         case 6: hi = jam ? HI_JAM : -1; for (k = 0; k < JAM_NM; k++) a = jam_m[k].lvl > a ? jam_m[k].lvl : a; break;
-        default: hi = dr.run ? HI_DRUMS : -1; break;
+        default: hi = dr.run || pump ? HI_DRUMS : -1; break;
         }
         if (i < 2) {
             hi = id == 20 ? HI_PEAKS : id == 21 ? HI_TIDES : id == 23 ? HI_GRIDS : id == 24 ? HI_FUNC : -1;
@@ -359,7 +360,7 @@ static const float *home_frame(uint32_t dt)
         uint16_t d = route_dst(i, &src, &via, &amt);
         if (!d || fm_fabsf(amt) < 0.001f) continue;
         st = h2_stage_of((int)((d >> 8) & 0x7Fu) - 1, d & 0xFF);
-        tl = src == 9 || src == 10 ? ti[0] : src == 11 || src == 12 ? ti[1] : src >= 13 && src <= 15 ? ti[2] : src >= 17 && src <= 20 ? ti[3] : src >= 23 ? ti[4] : src >= 1 && src <= 4 ? ti[5] : -1;
+        tl = src == 9 || src == 10 ? ti[0] : src == 11 || src == 12 ? ti[1] : src >= 13 && src <= 15 ? ti[2] : src >= 17 && src <= 20 ? ti[3] : src >= 23 && src <= 24 ? ti[4] : src == 25 ? ti[7] : src >= 1 && src <= 4 ? ti[5] : -1;
         h2_feed(tl, st);
         if (tl >= 0 && (src >= 17 && src <= 20)) h2.md[tl].v = (int8_t)(fm_clampf(mon[50 + i] / (fm_fabsf(amt) > 0.05f ? amt : 1.0f), -1.0f, 1.0f) * 127.0f);   /* MSEQ: the route's value, the source's own */
         if (i < 12 && fm_fabsf(mon[50 + i]) > 0.03f) {

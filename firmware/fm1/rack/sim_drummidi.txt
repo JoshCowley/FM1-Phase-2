@@ -246,6 +246,13 @@ wait 100
 release SEL
 wait 100
 wait 200
+# (the page group of GEN and MIDI has the KICK PUMP page too since update 41 step 5: a third turn lands on MIDI)
+press SEL
+wait 100
+turn SELECT 1
+wait 100
+release SEL
+wait 200
 expect sub 12
 expect drum_out 0
 expect drum_ch 4

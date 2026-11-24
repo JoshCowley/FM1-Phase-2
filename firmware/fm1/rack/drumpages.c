@@ -44,7 +44,8 @@ static void drm_blank(void)                   /* an object never saved, or a bad
     S->swing = 50;
     S->busy = 1;
     S->in_mask = 0x3Fu;
-    S->flags = 1;
+    S->flags = 1u | (2u << 3);   /* (bit 0 STYLE, bits 1-2 PUMP TARGET, bits 3-5 PUMP RELEASE; rsv0 DEPTH, rsv1 SHAPE + 1, 0 = 50) */
+    S->rsv1 = 51;
     memcpy(S->snd, DR_KITS[0], sizeof S->snd);
     for (l = 0; l < DR_LANES; l++) { S->note[l] = DR_GM[l]; S->ch[l] = DR_CH; S->out[l] = 2; }
     for (k = 0; k < DR_NPAT; k++) {
@@ -54,7 +55,8 @@ static void drm_blank(void)                   /* an object never saved, or a bad
 static int drm_valid(const dr_store_t *S)     /* every value inside its range (a bad object is not half-loaded) */
 {
     int l, k;
-    if (S->magic != DRM_MAGIC || S->kit >= DR_NKIT || S->swing < 50 || S->swing > 75 || S->busy > 2 || S->pat >= DR_NPAT)
+    if (S->magic != DRM_MAGIC || S->kit >= DR_NKIT || S->swing < 50 || S->swing > 75 || S->busy > 2 || S->pat >= DR_NPAT ||
+        S->rsv0 > 100 || S->rsv1 > 101 || ((S->flags >> 1) & 3u) > 2u || ((S->flags >> 3) & 7u) >= DR_PREL_N)
         return 0;
     for (l = 0; l < DR_LANES; l++) {
         const dr_snd_t *d = &S->snd[l];
@@ -89,7 +91,8 @@ static int dr_save_store(void)                /* the live pattern (into its slot
     drm_read();
     S = drm();
     S->kit = dr_kit_ix; S->swing = dr.swing; S->pat = dr.pat;
-    S->busy = dr_busy; S->in_mask = dr_in; S->flags = (uint8_t)(dr_style ? 1u : 0u);
+    S->busy = dr_busy; S->in_mask = dr_in; S->flags = (uint8_t)((dr_style ? 1u : 0u) | (dr_ptgt << 1) | (dr_prel << 3));
+    S->rsv0 = dr_pdepth; S->rsv1 = (uint8_t)(dr_pshape + 1);
     memcpy(S->snd, dr_kit, sizeof S->snd);
     for (l = 0; l < DR_LANES; l++) { S->note[l] = dr_mid[l].note; S->ch[l] = dr_mid[l].ch; S->out[l] = dr_mid[l].out; }
     dr_live_to(&S->p[dr.pat]);
@@ -109,6 +112,7 @@ static void dr_load_store(void)               /* power-up: the store, if there i
     dr.swing = S->swing;
     dr.pat = S->pat;
     dr_busy = S->busy; dr_in = S->in_mask; dr_style = S->flags & 1u;
+    dr_pdepth = S->rsv0; dr_ptgt = (S->flags >> 1) & 3u; dr_prel = (S->flags >> 3) & 7u; dr_pshape = S->rsv1 ? (uint8_t)(S->rsv1 - 1) : 50;
     for (l = 0; l < DR_LANES; l++) { dr_mid[l].note = S->note[l]; dr_mid[l].ch = S->ch[l]; dr_mid[l].out = S->out[l]; }
     rk_drum_busy(dr_busy);
     memcpy(dr_pat, S->p[S->pat].s, sizeof dr_pat);
@@ -348,6 +352,38 @@ static void pic_dmidi(void)                    /* DRUM MIDI: the lanes' notes, a
     if (dp.pop == DPOP_OUT)
         dr_pop_list("OUT: WHAT THE LANE DOES", 4, dr_mid[dp.lane].out, DR_OUTN, 0);
 }
+static const char *const DR_PTGTN[3] = {"SYNTH DRY", "SYNTH + FX", "BOTH"};
+static float dr_pump_rel_s(void)               /* RELEASE in seconds (the note values follow the tempo) */
+{
+    return dr_pump_rel(dr_step_frames() / PL_HZ);
+}
+static void pic_dpump(void)                    /* KICK PUMP: the synth's gain after each kick, drawn as the engine works it out (1 - DEPTH x (1 - t / RELEASE) ^ k) */
+{
+    const int32_t X0 = 6, W = 216, Y0 = 20, H = 86;
+    float rel = dr_pump_rel_s(), win = rel * 1.25f, d = (float)dr_pdepth * 0.01f, k = 0.5f * fm_exp2f(2.585f * (float)dr_pshape * 0.01f);   /* (6 ^ x) */
+    char t[24];
+    int x;
+    uint16_t c = dr_pdepth ? K_C_DRUMS : K_DIM;
+    cv_text(4, 2, &FONT_XS, dr_pdepth ? "SYNTH LEVEL AFTER EACH KICK" : "PUMP IS OFF: DEPTH 0", dr_pdepth ? K_DIM : K_WARN);
+    cv_rect(X0, Y0 + H, W, 1, K_DIM);                          /* the floor: silence */
+    cv_rect(X0, Y0, W, 1, K_CELL);                             /* the top: full level */
+    for (x = 0; x < W; x++) {
+        float u = (float)x / (float)W * 1.25f, g = 1.0f;
+        int h;
+        if (u < 1.0f)
+            g = 1.0f - d * fm_exp2f(k * fm_log2f(1.0f - u + 1.0e-6f));
+        h = (int)(g * (float)H + 0.5f);
+        cv_rect(X0 + x, Y0 + H - h, 1, h, x == 0 ? K_FG : c);
+    }
+    cv_rect(X0, Y0 - 3, 2, H + 4, K_FG);                       /* the kick */
+    t[0] = 0;
+    if (dr_pdepth >= 100) cat(t, "DEEPEST: SILENCE");
+    else { cat(t, "DEEPEST -"); int_text((int)(-6.0206f * fm_log2f(1.0f - d) + 0.5f), t + 9); cat(t, " DB"); }
+    if (dr_pdepth) cv_text(4, 112, &FONT_XS, t, K_FG);
+    t[0] = 0; cat(t, "BACK TO FULL IN "); int_text((int)(rel * 1000.0f + 0.5f), t + 16); cat(t, " MS");
+    cv_text(4, 124, &FONT_XS, t, K_DIM);
+    cv_text(4, 135, &FONT_XS, dr_ptgt == 0 ? "SYNTH BEFORE ITS FX: TAILS RING ON" : dr_ptgt == 1 ? "SYNTH + ITS FX (KIT KEPT)" : "HALF BEFORE FX, HALF AFTER", K_DIM);
+}
 static void pic_dkit(void)                     /* DRUM KIT: the patterns A-H, the kit, the load, IF BUSY */
 {
     int p, ld = dr_load_x10();
@@ -416,6 +452,11 @@ static void drum_header_text(char *t, const char *state)
         cat(t, state);
         return;
     }
+    if (mn.sub == SQP_DPUMP) {
+        cat(t, "KICK ");
+        cat(t, state);
+        return;
+    }
     if (mn.sub == SQP_DSOUND || mn.sub == SQP_DMIX || mn.sub == SQP_DFEEL || mn.sub == SQP_DGEN || mn.sub == SQP_DMIDI) {
         cat(t, DR_LNAME[dp.lane]);
         cat(t, " ");
@@ -481,6 +522,15 @@ static void drum_dials(const char **l, char v[4][16], float *f)
         int_text(m->ch + 1, v[1]); f[1] = (float)m->ch / 15.0f;
         int_text(m->note, v[2]); f[2] = (float)m->note / 127.0f;
         cat(v[3], (dr_in >> dp.lane & 1u) ? "ON" : "OFF"); f[3] = (dr_in >> dp.lane & 1u) ? 1.0f : 0.0f;
+        return;
+    }
+    if (mn.sub == SQP_DPUMP) {
+        l[0] = "DEPTH"; l[1] = "RELEASE"; l[2] = "SHAPE"; l[3] = "TARGET";
+        if (dr_pdepth) int_text(dr_pdepth, v[0]); else cat(v[0], "OFF");
+        f[0] = (float)dr_pdepth / 100.0f;
+        cat(v[1], DR_PRELN[dr_prel]); f[1] = (float)dr_prel / (float)(DR_PREL_N - 1);
+        int_text(dr_pshape, v[2]); f[2] = (float)dr_pshape / 100.0f;
+        cat(v[3], DR_PTGTN[dr_ptgt]); f[3] = (float)dr_ptgt / 2.0f;
         return;
     }
     if (mn.sub == SQP_DKIT) {
@@ -593,6 +643,16 @@ static void drum_enc_midi(const int32_t *e)    /* DRUM MIDI: SELECT lane, K1 OUT
     if (e[4]) { dr_mid_set(dp.lane, 2, m->note + (int)e[4]); dr_dirty |= 2u; ui.redraw = 1; }
     if (e[5]) { dr_in = (uint8_t)((e[5] > 0) ? (dr_in | (1u << dp.lane)) : (dr_in & ~(1u << dp.lane))); dr_dirty |= 2u; ui.redraw = 1; }
 }
+static void drum_enc_pump(const int32_t *e)    /* KICK PUMP: K1 DEPTH, K2 RELEASE, K3 SHAPE, K4 TARGET, ALGO right: a kick, to hear it on a held chord */
+{
+    int ch = 0;
+    if (e[2]) { int n = dr_clamp((int)dr_pdepth + (int)e[2] * 2, 0, 100); ch |= n != dr_pdepth; dr_pdepth = (uint8_t)n; }
+    if (e[3]) { int n = dr_clamp((int)dr_prel + (e[3] > 0 ? 1 : -1), 0, DR_PREL_N - 1); ch |= n != dr_prel; dr_prel = (uint8_t)n; }
+    if (e[4]) { int n = dr_clamp((int)dr_pshape + (int)e[4] * 2, 0, 100); ch |= n != dr_pshape; dr_pshape = (uint8_t)n; }
+    if (e[5]) { int n = dr_clamp((int)dr_ptgt + (e[5] > 0 ? 1 : -1), 0, 2); ch |= n != dr_ptgt; dr_ptgt = (uint8_t)n; }
+    if (ch) { dr_dirty |= 2u; ui.redraw = 1; }
+    if (e[1] > 0 || (ch && !dr.run)) dr_aud = 1;                /* a kick: stopped, the sound of it (and the pump's curve with it) */
+}
 static void drum_enc_kit(const int32_t *e)     /* DRUM KIT: K1 the pattern chip, ALGO right queues it (left calls the queue off), K2 KIT, K3 SWING, K4 IF BUSY, SELECT STYLE */
 {
     if (e[0]) { dr_style = !dr_style; dr_dirty |= 2u; drum_say("STYLE STARTS DRUMS", dr_style ? "ON" : "OFF"); }
@@ -617,6 +677,7 @@ static void drum_enc_kit(const int32_t *e)     /* DRUM KIT: K1 the pattern chip,
 static const char *drum_help(void)
 {
     return mn.sub == SQP_DSOUND ? "SELECT: LANE  ALGO: MODEL  SEL+ALGO: KIT" : mn.sub == SQP_DMIX ? "SELECT: LANE  K4: HOW MUCH GOES TO FX" :
+           mn.sub == SQP_DPUMP ? "ALGO RIGHT: A KICK   DEPTH 0 = OFF   HOLD A CHORD" :
            mn.sub == SQP_DMIDI ? "OUT: SOUND / MIDI / ALSO / OFF   IN: PADS PLAY LANES" :
            mn.sub == SQP_DKIT ? "ALGO: QUEUE   SELECT: STYLE STARTS DRUMS" : mn.sub == SQP_DFEEL ? "LENGTH 12 AGAINST 16 DRIFTS EVERY BAR" : mn.sub == SQP_DGEN ? "SELECT: LANE  ALGO RIGHT: WRITE IT" :
            "EDIT: ON/OFF  SEL+K1: PATTERN  SEL+SELECT: PAGE";
@@ -638,6 +699,7 @@ static void drum_encoders(const int32_t *e)   /* e: SELECT, ALGO, K1-K4 */
     if (mn.sub == SQP_DFEEL) { drum_enc_feel(e); return; }
     if (mn.sub == SQP_DGEN) { drum_enc_gen(e); return; }
     if (mn.sub == SQP_DMIDI) { drum_enc_midi(e); return; }
+    if (mn.sub == SQP_DPUMP) { drum_enc_pump(e); return; }
     if (mn.sub == SQP_DKIT) { drum_enc_kit(e); return; }
     int k1 = (int)e[2];
     if (k1 && (in_btn >> B_SEL & 1u)) {            /* SEL held + K1: the pattern (A-H), at the bar line while playing */
@@ -793,6 +855,11 @@ static int drum_expect(const char *what, int *got)
     else if (same(what, "drum_in")) *got = dr_in >> dp.lane & 1u;
     else if (same(what, "drum_busy")) *got = dr_busy;
     else if (same(what, "drum_style")) *got = dr_style;
+    else if (same(what, "drum_pdepth")) *got = dr_pdepth;
+    else if (same(what, "drum_prel")) *got = dr_prel;
+    else if (same(what, "drum_pshape")) *got = dr_pshape;
+    else if (same(what, "drum_ptgt")) *got = dr_ptgt;
+    else if (same(what, "drum_prel_ms")) *got = (int)(dr_pump_rel(dr_step_frames() / PL_HZ) * 1000.0f + 0.5f);
     else if (same(what, "drum_pc")) *got = dp.pc;
     else if (same(what, "drum_load")) *got = dr_load_x10();
     else if (same(what, "drum_held")) *got = rk_drum_status(2);

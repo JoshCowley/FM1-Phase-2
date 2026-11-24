@@ -30,6 +30,7 @@
 #include "drumseq_check.c"
 #include "drum_sound.c"
 #include "drum_timing_check.c"
+#include "pump_check.c"
 #include "jam.c"
 
 typedef struct { uint8_t fn, a, b, c, d; float x, y, z, w; } full_op_t;
@@ -225,6 +226,8 @@ int main(int argc, char **argv)
         fwrite(o, sizeof(float), 2 * DC_BLK * DC_BLOCKS, stdout);
         return 0;
     }
+    if (argc == 3 && !strcmp(argv[1], "--pump"))   /* update 41 step 5: the pump demo (pump_check.c) */
+        return !strcmp(argv[2], "cost") ? pump_cost() : pump_demo(argv[2]);
     if (argc >= 3 && !strcmp(argv[1], "--dsound"))   /* update 41 step 2: the kits measured (drum_sound.c) */
         return ds_main(argc, argv);
     if (argc == 2 && !strcmp(argv[1], "--drums")) {   /* section 12 alone */
@@ -692,6 +695,7 @@ int main(int argc, char **argv)
     shape_checks(&fails);          /* 16 (update 61: the withdrawn Braids shapes and Rings models) */
     fails += check_guard_5b();     /* 5b and 7h's guard half (update 63) run last: their renders move the engine's clock, which 10, 15 and 16 read */
     fails += check_guard_7h();
+    pump_checks(&fails);           /* 17 (update 41 step 5: PUMP, the kick ducking the synth; last: it leaves the engine as a patch change does) */
     printf(fails ? "%d FAILED\n" : "all passed\n", fails);
     return fails != 0;
 }
