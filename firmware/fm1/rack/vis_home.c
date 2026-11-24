@@ -137,7 +137,8 @@ static void hm_spectrum(uint8_t *lv)
 #define H_PH 44                               /* the path's tiles */
 #define H_TW 38                               /* a path tile's width, and the gap between */
 #define H_TG 11
-#define H_SBOT 174                            /* the scope's bottom */
+#define H_SBOT 148                            /* the scope's bottom (update 41 step 4: it was 174; the notes band takes the rows under it) */
+#define H_NB 150                              /* the notes band: the chord and notes at the left, a keyboard at the right, to the picture's end (174) */
 typedef struct { int16_t x; uint16_t col; uint8_t hi, act, feed, flag, slot, p, q; int8_t v; } h2_t;   /* (update 41 step 3) v, p, q: what the icon shows moving: the source's value, a stage's own settings; see h2_icon_live */   /* flag: 1 lost (no room), 2 off (bypassed); slot: a stage's engine slot, a mods tile's kind */
 static struct {
     h2_t st[5], md[8];                        /* the path's stages, the mods row's tiles (the drums last) */
@@ -150,8 +151,14 @@ static struct {
     uint8_t jam;
     int8_t sweep;                             /* the filter's SWEEP x 100 */
     uint32_t ms;                              /* the frame's time (the icons' animation) */
+    uint32_t nk, nt_at;                       /* the notes band: the keys lit (bit k: key k), and when something last sounded */
+    char nname[20], ntext[40];                /* the chord's name and the notes' names, made again when the notes change */
+    uint32_t nsig;
+    uint8_t nt[PL_MAXN], nn, ntot, nbass, narp;   /* the notes shown (lowest first), how many sound, the bass's and the arp's note now (0 none) */
 } h2;
 float rk_eff_param(int slot, int param);
+static void h2_notes(void);
+static uint32_t h2_nfade(void);
 static const char *const HI_NAME[HI_N] = {"BRAIDS", "RINGS", "FILTER", "CLOUDS", "LOOP", "SPECTRL", "REVERB", "DELAY", "CHORUS", "LFO", "TIDES", "PEAKS", "FUNC",
                                           "GRIDS", "MSEQ", "GATE", "KNOB", "DRUMS", "JAM"};
 /* each icon's colour: the colour of its page (theme.h K_C_*; the table is in the manual) */
@@ -228,6 +235,7 @@ static const float *home_frame(uint32_t dt)
     cp_level(raw, dt);
     cp.nlive = 0;
     h2.ms = plat_ms();
+    h2_notes();
     h2.lev += (h2_level() - h2.lev) * (dt > 60u ? 0.8f : 0.4f);
     h2.ph += (float)dt * (0.012f + 0.09f * h2.lev);
     h2.ph2 += (float)dt * 0.0011f;
@@ -416,6 +424,7 @@ static uint32_t home_sig(void)
     for (i = 0; i < h2.ns; i++) s = s * 31u + h2.st[i].hi * 7u + (h2.st[i].act >> 4) + (uint32_t)h2.st[i].flag * 3u;
     for (i = 0; i < h2.nm; i++) s = s * 31u + h2.md[i].hi * 7u + (h2.md[i].act >> 4) + h2.md[i].feed * 5u;
     for (i = 0; i < 4; i++) s = s * 131u + (uint32_t)(rc_patch.macro[i] * 1000.0f);
+    s = s * 131u + h2.nk + (uint32_t)h2.nn * 7u + h2.nt[0] * 3u + h2.nbass * 11u + h2.narp * 13u + (h2_nfade() >> 4) * 5u + (uint32_t)(ui.zkeys & 127u) * 17u;
     for (i = 0; i < h2.ns; i++) s = s * 17u + (uint32_t)(uint8_t)h2.st[i].v + h2.st[i].p;
     for (i = 0; i < h2.nm; i++) s = s * 17u + (uint32_t)(uint8_t)h2.md[i].v;
     return s;
@@ -739,6 +748,140 @@ static void h2_scope(void)
         pp[0] = py[0]; pp[1] = py[1]; pp[2] = py[2];
     }
 }
+/* ---- update 41 step 4: what is being played. The notes sounding (the chord layer's and the keys' own; the arp's and the bass's apart), or the chord held
+ * while the arp plays it; kept, dimmed, for 1.1 s after the last one ends */
+static void h2_notes(void)    /* (the layers: 0 chord, 1 bass, 2 arp: play.c's L_* names are colours here) */
+{
+    uint8_t s[PL_MAXN];
+    int ns = 0, total = 0, i, k, held = 0, bass = 0, arp = 0, live;
+    uint32_t nk = 0, now = h2.ms;
+    for (i = 0; i < PL_NRAW; i++)
+        if (pl_raw[i].active) held = 1;
+    for (i = 0; i < 128; i++) {
+        int d = pl_snd[i];
+        for (k = 0; k < 3; k++) d -= lay_loc[k][i] > 0;
+        if (d > 0 || lay_loc[0][i] || lay_out[0][i]) {
+            total++;
+            if (ns < PL_MAXN) s[ns++] = (uint8_t)i;
+        }
+        if (!bass && (lay_loc[1][i] || lay_out[1][i])) bass = i;
+        if (!arp && (lay_loc[2][i] || lay_out[2][i])) arp = i;
+    }
+    if (held && pv.nchord) {                  /* the keys' chord (the arp may be the only thing sounding it) */
+        ns = pv.nchord < PL_MAXN ? pv.nchord : PL_MAXN;
+        total = pv.nchord;
+        for (i = 0; i < ns; i++) s[i] = pv.chord[i];
+    }
+    live = ns || bass || arp;
+    if (live) {
+        for (i = 0; i < ns; i++) h2.nt[i] = s[i];
+        h2.nn = (uint8_t)ns;
+        h2.ntot = (uint8_t)(total > 255 ? 255 : total);
+        h2.nbass = (uint8_t)bass;
+        h2.narp = (uint8_t)arp;
+        h2.nt_at = now;
+        for (k = 0; k < NKEYS; k++) {
+            int n = 53 + k + 12 * set.octave;
+            for (i = 0; i < ns; i++)
+                if (s[i] == n) nk |= 1u << k;
+            if (arp == n) nk |= 1u << k;
+        }
+        h2.nk = nk | (ui.keys & ((1u << NKEYS) - 1u));
+    } else if (now - h2.nt_at > 1100u) {
+        h2.nn = h2.ntot = h2.nbass = h2.narp = 0;
+        h2.nk = 0;
+    }
+}
+static uint32_t h2_nfade(void)                /* 256 while it sounds, falling to 0 over the second after */
+{
+    uint32_t age = h2.ms - h2.nt_at;
+    int sounding = 0, i;
+    for (i = 0; i < PL_NRAW && !sounding; i++) sounding = pl_raw[i].active;
+    if (sounding || age < 80u) return 256u;
+    return age >= 1100u ? 0u : 256u - age * 256u / 1100u;
+}
+static void h2_noteband(void)
+{
+    static const uint8_t WHITE[12] = {1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1};      /* by pitch class (C = 0) */
+    int32_t kx = 122, ky = H_NB + 3, wi = 0;
+    uint32_t fa = h2_nfade();
+    int k, zone = zone_on();
+    uint16_t on = K_CHD, zc = K_GOLD;
+    if (!h2_vis(H_NB, 26)) return;
+    for (k = 0; k < NKEYS; k++) {             /* the keys of the FM-1 (F3 up), whites first */
+        int pc = (53 + k) % 12;
+        if (WHITE[pc]) {
+            int lit = h2.nk >> k & 1u, z = zone && k < 7, zh = ui.zkeys >> k & 1u;
+            uint16_t col = lit ? mix565(on, GREY(64), fa) : GREY(64);
+            if (zh) col = zc;
+            cv_rect(kx + wi * 7, ky, 6, 18, col);
+            if (z) cv_rect(kx + wi * 7, ky + 15, 6, 3, zh ? K_FG : zc);
+            wi++;
+        }
+    }
+    wi = 0;
+    for (k = 0; k < NKEYS; k++) {             /* then the blacks, between */
+        int pc = (53 + k) % 12;
+        if (WHITE[pc]) { wi++; continue; }
+        {
+            int lit = h2.nk >> k & 1u, z = zone && k < 7, zh = ui.zkeys >> k & 1u;
+            uint16_t col = lit ? mix565(on, GREY(8), fa * 3u / 4u) : GREY(8);
+            if (zh) col = zc;
+            cv_rect(kx + wi * 7 - 3, ky, 5, 11, col);
+            if (z) cv_rect(kx + wi * 7 - 3, ky + 9, 5, 2, zh ? K_FG : zc);
+        }
+    }
+    if (!h2.nn && !h2.nbass && !h2.narp) return;
+    {                                         /* the chord's name, the notes, the arp's and the bass's note */
+        char t[24], u[8];
+        uint16_t nc = mix565(K_FG, K_BG, 60u + fa * 196u / 256u), tc = mix565(K_DIM, K_BG, 90u + fa * 166u / 256u);
+        int i;
+        uint32_t sg = h2.nn * 977u + h2.ntot;
+        for (i = 0; i < h2.nn; i++) sg = sg * 131u + h2.nt[i];
+        if (sg != h2.nsig || !h2.nname[0]) {   /* the names, only when the notes changed */
+            char x[12];
+            int shown = 0;
+            h2.nsig = sg;
+            h2.ntext[0] = 0;
+            if (h2.nn) chord_name(h2.nt, h2.nn, h2.nname); else h2.nname[0] = 0;
+            for (i = 0; i < h2.nn && h2.nn > 1; i++) {
+                int sp = i ? 2 : 0;
+                char *tx = h2.ntext;
+                note_name(h2.nt[i], x);
+                {   char keep[40];
+                    int p = 0;
+                    while (tx[p] && p < 39) { keep[p] = tx[p]; p++; }
+                    keep[p] = 0;
+                    if (sp) cat(tx, "  ");
+                    cat(tx, x);
+                    if (text_w_acc(&FONT_T, tx) > (h2.ntot > h2.nn || i + 1 < h2.nn ? 96 : 112)) {   /* no more room: this one stays out, the rest are +n */
+                        tx[0] = 0; cat(tx, keep);
+                        break;
+                    }
+                }
+                shown++;
+            }
+            if (h2.nn > 1 && shown < h2.ntot) {
+                cat(h2.ntext, "  +");
+                int_text(h2.ntot - shown, u);
+                cat(h2.ntext, u);
+            }
+        }
+        if (h2.nn) {
+            if (text_w_acc(&FONT_B, h2.nname) > 66) cv_text_acc(6, H_NB + 3, &FONT_XS, h2.nname, nc);
+            else cv_text_acc(6, H_NB, &FONT_B, h2.nname, nc);
+            if (h2.nn > 1) cv_text_acc(6, H_NB + 15, &FONT_T, h2.ntext, tc);
+        }
+        if (h2.narp) {
+            t[0] = 0; cat(t, "ARP "); note_name(h2.narp, u); cat(t, u);
+            cv_text_acc(76, H_NB, &FONT_XS, t, mix565(K_CHD, K_BG, 90u + fa * 166u / 256u));
+        }
+        if (h2.nbass) {
+            t[0] = 0; cat(t, "BASS "); note_name(h2.nbass, u); cat(t, u);
+            cv_text_acc(76, H_NB + 8, &FONT_XS, t, mix565(K_CHD, K_BG, 90u + fa * 166u / 256u));
+        }
+    }
+}
 static void home_draw(const float *mon, int pf)
 {
     int i, j, n = h2.ns;
@@ -778,6 +921,7 @@ static void home_draw(const float *mon, int pf)
     for (i = 0; i < n; i++)
         h2_tile(&h2.st[i], h2.py, H_TW, H_PH);
     h2_scope();
+    h2_noteband();
 }
 
 static void home_text(void)

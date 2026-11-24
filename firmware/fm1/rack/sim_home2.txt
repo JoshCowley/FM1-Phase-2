@@ -148,3 +148,58 @@ wait 1200
 shot home2_drums2.png
 tap PLAY
 wait 300
+# update 41, step 4: what is being played (the notes band under the scope). The chord layer on (SEL: two taps), a held chord (F A C: "F"), a zone key held
+# changes it live (G# is MIN: "Fm", the A and the C go on, the A flat takes the A's place), then the arp running on the chord (its note beside the name).
+turn PRESET -14
+wait 600
+tap SEL
+wait 100
+tap SEL
+wait 400
+tap HOME
+wait 300
+tap HOME
+wait 500
+expect page 0
+key 12 down 100
+wait 700
+shot home2_chord.png
+key 3 down 100
+wait 600
+shot home2_chordq.png
+key 3 up
+wait 300
+key 12 up
+wait 450
+shot home2_fade.png
+wait 1050
+shot home2_released.png
+tap ARP
+wait 300
+turn K1 1
+wait 200
+tap HOME
+wait 400
+key 12 down 100
+wait 1500
+shot home2_arpchord.png
+key 12 up
+wait 300
+# an 11th (six notes, and the 3rd is moved by the voicing): the notes line fits what it can and says how many more (+n)
+tap ARP
+wait 300
+turn K1 -1
+wait 200
+tap SEL
+wait 400
+turn K3 3
+wait 300
+tap HOME
+wait 400
+expect page 0
+key 12 down 100
+wait 900
+shot home2_eleventh.png
+key 12 up
+wait 300
+
