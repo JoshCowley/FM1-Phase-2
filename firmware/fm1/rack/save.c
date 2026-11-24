@@ -381,9 +381,9 @@ static int save_put(int u, const upatch_t *p)  /* one preset into its object; 0 
         us.name[u][k] = p->name[k];
     return rc;
 }
+static upatch_t sv_tmp;                     /* save_commit's and lib_do's one patch buffer (never both at once; each fills it before it reads it): 474 B of RAM, not 948 */
 static void save_commit(void)
 {
-    static upatch_t p;
     char t[24];
     if (sv.rename >= 0) {                    /* renaming keeps the sound */
         int g = sv.rename / UP_PER_OBJ, k, rc;
@@ -401,9 +401,9 @@ static void save_commit(void)
         sv.lib = 1;
         return;
     }
-    snapshot(&p, sv.name, sv.cat);
+    snapshot(&sv_tmp, sv.name, sv.cat);
     slot_name(sv.slot, t);
-    if (save_put(sv.slot, &p)) {
+    if (save_put(sv.slot, &sv_tmp)) {
         app_say("STORE FULL", "NOT SAVED");
         return;
     }
@@ -416,7 +416,6 @@ static void save_commit(void)
 }
 static void lib_do(void)
 {
-    static upatch_t p;
     int e = lib_entry(sv.ix), u;
     char t[24];
     if (e < 0) { app_say("NOTHING", "HERE"); return; }
@@ -435,7 +434,7 @@ static void lib_do(void)
         if (f < 0) { app_say("ALL 15 SLOTS", "FULL"); return; }
         if (e >= NPRESETS) {
             group_read((e - NPRESETS) / UP_PER_OBJ);
-            p = ugroup[(e - NPRESETS) % UP_PER_OBJ];
+            sv_tmp = ugroup[(e - NPRESETS) % UP_PER_OBJ];
         } else {
             char n[10];
             int i, end = 0;
@@ -446,10 +445,10 @@ static void lib_do(void)
                 if (!PRESETS[e].name[i]) end = 1;
                 n[i] = end ? 0 : PRESETS[e].name[i];
             }
-            snapshot(&p, n, factory_cat(e));
+            snapshot(&sv_tmp, n, factory_cat(e));
         }
         slot_name(f, t);
-        app_say(save_put(f, &p) ? "STORE FULL" : "COPIED TO", t);
+        app_say(save_put(f, &sv_tmp) ? "STORE FULL" : "COPIED TO", t);
         return;
     }
     if (e < NPRESETS) { app_say("FACTORY:", "COPY IT FIRST"); return; }
@@ -473,8 +472,8 @@ static void lib_do(void)
         app_say("OCT+ AGAIN:", "DELETE");
         return;
     }
-    memset(&p, 0, sizeof p);
-    app_say(save_put(u, &p) ? "STORE FULL" : "DELETED", t);
+    memset(&sv_tmp, 0, sizeof sv_tmp);
+    app_say(save_put(u, &sv_tmp) ? "STORE FULL" : "DELETED", t);
     sv.arm = -1;
     if (cur_entry == e)
         cur_entry = rc_patch.index;
