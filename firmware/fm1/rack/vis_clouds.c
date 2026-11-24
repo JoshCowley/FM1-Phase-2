@@ -31,6 +31,7 @@
 #define CP_Y 10                               /* the picture: from under the status strip ... */
 #define CP_H 190                              /* ... 190 rows, the read-outs from y 200 */
 #define CP_RY 200
+#define H_PICH 190                            /* HOME's picture rows (update 43: it was 174); then the chips strip (app.c HOME_WY 200) and its sliders' two rows from screen row 216 */
 #define CP_CY 146                             /* the ribbon's centre line (picture rows), in the lower third */
 #define CP_NM 48
 #define HR_NB 9                               /* update 14: HOME's ribbons: 9 frequency bands x 72 columns of history, one byte each (aliased on the ribbon arrays below) */
@@ -579,7 +580,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
     t0 = plat_ticks24();
     cp.wob = 3; cp.cy = CP_CY; cp.H = CP_H; cp.norefl = 0; cp.lf = 0; cp.hsc = 256; cp.hs = 0; cp.gm = 256; cp.nobirth = 0;
     if (sc == SC_HOME) {
-        cp.H = 174;
+        cp.H = H_PICH;
         mon = home_frame(dt);                 /* (it stepped the granular field, and the morph) */
     } else {
         mon = rk_monitor(page_slot(pg));

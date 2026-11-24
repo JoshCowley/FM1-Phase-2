@@ -6,6 +6,10 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 43: HOME with two short rows of sliders and bigger icons (Josh's request; host-tested, screens and GIF made, NOT seen on an FM-1)
+
+The four macro sliders are two rows of two (K1 K2 / K3 K4), 24 rows under the picture (they were 40): name (36 px), a 46 px track with the via source's band and mark, the value. The picture grew from 174 to 190 rows (the chips strip moved from screen row 184 to 200, `HOME_WY`). Icons are 32 x 32 (`make_home_icons.py`, N = 32: the same drawings scaled 4/3, stroke 1.35 px; 512 B each); tiles 40 x 50 (were 38 x 42 / 44), gap 8; a crowded mods row (7 or 8 tiles, under 36 px wide) draws the icons scaled 3/4 from the same bitmap. The moving icons use the same scale (`S()` in `vis_home.c`). Chord band, scope and status strip kept. Sound unchanged (no engine file touched). Cost: image 570,960 -> 576,364 B (+5,404; 4,200 of it icons), static RAM .data+.bss 97,988 B before and after (free 316 B); host draw time of `sim_home2.txt` about the same (noisy: 101 to 130 us before, 123 to 140 after). Screens `b23/home-screens3.png`, animation `b23/home-anim3.gif`.
+
 ## Update 42: Clouds about 35 % lighter, the synth a further 10 % lighter (Josh's request; host-measured, NOT heard by me, NOT run on an FM-1)
 
 **Clouds.** New RENDER page parameter CLOUDS QUALITY (NORMAL default / HIGH / LITE), saved in `upatch_t.pad2`; the mask is `CLQ_*` in `rack_cl_q.h` (NORMAL 15, LITE 191, HIGH 0 = the old Clouds). NORMAL is about 35 % cheaper at GRAN 16ST D0.7 with no change of sound that I could measure; LITE trades more sound for more saving.

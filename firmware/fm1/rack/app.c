@@ -580,7 +580,7 @@ static void scope(int32_t w, int32_t h, uint16_t c)
 #include "seqpages.c"
 #include "drumpages.c"                       /* the DRUM page (drum track, step 2) */
 
-#define HOME_WY 184u                          /* HOME's bottom strip (the scope until update 38) */
+#define HOME_WY 200u                          /* HOME's bottom strip (the scope until update 38) */
 /* HOME's bottom strip (update 39: the scope is gone, as Josh asked): the tabs of what plays the keys besides the
  * preset (scale and chord, arp, STYLE, a tuning, the red FM-1 OFF warning), redrawn only when one of them changes */
 #define HOME_SH 16
