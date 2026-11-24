@@ -31,7 +31,7 @@ o2_cflags = ["-std=gnu++11", "-w", "-fbuiltin", "-fno-exceptions", "-fno-rtti", 
 # "-DRACK_WITH_GRAIN" to o2_cflags (and to the bench's fm1.toml); on a computer: RACK_FLAGS=-DRACK_WITH_GRAIN sh build_host.sh
 # FM1 Rack's Plaits shim (first: it stands in for one of Plaits' headers), the Mutable code (a checkout of
 # pichenettes/eurorack beside MODFM1)
-include = ["../../../engine/shim", "../../../../eurorack", "units"]
+include = ["../../../engine/shim", "units", "../../../../eurorack"]   # (2.42: units/ ahead of the checkout: its changed headers, units/braids/ and so on, win; make_mutable_slim.py)
 # the few C++ standard headers JieLi's toolchain lacks, and C headers for a build with no C library (firmware only)
 device_include = ["../../hw/cxx", "../../hw/libc"]
 vendored = ["units/"]
