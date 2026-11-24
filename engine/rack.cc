@@ -506,7 +506,7 @@ typedef int16_t dsamp_t;
 static const int DLEN = 48000;   // 1 s
 // 16-bit lines keep 6 dB of headroom (full scale = 2.0): mixes of several voices go past 1.0 before the limiter
 static inline float DG(int16_t v) { return v * (2.0f / 32767.0f); }
-static inline int16_t DS(float x) { x *= 0.5f; x = x > 1.0f ? 1.0f : x < -1.0f ? -1.0f : x; return (int16_t)(x * 32767.0f + (x >= 0 ? 0.5f : -0.5f)); }
+static inline int16_t DS(float x);   // (defined after the quality mask, below)
 static uint8_t* clouds_large_; static uint8_t* clouds_small_;
 static uint16_t* reverb_buf_;
 static dsamp_t *delay_l_, *delay_r_;
@@ -664,7 +664,8 @@ enum { QB_RVMONO = 1,   // the reverb tank takes one sum of its two inputs (one 
        QB_HB2 = 32,     // the 24 kHz halfband filters have 15 taps, not 23 (flat within 0.4 dB to 9.6 kHz, -27 dB from 14.4 kHz)
        QB_RVPRE = 64,   // the reverb's input stage works on the sum: one pre-delay line, one LO CUT filter, one 16-bit round trip, not two (the tank only reads the sum)
        QB_RVAP4 = 128,  // the tank has one input allpass (a thinner start to the tail)
-       QB_ALL = 255 };
+       QB_DSQ = 256,    // the delay's and the chorus's 16-bit lines are written cut, not rounded
+       QB_ALL = 511 };
 #ifdef RACK_Q_FULL
 #define Q_DEFAULT 0
 #else
@@ -682,6 +683,10 @@ EXPORT unsigned quality_default() { return Q_DEFAULT; }
 #else
 #define Q_ON(b) (((Q_DEFAULT) & (b)) != 0)
 #endif
+static inline int16_t DS(float x) {
+  if (Q_ON(QB_DSQ)) { x = x > 2.0f ? 2.0f : x < -2.0f ? -2.0f : x; return (int16_t)(x * 16383.5f); }   // update 42: cut, not rounded (the error is one 16-bit step, either way round)
+  x *= 0.5f; x = x > 1.0f ? 1.0f : x < -1.0f ? -1.0f : x; return (int16_t)(x * 32767.0f + (x >= 0 ? 0.5f : -0.5f));
+}
 // 48 kHz <-> 24 kHz for the modules the FM-1 runs at half rate (Rings, the reverb): a halfband filter, as its taps either side of the middle (0.5); the others are 0.
 // 2.37 and before: 39 taps (10 either side; flat to 10 kHz, -75 dB from 16 kHz). 2.38 (QB_HB): 23 taps (6 either side; equiripple, flat within 0.3 dB to 9.6 kHz,
 // -45 dB from 14.4 kHz), 8 samples (0.17 ms) less delay each way
@@ -2685,7 +2690,7 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
       for (int m = 0; m < BLOCK / 2; ++m) { h[m].l = yl[m]; h[m].r = 0.0f; }
       reverb_.Process(h, BLOCK / 2);
       for (int m = 0; m < BLOCK / 2; ++m) { yl[m] = h[m].l; yr[m] = h[m].r; }
-      ul.run(yl, xl); ur.run(yr, xr);
+      ul.run(yl, wl_out); ur.run(yr, wr_out);   // (update 42: straight into the outputs, no copy after)
     }
 #else
     {
@@ -2695,8 +2700,12 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
       for (int n = 0; n < BLOCK; ++n) { xl[n] = fr[n].l; xr[n] = fr[n].r; }
     }
 #endif
+#ifdef RACK_FM1
+    shim_fb_ = (wl_out[BLOCK - 1] + wr_out[BLOCK - 1]) * 0.5f;
+#else
     for (int n = 0; n < BLOCK; ++n) { wl_out[n] = xl[n]; wr_out[n] = xr[n]; }
-    shim_fb_ = (xl[BLOCK - 1] + xr[BLOCK - 1]) * 0.5f;   // (read at the next block's start only: the last sample's)
+    shim_fb_ = (xl[BLOCK - 1] + xr[BLOCK - 1]) * 0.5f;
+#endif   // (read at the next block's start only: the last sample's)
 }
 #ifdef HAVE_DRUMS
 // render this block's drums into out[drum_w_] (the job's, or the first core's when no job is out). Idle voices (below -80 dB) are skipped.
@@ -3420,10 +3429,9 @@ EXPORT void render(int n) {
     int k = n - i < BLOCK - blk_pos_ ? n - i : BLOCK - blk_pos_;
     const float* sl = blk_l_ + blk_pos_; const float* sr = blk_r_ + blk_pos_;
     float* dl = out_l_ + i; float* dr = out_r_ + i;
-    for (int j = 0; j < k; ++j) {
-      float x = sl[j], y = sr[j];
-      dl[j] = x; dr[j] = y;
-      float a = fabsf(x), b = fabsf(y); if (a > pkl) pkl = a; if (b > pkr) pkr = b;
+    memcpy(dl, sl, (size_t)k * sizeof(float)); memcpy(dr, sr, (size_t)k * sizeof(float));
+    for (int j = 0; j < k; j += 2) {   // (update 42: the peak meter looks at every second sample)
+      float a = fabsf(sl[j]), b = fabsf(sr[j]); if (a > pkl) pkl = a; if (b > pkr) pkr = b;
     }
     blk_pos_ += k; i += k;
   }

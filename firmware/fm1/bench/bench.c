@@ -139,7 +139,7 @@ typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, e
 #ifdef BENCH_MSALL
 #define NCASE_MAX 700
 #else
-#define NCASE_MAX 380
+#define NCASE_MAX 480
 #endif
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
@@ -184,7 +184,7 @@ static void bc_change(int k, int i, int fn, int slot, int param, float v)
 /* update 8: no32 = 1 runs Clouds at 48 kHz (RACK_CLOUDS_32K off), noskip = 1 keeps Clouds' internal reverb running at REVERB 0, cap: the grain
  * ceiling (0 the build's own, 40; 1 none: Mutable's own count, 32 stereo 16-bit, 45 stereo 8-bit, 57 mono 8-bit; n the ceiling n), revz = 1 REVERB 0.
  * They are set per case (rk_clouds_opts in bench_setup); the firmware itself never changes them. */
-typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz; } clc_t;
+typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz, q; } clc_t;   /* q (update 42): 0 and 1 the Clouds quality HIGH (2.40's, every older row), 2 NORMAL, 3 LITE */
 enum { CM_GRAN, CM_LOOP, CM_SPEC };                       /* the firmware's MODE list (STRETCH is out) */
 enum { CQ_16ST, CQ_16MO, CQ_8ST, CQ_8MO };                /* the page's QUALITY list */
 static const clc_t CLC[] = {
@@ -231,6 +231,13 @@ static const clc_t CLC[] = {
     /* 34 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 1, 0, 24, 0},  /* 48 kHz, ceiling 24 */
     /* 35 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.9f, 1, 0, 24, 0},
     /* 36 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 1, 0, 24, 0},
+    /* update 42 (RENDER): GRANULR, LOOPDLY and SPECTRL at DENSITY 0.7 and 1.0, 16 ST, the firmware's ceiling 24, each at HIGH (2.40's Clouds), NORMAL and LITE: rows 37 to 54 */
+    /* 37 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 1}, {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 2}, {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 3},
+    /* 40 */ {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 1}, {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 2}, {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 3},
+    /* 43 */ {1, CM_LOOP, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 1}, {1, CM_LOOP, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 2}, {1, CM_LOOP, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 3},
+    /* 46 */ {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 1}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 2}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 3},
+    /* 49 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 1}, {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 2}, {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 3},
+    /* 52 */ {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 1}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 2}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 3},
 };
 #define CL_REF 0
 #define CL_ON(c) ((c)->cl && CLC[(c)->cl - 1].on)       /* the case has Clouds in FX 1 (cl is its CLC row + 1: row 0 is Braids alone) */
@@ -397,6 +404,12 @@ static void bench_cases(void)
         bc_cl(G_CLOUDS, 4, 34, "G.7 48K CAP24", r4);
         bc_cl(G_CLOUDS, 4, 35, "G.9 48K CAP24", r4);
         g10c48 = bc_cl(G_CLOUDS, 4, 36, "G1.0 48K CAP24", r4);
+        {   /* update 42: Clouds' RENDER, HIGH / NORMAL / LITE (own = minus BRAIDS x4) */
+            static const char *const QN[18] = {"GRAN D0.7 HIGH", "GRAN D0.7 NORMAL", "GRAN D0.7 LITE", "GRAN D1.0 HIGH", "GRAN D1.0 NORMAL", "GRAN D1.0 LITE",
+                                               "LOOP D0.7 HIGH", "LOOP D0.7 NORMAL", "LOOP D0.7 LITE", "LOOP D1.0 HIGH", "LOOP D1.0 NORMAL", "LOOP D1.0 LITE",
+                                               "SPEC D0.7 HIGH", "SPEC D0.7 NORMAL", "SPEC D0.7 LITE", "SPEC D1.0 HIGH", "SPEC D1.0 NORMAL", "SPEC D1.0 LITE"};
+            for (i = 0; i < 18; i++) bc_cl(G_CLOUDS, 4, 37 + i, QN[i], r4);
+        }
         bc_cl(G_CLOUDS, 4, 27, "8MO D1.0", r4);
         bc_cl(G_CLOUDS, 4, 28, "8MO NOCAP", r4);
         bc_cl(G_CLOUDS, 4, 30, "CL REV0", r4);
@@ -580,22 +593,23 @@ static void bench_cases(void)
             bc_add(G_CORES2, i, PRESETS[i].voices > 6 ? 6 : PRESETS[i].voices, PRESETS[i].name);
 #ifndef BENCH_MSALL
     {   /* 2.38 (24 Nov 2026, Josh: about 10 % less CPU for lower quality, full voices, no shedding): every preset at SIX voices (the mono presets one note) on two cores, as the engine is (NAME x6) and with
-         * the 2.37 quality (NAME x6 OLDQ: the quality mask 0, the reverb summed / halfband / diffusion trims off). Only the pairs differ by the quality trims; the engine's exact
+         * update 42: also at four voices (NAME x4) and OLDQ now is 2.40's (the quality mask 7, Clouds HIGH): only the quality trims differ within a pair, the engine's exact savings are in both. Only the pairs differ by the quality trims; the engine's exact
          * savings (the SRC level once a block) are in both. A worst block over 90 % of the core is where the overload guard, when switched ON, would shed a voice; OFF (the
          * default) it plays on and may glitch. */
-        static char qn[2][NPRESETS][24];
-        int q;
+        static char qn[4][NPRESETS][24];
+        int q, nv;
         for (i = P_PLAYED; i < NPRESETS; i++)
-            for (q = 0; q < 2; q++) {   /* (the mono presets, PRESETS[].mode: one note, x1) */
-                {   /* (no snprintf on the device) */
-                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : " x6", *old = " OLDQ";
-                    char *d = qn[q][i];
+            for (nv = 0; nv < 2; nv++) {   /* update 42: at six voices and at four (a mono preset: one note, once) */
+                if (nv && PRESETS[i].mode) continue;
+                for (q = 0; q < 2; q++) {
+                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = " OLDQ";
+                    char *d = qn[nv * 2 + q][i];
                     while (*src) *d++ = *src++;
                     while (*suf) *d++ = *suf++;
                     if (q) for (; *old; ) *d++ = *old++;
                     *d = 0;
+                    bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
                 }
-                bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : 6, qn[q][i])].qold = (uint8_t)q;
             }
     }
 #endif
@@ -656,6 +670,7 @@ static void run_ops_to_fx2(const bop_t *o, int n)
 static void cl_setup(const clc_t *r)
 {
     int p;
+    rk_clouds_mask(r->q == 3 ? 191u : r->q == 2 ? 15u : 0u);   /* update 42: every older row runs Clouds as 2.40 did (HIGH) */
     rk_clouds_opts(!r->no32, !r->noskip, r->cap == 0 ? 40 : r->cap == 1 ? 0 : r->cap);   /* cap 0: 2.34's ceiling, 40 (at 16 ST it changes nothing: 32 grains), so the older rows stay comparable; the firmware itself is 24 from 2.35 */
     if (r->fx2) {
         const bpreset_t *fx = &PRESETS[r->fx2 == 1 ? P_CH_GLASS_PNO : P_LD_SQUARE_CHIP];
@@ -705,6 +720,7 @@ static void bench_setup(int k)
     if (c->grains)
         grain_setup(c->grains);
 #endif
+    rk_clouds_mask(c->qold ? 0u : ~0u);          /* update 42: a preset's Clouds follows its page's RENDER (NORMAL by default); the OLDQ twin runs 2.40's (HIGH) */
     if (c->cl)
         cl_setup(&CLC[c->cl - 1]);
     for (i = 0; i < 4; i++) {
@@ -720,7 +736,7 @@ static void bench_setup(int k)
     for (i = 0; i < c->notes; i++)
         rk_note_on(CHORD[i], 0.8f);
     rk_drum_run(c->kit != 0);
-    rk_quality(c->qold ? 0u : bench_q == 0xFFFFFFFFu ? rk_quality_default() : bench_q);
+    rk_quality(c->qold ? (rk_quality_default() & 7u) : bench_q == 0xFFFFFFFFu ? rk_quality_default() : bench_q);
     if (c->rvs) rk_rv_mono(1);                 /* (ENGINE cases: the summed reverb input or the 2.35 limiter; every other case runs the engine as it is) */
     rk_lim_fast(!c->limold);
     rk_modsum_precompute(c->ab != 2);          /* (MODSUM: OLD scans; every other case runs the engine as it is) */
