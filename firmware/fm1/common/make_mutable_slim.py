@@ -29,16 +29,29 @@ HEADERS = {
                          ("  Resonator resonator_[kMaxPolyphony];\n",
                           "  // (2.42: no modal resonators: the firmware plays MODAL, SYMPATH and SYM QNT as STRING, engine/rack.cc rings_fm1_model)\n")],
 }
-SOURCES = {   # (rings/dsp/part.cc is changed in make_units.py, which already carries its chord table change)
+RINGS_STRING = [("""  if (enable_dispersion_) {
+    ProcessInternal<true>(in, out, aux, size);
+  } else {
+    ProcessInternal<false>(in, out, aux, size);
+  }
+""", """  ProcessInternal<true>(in, out, aux, size);   // 2.42: STRING and STR+VERB, the models left, have dispersion; the undispersed one is not compiled
+""")]
+SOURCES = {
+    # (rings/dsp/part.cc is changed in make_units.py, which already carries its chord table change; its edits are RINGS_PART)
     "braids/analog_oscillator.cc": [("\nAnalogOscillator::RenderFn AnalogOscillator::fn_table_[] = {", "\nconst AnalogOscillator::RenderFn AnalogOscillator::fn_table_[] = {")],
     "braids/macro_oscillator.cc": [("\nMacroOscillator::RenderFn MacroOscillator::fn_table_[] = {", "\nconst MacroOscillator::RenderFn MacroOscillator::fn_table_[] = {")],
     "braids/resources.cc": [("\nconst int16_t* waveform_table[] = {", "\nconst int16_t* const waveform_table[] = {")],
     "clouds/dsp/mu_law.cc": [("\nint16_t lut_ulaw[256] = {", "\nconst int16_t lut_ulaw[256] = {")],
     "peaks/modulations/lfo.cc": [("\nLfo::ComputeSampleFn Lfo::compute_sample_fn_table_[] = {", "\nconst Lfo::ComputeSampleFn Lfo::compute_sample_fn_table_[] = {")],
+    "rings/dsp/string.cc": RINGS_STRING,
     "peaks/resources.cc": [("\nconst uint16_t* lookup_table_table[] = {", "\nconst uint16_t* const lookup_table_table[] = {")],
 }
 RINGS_PART = [("\nfloat Part::model_gains_[] = {", "\nconst float Part::model_gains_[] = {"),
               # MODAL is never selected (rings_fm1_model, list_norm): its resonators and their code are not in the firmware; if it ever were, it is silent
+              ("""  if (model_ == RESONATOR_MODEL_SYMPATHETIC_STRING ||
+      model_ == RESONATOR_MODEL_SYMPATHETIC_STRING_QUANTIZED) {
+    num_strings""", """  if (false) {   // 2.42: the sympathetic models (1 and 4) play as STRING (rings_fm1_model): one string, no chord table
+    num_strings"""),
               ("""    case RESONATOR_MODEL_MODAL:
       {
         int32_t resolution = 64 / polyphony_ - 4;
