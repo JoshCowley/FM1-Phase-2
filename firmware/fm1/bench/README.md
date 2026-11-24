@@ -175,3 +175,7 @@ check's expected value. Its timings are the computer's, not the FM-1's.
 - The FM-1's codec runs at 44.1 kHz and the engine at 48 kHz: the figures are for rendering 48,000 frames a second.
 - The engine keeps some state (delay lines, the clock) from one case to the next; each case starts from the same
   random seed, so runs are comparable, but a case's sound can differ slightly from the same case run alone.
+
+## Update 42 cases
+
+The bench firmware runs the A/B cases only: BRAIDS x4, 18 Clouds cases (GRAN / LOOP / SPEC, D0.7 / D1.0, HIGH / NORMAL / LITE) and, for every preset, `NAME x6` / `x6 OLDQ` / `x4` / `x4 OLDQ` (OLDQ is the 2.40 quality mask). The host tools (`bench_host`, `bench_ir`) build the whole set. The exact, non-quality savings cannot be switched off here.

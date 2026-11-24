@@ -6,6 +6,12 @@ The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hos
 FM-1.** Don't install it until `fm1/bench` has run on your FM-1 and its FPU check said OK: this firmware plays the
 engine in the audio interrupt, and the benchmark is what tells us that's affordable.
 
+## Update 42: Clouds about 35 % lighter, the synth a further 10 % lighter (Josh's request; host-measured, NOT heard by me, NOT run on an FM-1)
+
+**Clouds.** New RENDER page parameter CLOUDS QUALITY (NORMAL default / HIGH / LITE), saved in `upatch_t.pad2`; the mask is `CLQ_*` in `rack_cl_q.h` (NORMAL 15, LITE 191, HIGH 0 = the old Clouds). NORMAL is about 35 % cheaper at GRAN 16ST D0.7 with no change of sound that I could measure; LITE trades more sound for more saving.
+**Synth.** Quality bits added to `Q_DEFAULT` in `engine/rack.cc` (`QB_HB2`, `QB_RVAP2/3/4`, `QB_RVPRE`, `QB_DSQ`, `QB_ALL` = 511; the 2.40 sound is mask 7) plus exact savings (parameter layer shortcut, gate flags, delay read, voice mix, limiter, peak meter every second sample). Mean saving over the 45 presets, one-core and core 1 plus core 2, 4 and 6 voices, knobs still and moving: at least 10 % (6 voices, one core, moving: 10.2 %, a thin margin); core 1 about 15 %. A4 and levels: within 0.5 dB (largest 0.38 dB); TIDAL WASH refitted to 0.25. The bench's A/B cases cannot switch the exact (non-Q) savings. No features or presets removed.
+**Bench.** `bench/` holds `x6` / `x4` cases with `OLDQ` partners for every preset and Clouds HIGH / NORMAL / LITE cases; the bench firmware runs the A/B cases only (the whole set no longer fits its RAM), the host tools build all.
+
 ## Update 41, step 2: deeper kicks, hats with sizzle (24 Nov 2026, Josh's request; host-measured, demo made, NOT heard by me, NOT run on an FM-1)
 
 Josh: "Drum sounds need to be better: deeper kick with more body and lower frequencies, hi-hats with more sizzle."

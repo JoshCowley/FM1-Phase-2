@@ -308,6 +308,7 @@ Clouds plays at most **24 grains** at once (Mutable's own count is 32 at 16 ST, 
 | GRAIN 2 | **SIZE**, **DENSITY** | Grain length; how many grains (none at the middle, as with Clouds) |
 | | **RND PAN** | Each grain's random place in the stereo field (0 all centred); drawn for every grain. This is the old SPREAD under a clearer name |
 | | **FREEZE** | ON holds the buffer |
+| RENDER | **CLOUDS QUALITY** | NORMAL (default) is about 35 % lighter than HIGH with no change of sound I could measure; HIGH is the full Clouds; LITE is lighter again with some loss (a plainer reverb tail and coarser grain interpolation). Saved with the patch |
 
 WINDOW has to be above 0 for SPEED and JITTER to do anything: the playhead needs a window to travel in. The older SPRAY (a random offset in the whole buffer, per control block) and SCAN (a playhead round the whole buffer) are still there, on the last pages, and add to these. The picture shows the window as two dashed lines with the playhead moving between them. A preset saved before update 27 loads with WINDOW, SPEED and JITTER at 0.
 
