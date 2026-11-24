@@ -249,13 +249,15 @@ static int dr_col(int l)                      /* the column playing (the screen'
 {
     return dr.run && dr.lstep[l] != 255 ? dr_col_of(l, dr.lstep[l]) : -1;
 }
+static uint32_t dr_start_ticks;               /* update 41 step 6: the ticks into the bar the next start begins at (0: the bar line) */
 static void dr_start(uint32_t now)
 {
     int l;
     if (dr.run)
         return;
     dr.run = 1;
-    dr.ticks = 0;
+    dr.ticks = dr_start_ticks;                /* (a recording from a step selected: the drums start in step with it) */
+    dr_start_ticks = 0;
     dr.next_at = now;
     dr.frac = 0.0f;
     dr.nq = 0;

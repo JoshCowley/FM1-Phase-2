@@ -855,6 +855,9 @@ static int drum_expect(const char *what, int *got)
     else if (same(what, "drum_in")) *got = dr_in >> dp.lane & 1u;
     else if (same(what, "drum_busy")) *got = dr_busy;
     else if (same(what, "drum_style")) *got = dr_style;
+    else if (same(what, "drum_ticks")) *got = (int)dr.ticks;
+    else if (same(what, "drum_step16")) *got = (int)((dr.ticks / 6u) % 16u);   /* the drums' 16th in the bar */
+    else if (same(what, "drum_run")) *got = dr.run;
     else if (same(what, "drum_pdepth")) *got = dr_pdepth;
     else if (same(what, "drum_prel")) *got = dr_prel;
     else if (same(what, "drum_pshape")) *got = dr_pshape;

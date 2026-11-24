@@ -1,0 +1,612 @@
+# Update 41, step 6: recording notes and chords into the sequencer lands where it should (Josh: "it doesn't start at the step I select and places the chord halfway
+# through my pattern length"). Found in the simulator before the fix: STEP ENTRY (stopped, NOTES page) already wrote the whole chord at the cursor and moved one on;
+# LIVE RECORD (REC, then the first key or PLAY) always began at step 1, and the first key's step came from the last run's stale clock: it landed on an
+# arbitrary step (7 of 8, 5 or 8 of 16, 5, 8 or 12 of 32: about halfway) whatever the cursor. Now: REC READY starts at the cursor's step; each note or chord goes to the
+# nearest step; keys within 40 ms of the first are one step; the drums start in step; the NOTES page says where the next note goes.
+# Host-only helpers (app.c app_host_cmd / expect): seqclear (the bank empty, cursor 0), seqlen N, seqstop (stopped, REC READY off); expect seq_total, seq_first, seq_run, seq_cursor, seq_cntN.
+wait 500
+# count-in off for the timing below (it stays an option: GLOBAL > CLICK + COUNT IN; 1 bar by default)
+tap GLO
+wait 300
+turn SELECT 6
+wait 200
+turn K2 -1
+wait 200
+tap SEQ
+wait 300
+expect sub 0
+
+# ---- single notes: step entry (cursor 0-based c: the display says c + 1) and live record, patterns of 8, 16 and 32 steps
+# pattern of 8, cursor at step 2
+seqstop
+wait 300
+seqclear
+seqlen 8
+wait 50
+turn K1 1
+wait 100
+expect seq_cursor 1
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 1
+expect seq_cursor 2
+seqstop
+wait 300
+seqclear
+seqlen 8
+wait 50
+turn K1 1
+wait 100
+expect seq_cursor 1
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 1
+expect seq_run 1
+expect seq_cursor 1
+# pattern of 8, cursor at step 6
+seqstop
+wait 300
+seqclear
+seqlen 8
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 5
+expect seq_cursor 6
+seqstop
+wait 300
+seqclear
+seqlen 8
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 5
+expect seq_run 1
+expect seq_cursor 5
+# pattern of 16, cursor at step 2
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 1
+wait 100
+expect seq_cursor 1
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 1
+expect seq_cursor 2
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 1
+wait 100
+expect seq_cursor 1
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 1
+expect seq_run 1
+expect seq_cursor 1
+# pattern of 16, cursor at step 6
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 5
+expect seq_cursor 6
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 5
+expect seq_run 1
+expect seq_cursor 5
+# pattern of 16, cursor at step 14
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 13
+wait 100
+expect seq_cursor 13
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 13
+expect seq_cursor 14
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 13
+wait 100
+expect seq_cursor 13
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 13
+expect seq_run 1
+expect seq_cursor 13
+# pattern of 32, cursor at step 2
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 1
+wait 100
+expect seq_cursor 1
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 1
+expect seq_cursor 2
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 1
+wait 100
+expect seq_cursor 1
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 1
+expect seq_run 1
+expect seq_cursor 1
+# pattern of 32, cursor at step 6
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 5
+expect seq_cursor 6
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 5
+expect seq_run 1
+expect seq_cursor 5
+# pattern of 32, cursor at step 14
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 13
+wait 100
+expect seq_cursor 13
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 13
+expect seq_cursor 14
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 13
+wait 100
+expect seq_cursor 13
+tap REC
+wait 200
+key 12 down 100
+wait 300
+key 12 up
+wait 100
+expect seq_total 1
+expect seq_first 13
+expect seq_run 1
+expect seq_cursor 13
+# ---- four notes held together (a chord of four): one step, entry and live
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+key 10 down 100
+key 12 down 100
+key 15 down 100
+key 17 down 100
+wait 300
+key 10 up
+key 12 up
+key 15 up
+key 17 up
+wait 300
+expect seq_total 4
+expect seq_first 5
+expect seq_cursor 6
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+tap REC
+wait 200
+key 10 down 100
+wait 10
+key 12 down 100
+wait 10
+key 15 down 100
+wait 10
+key 17 down 100
+wait 300
+key 10 up
+key 12 up
+key 15 up
+key 17 up
+wait 100
+expect seq_total 4
+expect seq_first 5
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 13
+wait 100
+expect seq_cursor 13
+key 10 down 100
+key 12 down 100
+key 15 down 100
+key 17 down 100
+wait 300
+key 10 up
+key 12 up
+key 15 up
+key 17 up
+wait 300
+expect seq_total 4
+expect seq_first 13
+expect seq_cursor 14
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 13
+wait 100
+expect seq_cursor 13
+tap REC
+wait 200
+key 10 down 100
+wait 10
+key 12 down 100
+wait 10
+key 15 down 100
+wait 10
+key 17 down 100
+wait 300
+key 10 up
+key 12 up
+key 15 up
+key 17 up
+wait 100
+expect seq_total 4
+expect seq_first 13
+# ---- a chord played by hand across a half step: keys 8 ms apart, the first 50 ms after the start (without the 40 ms rule the last three split off into the next step): all in the step of the first
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+tap REC
+wait 100
+press PLAY
+release PLAY
+wait 38
+key 10 down 100
+wait 8
+key 12 down 100
+wait 8
+key 15 down 100
+wait 8
+key 17 down 100
+wait 300
+key 10 up
+key 12 up
+key 15 up
+key 17 up
+wait 100
+expect seq_total 4
+expect seq_first 5
+expect seq_cnt5 4
+expect seq_cnt6 0
+# ---- step entry wraps at the pattern's end: the cursor on the last step, a note there, the cursor on the first
+seqstop
+wait 300
+seqclear
+seqlen 8
+wait 50
+turn K1 7
+wait 100
+expect seq_cursor 7
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 7
+expect seq_cursor 0
+key 14 down 100
+wait 200
+key 14 up
+wait 300
+expect seq_total 2
+expect seq_cursor 1
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 15
+wait 100
+expect seq_cursor 15
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 15
+expect seq_cursor 0
+key 14 down 100
+wait 200
+key 14 up
+wait 300
+expect seq_total 2
+expect seq_cursor 1
+seqstop
+wait 300
+seqclear
+seqlen 32
+wait 50
+turn K1 31
+wait 100
+expect seq_cursor 31
+key 12 down 100
+wait 200
+key 12 up
+wait 300
+expect seq_total 1
+expect seq_first 31
+expect seq_cursor 0
+key 14 down 100
+wait 200
+key 14 up
+wait 300
+expect seq_total 2
+expect seq_cursor 1
+# ---- chords one after the other: each one step, the cursor a step on each time
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+expect seq_cursor 5
+key 10 down 100
+key 12 down 100
+key 15 down 100
+wait 200
+key 10 up
+key 12 up
+key 15 up
+wait 300
+key 10 down 100
+key 12 down 100
+key 15 down 100
+wait 200
+key 10 up
+key 12 up
+key 15 up
+wait 300
+key 10 down 100
+key 12 down 100
+key 15 down 100
+wait 200
+key 10 up
+key 12 up
+key 15 up
+wait 300
+expect seq_total 9
+expect seq_first 5
+expect seq_cursor 8
+expect seq_cnt5 3
+expect seq_cnt6 3
+expect seq_cnt7 3
+expect seq_cnt8 0
+expect seq_cnt4 0
+# ---- each note to the nearest step: REC READY at step 6 (cursor 5), PLAY, three keys at about 0.1, 1.3 and 3 steps in: steps 6, 7 and 9; the drums run in step with the sequencer from the step it began at
+seqstop
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 5
+wait 100
+shot seqrec_next.png
+tap REC
+wait 100
+shot seqrec_armed.png
+press PLAY
+release PLAY
+wait 20
+key 12 down 100
+wait 20
+key 12 up
+wait 120
+shot seqrec_rec.png
+key 14 down 100
+wait 20
+key 14 up
+wait 200
+key 16 down 100
+wait 20
+key 16 up
+wait 60
+expect seq_total 3
+expect seq_cnt5 1
+expect seq_cnt6 1
+expect seq_cnt8 1
+expect seq_run 1
+expect seq_step 8
+expect drum_run 1
+expect drum_step16 8
+# STOP: the cursor stays where it was (the next recording starts there again); the playhead is gone
+tap PLAY
+wait 300
+expect seq_run 0
+expect seq_step -1
+expect seq_cursor 5
+# PLAY without REC READY: from the first step, as before
+press PLAY
+release PLAY
+wait 60
+expect seq_step 0
+expect seq_cursor 5
+tap PLAY
+wait 300
+# a key during the count-in sounds and is not written (it would have gone to the cursor's step and moved the cursor on, and the recording then began a step late)
+# the count-in, when it is on (1 bar by default), then recording starts at the cursor too: the key after the count-in is at the cursor's step or the one after it
+tap GLO
+wait 300
+turn SELECT 6
+wait 200
+turn K2 1
+wait 200
+tap SEQ
+wait 300
+seqclear
+seqlen 16
+wait 50
+turn K1 9
+wait 100
+tap REC
+wait 100
+press PLAY
+release PLAY
+wait 500
+key 14 down 100
+wait 20
+key 14 up
+wait 100
+expect seq_run 0
+expect seq_total 0
+expect seq_cursor 9
+wait 1480
+expect seq_run 0
+wait 60
+expect seq_run 1
+key 12 down 100
+wait 20
+key 12 up
+wait 30
+expect seq_cursor 9
+expect seq_step 9
+expect seq_total 1
+expect seq_first 9
+tap PLAY
+wait 300
+

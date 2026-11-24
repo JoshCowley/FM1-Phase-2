@@ -135,6 +135,9 @@ static volatile struct {
 } sq = {0, 0, 0, 0, -1, 0, 0, 0, 0, -1, 0, 0.0f, 0, 0, {0}, 0};
 static uint32_t sq_next_at, sq_step_i, sq_ticks;
 static int sq_first;                          /* the first pass: no loop end before it */
+static volatile int sq_cursor;                /* the NOTES page's step (the main loop's); where a recording from stopped starts (update 41, step 6) */
+static int sq_rec_step0 = -1;
+static uint32_t sq_start_tk;                  /* the ticks into the bar the sequencer started at (the drums start there too: drumrun.c) */
 static uint32_t sq_flash[SQ_STEPS];           /* pl_now when each step last played (the screen) */
 static uint8_t sq_on[128];                    /* notes the sequencer holds on */
 typedef struct { uint32_t at; uint8_t note, on; float vel; } sq_ev_t;
@@ -357,6 +360,17 @@ static void sq_block(uint32_t n)
         ms_step = 0;
         if (sq.song_on)
             sq_song_row(sq_first_row());
+        {   /* update 41, step 6: REC READY starts at the step selected (the NOTES cursor), not at the first; the song starts at its row's first step */
+            int c0 = sq.armed && !sq.song_on ? sq_cursor : 0;
+            if (c0 < 0 || c0 >= (int)sqb[sq.bank].len)
+                c0 = 0;
+            sq_step_i = (uint32_t)c0;
+            sq_first = c0 == 0;
+            sq.cur = c0;                      /* (and the step playing, from now: a note played before the first block's step reads where it is) */
+            sq.cur_at = pl_now;
+            sq.dur = sq_step_frames();
+            sq_start_tk = (uint32_t)c0 * SQ_DIVTICK[sqb[sq.bank].div];
+        }
         if (sq.armed) {
             sq.armed = 0;
             sq.rec = 1;
@@ -367,6 +381,7 @@ static void sq_block(uint32_t n)
         sq.run = 0;
         sq.rec = 0;
         sq.cur = -1;
+        sq_rec_step0 = -1;
         sq_all_off();
         if (GI(G_MOUT) && GI(G_CLOCK) != 1)
             plat_midi_send(0x0Fu | 0xFCu << 8, TO_USB);
@@ -446,9 +461,9 @@ static void sq_clock_tick(void)
 }
 
 /* ------------------------------------------------------------------ notes coming in (the interrupt, pl_key_on) --- */
-static volatile int sq_cursor;                /* the NOTES page's step (the main loop's) */
 static volatile int sq_entry_on;              /* 1: the NOTES page is showing and stopped: keys write the cursor's step */
 static int sq_entry_step = -1, sq_entry_held;
+static uint32_t sq_rec_t0;                    /* update 41 step 6: the first note of a chord recorded by hand: its time and its step; keys within 40 ms go to the same step */
 static volatile int sq_entry_done;            /* the keys of an entry all up: the main loop moves the cursor on */
 static uint8_t sq_last[SQ_NOTES], sq_nlast = 1;   /* the last notes played (a step turned on in the layer gets them) */
 static struct { int raw, step; uint32_t at; } sq_rec[8];
@@ -498,10 +513,21 @@ static void sq_note_in(int raw, const uint8_t *notes, int n)
         sq.run = 0;
         sq_block(0);
         sq.rec = 1;
+        if (GI(G_CLOCK) != 1) {               /* (update 41, step 6) this note is the selected step's: the sequencer goes on from the next, a step later */
+            sq_step_i = (uint32_t)(sq.cur + 1);
+            sq_next_at = pl_now + (uint32_t)sq.dur;
+            sq_first = 0;
+        }
     }
     if (sq.rec && sq.run && n > 0) {
         float pos = (float)sq.cur + (float)(pl_now - sq.cur_at) / (sq.dur > 1.0f ? sq.dur : 1.0f);
         int step = (int)(pos + 0.5f) % b->len;
+        if (sq_rec_step0 >= 0 && (uint32_t)(pl_now - sq_rec_t0) < (uint32_t)(0.04f * PL_HZ))
+            step = sq_rec_step0;              /* a chord played by hand: the keys within 40 ms of the first are one step */
+        else {
+            sq_rec_t0 = pl_now;
+            sq_rec_step0 = step;
+        }
         sq_write(&b->s[step], notes, n, gate4);
         sq_dirty |= (uint8_t)(1u << sq.bank);
         for (i = 0; i < 8; i++)
@@ -513,7 +539,7 @@ static void sq_note_in(int raw, const uint8_t *notes, int n)
             }
         return;
     }
-    if (sq_entry_on && !sq.run && n > 0) {
+    if (sq_entry_on && !sq.run && n > 0 && !clk.cin) {   /* (update 41, step 6: not while a count-in runs: the keys sound and nothing is written) */
         int c = sq_cursor < b->len ? sq_cursor : 0;
         if (sq_entry_step != c) {             /* a new step: what it had goes */
             sq_entry_step = c;

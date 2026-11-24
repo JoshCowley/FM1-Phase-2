@@ -173,6 +173,21 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
         for (r = 2; r < AH - 2; r++)
             vf_span(x, r, (int32_t)sw, K_FG, 34u);
     }
+    if (!sq.run && sq_cursor >= start && sq_cursor < start + 16 && sq_cursor < L) {   /* (update 41, step 6) stopped: a marker over the cursor's column, and where the next note goes */
+        int32_t x = RX + (int32_t)((float)(sq_cursor - start) * sw) + (int32_t)(sw * 0.5f);
+        uint16_t mc = sq.armed ? K_WARN : K_FG;
+        char lb[40], nn[6];
+        int32_t lw, lx;
+        cv_rect(x - 3, 2, 7, 1, mc); cv_rect(x - 2, 3, 5, 1, mc); cv_rect(x - 1, 4, 3, 1, mc); cv_rect(x, 5, 1, 1, mc);
+        lb[0] = 0;
+        cat(lb, sq.armed ? "REC READY: STARTS AT STEP " : "NEXT NOTE: STEP ");
+        int_text(sq_cursor + 1, nn);
+        cat(lb, nn);
+        lw = text_w(&FONT_T, lb) + 4;
+        lx = RX + 3;
+        cv_rect(lx - 1, AH - 11, lw, 9, K_BG);
+        cv_text(lx + 1, AH - 11, &FONT_T, lb, mc);
+    }
     for (j = 0; j < 16; j++) {
         int si = start + j;
         const sq_step_t *s;
@@ -221,7 +236,7 @@ static void pic_roll(void)                    /* NOTES: a piano roll of 16 steps
     }
     if (pos >= (float)start && pos < (float)(start + 16)) {
         int32_t px = RX + (int32_t)((pos - (float)start) * sw);
-        cv_rect(px - 1, 2, 1, AH - 4, K_BG); cv_rect(px, 2, 2, AH - 4, SQ_PLAY); cv_rect(px + 2, 2, 1, AH - 4, K_BG);   /* (a black edge each side) */
+        cv_rect(px - 1, 2, 1, AH - 4, K_BG); cv_rect(px, 2, 2, AH - 4, sq.rec ? K_WARN : SQ_PLAY); cv_rect(px + 2, 2, 1, AH - 4, K_BG);   /* (a black edge each side) */
     }
     t[0] = 0;
     int_text(start + 1, t);
@@ -454,6 +469,8 @@ static void draw_seq_page(void)
     cat(t, state);
     if (mn.sub == SQP_NOTES || mn.sub == SQP_SPICE) {
         cat(t, " ");
+        if (mn.sub == SQP_NOTES)              /* (update 41, step 6) the cursor, said as what it is: where the recording starts, where the next note goes, or (playing) the step picked for editing */
+            cat(t, sq.run ? "CUR " : sq.armed ? "AT " : "NEXT ");
         int_text(sq_cursor + 1, u);
         cat(t, u);
         if (mn.sub == SQP_NOTES && sp.note_ix >= 0 && sp.note_ix < s->cnt) {

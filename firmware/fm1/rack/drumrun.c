@@ -55,8 +55,10 @@ static void dr_audio(uint32_t n)
     }
     {
         int want = sq.run || (dr_style && st.on && st_style());   /* PLAY, or (STYLE starts the drums, on by default) a STYLE pattern playing */
-        if (want && !dr.run)
+        if (want && !dr.run) {
+            dr_start_ticks = sq.run ? sq_start_tk : 0;
             dr_start(pl_now);
+        }
         else if (!want && dr.run)
             dr_stop();
     }

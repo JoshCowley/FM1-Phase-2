@@ -1232,6 +1232,20 @@ int app_expect(const char *what, int *got)
         *got = sq_cursor;
         return 1;
     }
+    if (same(what, "seq_total")) {            /* the notes in the bank playing, all its steps */
+        int i;
+        *got = 0;
+        for (i = 0; i < SQ_STEPS; i++) *got += sqb[sq.bank].s[i].cnt;
+        return 1;
+    }
+    if (same(what, "seq_first")) {            /* the first step (from 0) holding notes, -1 none */
+        int i;
+        *got = -1;
+        for (i = 0; i < SQ_STEPS && *got < 0; i++) if (sqb[sq.bank].s[i].cnt) *got = i;
+        return 1;
+    }
+    if (same(what, "seq_run")) { *got = sq.run; return 1; }
+    if (same(what, "seq_step")) { *got = sq.cur; return 1; }   /* the step playing (the playhead), -1 stopped */
     if (what[0] == 's' && what[1] == 'e' && what[2] == 'q' && what[3] == '_' && what[4] == 'c' && what[5] == 'n' && what[6] == 't' && what[7] >= '0' && what[7] <= '9') {
         int n = 0, i = 7;                     /* seq_cntN: how many notes step N (from 0) of the bank playing holds */
         while (what[i] >= '0' && what[i] <= '9')
@@ -1251,6 +1265,24 @@ int app_host_cmd(const char *cmd, const char *a, const char *b, const char *c, c
         v = v * 10 + *a++ - '0';
     if (same(cmd, "ghost")) {
         rk_note_on((float)v, 0.8f);
+        return 1;
+    }
+    if (same(cmd, "seqclear")) {              /* update 41 step 6: the bank playing emptied, the cursor on the first step (the sims' fresh start) */
+        sq_bank_t *bk = &sqb[sq.bank];
+        int i;
+        for (i = 0; i < SQ_STEPS; i++) bk->s[i].cnt = 0;
+        sq_cursor = 0;
+        return 1;
+    }
+    if (same(cmd, "seqstop")) {               /* stopped, REC READY off, the bank's start (the sims' fresh start) */
+        if (sq.run) sq.req = 2;
+        sq.armed = 0;
+        sq.rec = 0;
+        return 1;
+    }
+    if (same(cmd, "seqlen")) {                /* the pattern's length in steps */
+        sqb[sq.bank].len = (uint8_t)(v < 1 ? 1 : v > SQ_STEPS ? SQ_STEPS : v);
+        if (sq_cursor >= sqb[sq.bank].len) sq_cursor = 0;
         return 1;
     }
     if (same(cmd, "dropoffs")) {
