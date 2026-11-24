@@ -427,7 +427,7 @@ int main(int argc, char **argv)
                 for (m = 0; m < NMETA_OF; m++)
                     if (META_OF[m].key == (sl[j] >= 6 ? 100 + sl[j] : rc_patch.mod[sl[j]]))
                         for (i = 0; i < META_OF[m].n; i++)
-                            if (META[META_OF[m].at + i].param == pa[j]) { span = META[META_OF[m].at + i].span; lo = META[META_OF[m].at + i].lo; hi = META[META_OF[m].at + i].hi; }
+                            if (META[META_OF[m].at + i].param == pa[j]) { lo = (float)META[META_OF[m].at + i].lo; hi = (float)META[META_OF[m].at + i].hi; span = hi - lo; }
                 want = (float)dp[j] * 0.01f * rk_macro_curve(tgt_k, st[j], en[j], cu[j]) * span;
                 if (e0[j] > lo + 1e-4f && e0[j] + want < hi - 1e-4f && e0[j] + want > lo + 1e-4f) {
                     float err = fabsf((e1[j] - e0[j]) - want);

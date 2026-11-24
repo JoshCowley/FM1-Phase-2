@@ -272,13 +272,15 @@ def main():
     out += ["};", ""]
     out += [
 
-            "/* META: each module's parameter ranges (key: module id; 100 + slot for slots 6-8), as param, lo, hi, span */"]
+            "/* META: each module's parameter ranges (key: module id; 100 + slot for slots 6-8), as param, lo, hi (whole numbers; the span is hi - lo) */"]
     keys = sorted(meta)
     rows, idx = [], []
     for k in keys:
         idx.append((k, len(rows), len(meta[k])))
         for par, (lo, hi, sp) in sorted(meta[k].items()):
-            rows.append(f"    {{{par}, {float(lo)!r}f, {float(hi)!r}f, {float(sp)!r}f}},")
+            # (2.42: META holds param, lo, hi as bytes: every range in the bank is a whole number from -128 to 127 and its span is hi - lo, so the span is not stored)
+            assert float(lo) == int(lo) and float(hi) == int(hi) and -128 <= lo <= 127 and -128 <= hi <= 127 and float(sp) == float(hi) - float(lo), (k, par, lo, hi, sp)
+            rows.append(f"    {{{par}, {int(lo)}, {int(hi)}}},")
     out += [f"static const rk_meta_t META[{len(rows)}] = {{", *rows, "};",
             "static const struct { uint8_t key; uint16_t at, n; } META_OF[] = {",
             *[f"    {{{k}, {a}, {n}}}," for k, a, n in idx], "};", f"#define NMETA_OF {len(idx)}", ""]

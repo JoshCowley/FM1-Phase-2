@@ -68,7 +68,7 @@ void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void rk_core_stats_reset(void);
 
 typedef struct { const char *name, *cat; uint16_t at, len; uint8_t voices, mode; } rk_preset_t;
-typedef struct { uint8_t param; float lo, hi, span; } rk_meta_t;
+typedef struct { uint8_t param; int8_t lo, hi; } rk_meta_t;   /* (2.42: bytes; every range is a whole number and its span is hi - lo) */
 #include "presets.h"
 
 enum { RS_SRC, RS_SHP, RS_MODA, RS_MODB, RS_FX1, RS_FX2, RS_AMP, RS_GLO, RS_LFO, RS_N };
@@ -130,7 +130,7 @@ static void rc_meta(int slot, int key)
         if (META_OF[i].key == key)
             for (j = 0; j < META_OF[i].n; j++) {
                 const rk_meta_t *m = &META[META_OF[i].at + j];
-                rk_set_meta(slot, m->param, m->lo, m->hi, m->span);
+                rk_set_meta(slot, m->param, (float)m->lo, (float)m->hi, (float)(m->hi - m->lo));
             }
 }
 
