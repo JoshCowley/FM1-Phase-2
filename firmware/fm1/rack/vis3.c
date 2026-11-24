@@ -817,13 +817,27 @@ static void home_chips(void)
     char t[24];
     int32_t x = 222;
     vf_keep = 1;
+    int warn;
     {                                         /* update 37: a warning when the keys or the arp aren't on the FM-1 */
         int kc = !lay_local(L_CHORD), ka = AI(A_MODE) != AM_OFF && !lay_local(L_ARP);
+        warn = kc || ka;
         if (kc || ka) {
             const char *s = kc && ka ? "KEYS+ARP: FM-1 OFF" : kc ? "KEYS: FM-1 OFF" : "ARP: FM-1 OFF";
             rrect(4, 2, text_w(&FONT_T, s) + 6, 11, K_WARN, 3);
             cv_text(7, 2, &FONT_T, s, K_BG);
         }
+    }
+    if ((sq.run || dr.run) && !warn) {   /* update 40: the beat is playing: the tempo, and the drums */
+        int bpm = (int)(tempo_bpm() + 0.5f), w;
+        t[0] = 0;
+        int_text(bpm, t);
+        cat(t, dr.run ? " BPM + DRUMS" : " BPM");
+        w = text_w(&FONT_T, t) + 12;
+        rrect(4, 2, w, 11, K_SEQC, 3);
+        cv_rect(7, 4, 1, 7, K_BG);                /* a play triangle */
+        cv_rect(8, 5, 1, 5, K_BG);
+        cv_rect(9, 6, 1, 3, K_BG);
+        cv_text(13, 2, &FONT_T, t, K_BG);
     }
     if (GI(G_TUNE)) {
         const char *s = UI_OPT[UP_GLO[G_TUNE].opt + GI(G_TUNE) % NTUNE];
