@@ -49,18 +49,20 @@ static const uint8_t DR_MCPU[DR_NMODEL] = {61, 78, 80, 60, 65, 49, 32, 40, 36}; 
 static const char *const DR_P1[DR_NMODEL] = {"BODY", "TONE", "FILTER", "BALANCE", "BALANCE", "FILTER", "RATE", "DENSITY", "Q"};   /* what the two knobs do, by model (read from Braids' renderers) */
 static const char *const DR_P2[DR_NMODEL] = {"CLICK", "SNAPPY", "METAL", "BRIGHT", "SPREAD", "COLOUR", "COLOUR", "SPREAD", "SPLIT"};
 static const dr_snd_t DR_KITS[DR_NKIT][DR_LANES] = {
-    {   /* 909 ISH: the kick model, the snare, the cheap hat (clocked noise), filtered-noise clap, a high kick for a low tom */
-        {0, 36, 50, 50, 45, 100, 5, 0}, {1, 50, 50, 60, 25, 90, 25, 0}, {6, 70, 50, 50, 6, 55, 10, 15},
-        {6, 70, 50, 50, 35, 55, 10, 15}, {5, 62, 50, 50, 20, 80, 35, -10}, {0, 55, 40, 50, 25, 75, 15, -20}},
+    /* update 41 step 2: the KICK model has a sine body under it (a pitch falling to its note, engine/rack.cc), the hat voice has sizzle (high-passed noise, a ring and
+     * metallic partials; its second knob sets how much); kicks sit at 31-36 (49-65 Hz), closed hats stay short, open hats are longer */
+    {   /* 909 ISH: the kick model with a deep body, the snare, bright hats (clocked noise), filtered-noise clap, a high kick for a low tom */
+        {0, 32, 60, 55, 60, 105, 5, 0}, {1, 50, 50, 60, 25, 90, 25, 0}, {6, 74, 50, 85, 5, 55, 10, 15},
+        {6, 74, 50, 85, 55, 55, 10, 15}, {5, 62, 50, 50, 20, 80, 35, -10}, {0, 55, 40, 50, 25, 75, 15, -20}},
     {   /* 808 ISH: a long low kick, a soft snare, short hats, a loose clap, a struck-drum tom */
-        {0, 33, 70, 30, 90, 105, 5, 0}, {1, 47, 40, 40, 30, 85, 30, 0}, {6, 74, 60, 40, 5, 50, 10, 20},
-        {6, 74, 60, 40, 30, 50, 10, 20}, {5, 58, 40, 55, 28, 85, 40, -10}, {3, 50, 40, 30, 40, 80, 20, -25}},
-    {   /* LO-FI: short kick, noise snare and hats (clocked, twin peaks), bell, a lot of FX */
-        {0, 40, 35, 70, 25, 95, 30, 0}, {5, 60, 60, 40, 18, 85, 40, 0}, {6, 79, 80, 40, 5, 50, 30, 20},
-        {8, 72, 50, 50, 22, 50, 30, 20}, {5, 56, 65, 70, 15, 75, 45, -15}, {4, 72, 40, 50, 60, 65, 45, -25}},
+        {0, 30, 70, 30, 120, 110, 5, 0}, {1, 47, 40, 40, 30, 85, 30, 0}, {6, 76, 60, 75, 5, 50, 10, 20},
+        {6, 76, 60, 75, 48, 50, 10, 20}, {5, 58, 40, 55, 28, 85, 40, -10}, {3, 50, 40, 30, 40, 80, 20, -25}},
+    {   /* LO-FI: short kick, noise snare and hats (clocked, twin peaks), bell, a lot of FX; its hats keep little sizzle */
+        {0, 36, 45, 70, 30, 100, 30, 0}, {5, 60, 60, 40, 18, 85, 40, 0}, {6, 79, 80, 40, 5, 50, 30, 20},
+        {8, 72, 50, 40, 26, 50, 30, 20}, {5, 56, 65, 70, 15, 75, 45, -15}, {4, 72, 40, 50, 60, 65, 45, -25}},
     {   /* SPARSE: a deep kick, a dry struck-drum rim, a quiet hat, a cymbal for the open hat, a ringing bell */
-        {0, 34, 60, 40, 70, 100, 15, 0}, {3, 55, 55, 55, 12, 80, 15, 0}, {6, 70, 50, 50, 4, 40, 15, 20},
-        {2, 70, 50, 50, 50, 40, 25, 20}, {5, 62, 50, 50, 15, 65, 30, -10}, {4, 79, 30, 40, 80, 60, 40, -20}},
+        {0, 31, 65, 40, 85, 105, 15, 0}, {3, 55, 55, 55, 12, 80, 15, 0}, {6, 70, 50, 60, 4, 40, 15, 20},
+        {2, 70, 50, 70, 65, 40, 25, 20}, {5, 62, 50, 50, 15, 65, 30, -10}, {4, 79, 30, 40, 80, 60, 40, -20}},
 };
 static dr_snd_t dr_kit[DR_LANES];               /* the live kit */
 static uint8_t dr_kit_ix;                       /* the factory kit loaded last */

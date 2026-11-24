@@ -329,7 +329,7 @@ wait 100
 expect sub 9
 turn K2 -50
 wait 100
-expect drum_level 50
+expect drum_level 55
 press SEL
 wait 100
 turn SELECT 1
@@ -389,7 +389,7 @@ expect sub 6
 expect drum_pat 1
 expect drum_on 19
 expect drum_dirty 0
-expect drum_level 100
+expect drum_level 105
 tap SEQ
 press SEL
 wait 100

@@ -507,8 +507,8 @@ static void dseq_checks(int *fails)
         int ok = 1, r;
         dq_reset();
         dr_mid[2].note = 60; dr_mid[2].ch = 3;
-        r = dr_midi_in(9, 36, 100, 1);                       /* the kick: channel 10 (9), note 36 */
-        ok = ok && r == 1 && dq_n == 1 && dq_hit[0].voice == 0 && fabsf(dq_hit[0].level - 1.0f) < 1e-5f;
+        r = dr_midi_in(9, 36, 100, 1);                       /* the kick (level 1.05 since update 41): channel 10 (9), note 36 */
+        ok = ok && r == 1 && dq_n == 1 && dq_hit[0].voice == 0 && fabsf(dq_hit[0].level - 1.05f) < 1e-5f;
         r = dr_midi_in(9, 38, 50, 1);                        /* the snare at velocity 50: half as loud (x its level 0.9) */
         ok = ok && r == 1 && dq_n == 2 && dq_hit[1].voice == 1 && fabsf(dq_hit[1].level - 0.5f * 0.9f) < 1e-5f;
         r = dr_midi_in(9, 36, 0, 0);                         /* its note off: taken (the synth must not play it), no sound */

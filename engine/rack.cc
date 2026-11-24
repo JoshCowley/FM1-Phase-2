@@ -336,7 +336,14 @@ struct DrumVoice {
   int16_t pitch, p1, p2;
   uint8_t shape, active, model, fading;   // fading: cut (a choke, or stolen): dying away in 8 ms, not counted as sounding
   float last, off;              // the last sample sent (pre-gain), and a step still being smoothed away: a hit on a sounding voice starts from where it was
+  // update 41 step 2: the KICK's sine body (a pitch that falls to its note) and click; the hat voice's sizzle (noise and metallic partials). Both ride the hit's envelope.
+  float bph, bf, bfx, bfd, bg;  // body: phase, final frequency (cycles a frame), the excess above it, its fall a frame, level
+  float cph, cenv, cg;          // click: phase, envelope, level
+  float sg, hp, r1, r2, olp, sph[4]; // sizzle: level, the noise's high-pass state, the ring's two states, the partials' phases
+  uint32_t rng;
 };
+// a sine, sin(2 pi p) for p in [0, 1): the parabola with its correction (error under 0.1 %), no libm
+static inline float drum_sin(float p) { float x = p < 0.5f ? p : p - 1.0f; float y = 16.0f * x * (0.5f - (x < 0.0f ? -x : x)); return 0.225f * (y * (y < 0.0f ? -y : y) - y) + y; }
 struct DrumBus {
   DrumVoice v[DR_N];
   float out[2][4][BLOCK];       // [buffer][dry left, dry right, wet left, wet right]
@@ -2532,13 +2539,33 @@ static void drums_render() {
       v.osc.Render(sync + h, buf + h, BLOCK - h < 24 ? BLOCK - h : 24);
     }
     float e = v.env, off = v.off, x = v.last;
+    float bph = v.bph, bfx = v.bfx, cph = v.cph, cenv = v.cenv, hp = v.hp, r1 = v.r1, r2 = v.r2, olp = v.olp;
+    uint32_t rng = v.rng;
     for (int n = 0; n < BLOCK; ++n) {
-      x = buf[n] * (1.0f / 32768.0f) * e + off;   // (off: the step a hit on a sounding voice left, falling away in about 1.5 ms: no click)
+      float ex = 0.0f, os = buf[n] * (1.0f / 32768.0f);
+      if (v.bg > 0.0f) {      // KICK: the sine body (pitch falling to its note) and the click
+        bph += v.bf + bfx; bfx *= v.bfd; if (bph >= 1.0f) bph -= 1.0f;
+        ex = drum_sin(bph) * v.bg;
+        if (cenv > 1.0e-3f) { cph += 0.0458f; if (cph >= 1.0f) cph -= 1.0f; ex += drum_sin(cph) * cenv * v.cg; cenv *= 0.9794f; }
+        ex *= e;
+      } else if (v.sg > 0.0f) {   // HATS: noise high-passed at about 6 kHz, a short ring at 9.4 kHz, four metallic partials (5.3 7.1 8.6 10.9 kHz)
+        rng = rng * 1664525u + 1013904223u;
+        float nz = (float)(int32_t)rng * (1.0f / 2147483648.0f);
+        hp += 0.45f * (nz - hp);
+        float h = nz - hp;
+        float ring = 1.5f * nz + 0.64f * r1 - 0.9216f * r2;   // a 2-pole resonator (r 0.96, 9.4 kHz)
+        r2 = r1; r1 = ring;
+        float m = 0.0f;
+        for (int k = 0; k < 4; ++k) { v.sph[k] += (k == 0 ? 0.1104f : k == 1 ? 0.1479f : k == 2 ? 0.1792f : 0.2271f); if (v.sph[k] >= 1.0f) v.sph[k] -= 1.0f; m += drum_sin(v.sph[k]); }
+        olp += 0.3f * (os - olp); os -= 0.85f * olp;   // the oscillator's own low half is taken out: the hat is its top
+        ex = (0.55f * h + 0.02f * ring + 0.10f * m) * v.sg * e;
+      }
+      x = os * e + off + ex;   // (off: the step a hit on a sounding voice left, falling away in about 1.5 ms: no click)
       e *= v.dec; off *= 0.985f;
       o[0][n] += x * v.gl; o[1][n] += x * v.gr; o[2][n] += x * v.wl; o[3][n] += x * v.wr;
     }
     if (off > -1.0e-6f && off < 1.0e-6f) off = 0.0f;
-    v.env = e; v.off = off; v.last = x;
+    v.env = e; v.off = off; v.last = x; v.bph = bph; v.bfx = bfx; v.cph = cph; v.cenv = cenv; v.hp = hp; v.r1 = r1; v.r2 = r2; v.olp = olp; v.rng = rng;
     if (e < DRUM_END && off == 0.0f) v.active = 0;
   }
   // the drum bus' ceiling: transparent to 0.6 of full scale, then a soft knee that never reaches 1 (the master's own limiter comes after the effects)
@@ -3289,6 +3316,16 @@ EXPORT void drum_hit(int voice, int model, float note, float p1, float p2, float
   v.pitch = (int16_t)clampf((note + 12.0f) * 128.0f, 0.0f, 16383.0f);   // as the synth's Braids voice: tuned for 96 kHz, asked an octave up
   v.p1 = (int16_t)(clampf(p1, 0.0f, 1.0f) * 32767.0f); v.p2 = (int16_t)(clampf(p2, 0.0f, 1.0f) * 32767.0f);
   decay = clampf(decay, 0.02f, 4.0f);
+  v.bg = v.cg = v.sg = 0.0f;
+  if (model == DM_KICK) {   // the body: sine from 3x its note down to the note in 18 + 40 x DECAY ms (20-75), a 2.2 kHz click of 1 ms
+    const float fe = 440.0f * exp2f((clampf(note, 12.0f, 96.0f) - 69.0f) * (1.0f / 12.0f)) * (1.0f / SR);
+    const float tau = clampf(0.018f + 0.040f * decay, 0.020f, 0.075f);
+    v.bph = v.cph = 0.0f; v.bf = fe; v.bfx = 2.0f * fe; v.bfd = expf(-1.0f / (tau * SR));
+    v.bg = 0.25f + 0.6f * clampf(p1, 0.0f, 1.0f); v.cenv = 1.0f; v.cg = 0.10f + 0.20f * clampf(p2, 0.0f, 1.0f);
+  } else if (voice == 2) {  // the hat voice: its second knob is also the sizzle
+    v.sg = 0.15f + 0.85f * clampf(p2, 0.0f, 1.0f); v.hp = v.r1 = v.r2 = v.olp = 0.0f; v.rng = 0x2545F491u;
+    for (int k = 0; k < 4; ++k) v.sph[k] = 0.25f * (float)k;
+  }
   v.dec = expf(-6.9077553f / (decay * SR));
   v.env = 1.0f;
   level = clampf(level, 0.0f, 2.0f); send = clampf(send, 0.0f, 1.0f); pan = clampf(pan, -1.0f, 1.0f);

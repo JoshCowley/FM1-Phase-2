@@ -28,6 +28,7 @@
 #include "drum_check.c"
 #include "drumseq.c"
 #include "drumseq_check.c"
+#include "drum_sound.c"
 #include "drum_timing_check.c"
 #include "jam.c"
 
@@ -224,6 +225,8 @@ int main(int argc, char **argv)
         fwrite(o, sizeof(float), 2 * DC_BLK * DC_BLOCKS, stdout);
         return 0;
     }
+    if (argc >= 3 && !strcmp(argv[1], "--dsound"))   /* update 41 step 2: the kits measured (drum_sound.c) */
+        return ds_main(argc, argv);
     if (argc == 2 && !strcmp(argv[1], "--drums")) {   /* section 12 alone */
         drum_checks(argv[0], &fails);
         printf(fails ? "%d FAILED\n" : "all passed\n", fails);

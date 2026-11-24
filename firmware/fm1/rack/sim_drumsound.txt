@@ -25,14 +25,14 @@ expect sub 8
 expect drum_lane 0
 expect drum_model 0
 expect drum_kit 0
-expect drum_pitch 36
+expect drum_pitch 32
 turn K2 5
 turn K3 -5
 turn K4 2
 wait 200
-expect drum_p1 55
-expect drum_p2 45
-expect drum_pitch 38
+expect drum_p1 65
+expect drum_p2 50
+expect drum_pitch 34
 expect drum_snd 1
 shot drum_sound.png
 # K1 steps the model and the list shows; it goes when the knob rests
@@ -75,7 +75,7 @@ turn ALGO 1
 release SEL
 wait 200
 expect drum_kit 1
-expect drum_pitch 74
+expect drum_pitch 76
 expect drum_pop 2
 shot drum_kitlist.png
 press SEL
@@ -109,13 +109,13 @@ wait 100
 wait 300
 expect sub 9
 expect drum_lane 3
-expect drum_decay 35
+expect drum_decay 55
 turn K1 5
 turn K2 -10
 turn K3 -7
 turn K4 15
 wait 200
-expect drum_decay 45
+expect drum_decay 65
 expect drum_level 45
 expect drum_pan 1
 expect drum_send 25

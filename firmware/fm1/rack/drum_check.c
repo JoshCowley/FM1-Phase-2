@@ -230,7 +230,7 @@ static void drum_checks(const char *self, int *fails)
             rk_all_off();
         }
         hc2_stop();
-        /* 12i  at most 3 voices sound at once: four hit together, 100 ms on (the fourth's victim has faded in 8 ms) 3 sound; a hit on a sounding voice leaves no step:
+        /* 12i  at most 3 voices sound at once: four hit together, 100 ms on (the fourth's victim has faded in 8 ms) 3 sound; a hit on a sounding voice leaves no step (update 41: the first sound is a struck drum, a kick's 60 Hz body moves 0.4 in the two blocks it is compared over):
          * the first frame it arrives at is within 0.08 of the frame before (a kick at full level struck over the tail of another) */
         {
             int v, n3;
@@ -240,7 +240,7 @@ static void drum_checks(const char *self, int *fails)
             for (i = 0; i < 100; i++) rk_render(DC_BLK);
             n3 = rk_drum_status(0);
             if (n3 > 3) { bad12++; printf("12i four hits at once: %d voices sounding after 100 ms   FAIL\n", n3); }
-            rk_drum_off(); rk_drum_hit(0, 0, 40.0f, 0.5f, 0.5f, 1.5f, 0.9f, 0.0f, 0.0f);
+            rk_drum_off(); rk_drum_hit(0, 3, 40.0f, 0.5f, 0.5f, 1.5f, 0.9f, 0.0f, 0.0f);
             for (i = 0; i < 40; i++) rk_render(DC_BLK);
             rk_render(DC_BLK); pre = rk_out_l()[DC_BLK - 1]; sx = pre;
             rk_drum_hit(0, 1, 50.0f, 0.5f, 0.5f, 1.5f, 0.9f, 0.0f, 0.0f);
