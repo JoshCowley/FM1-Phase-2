@@ -146,23 +146,20 @@ struct MetaEx { uint8_t slot, param; float span; };
 static const int NMETAEX = 8;   // the engine's own: 6 (OSC's 5 and the filter's SWEEP)
 static MetaEx metaex_[NMETAEX];
 static int nmetaex_;
-static float meta_calc(int slot, int param) {
-  if (param < NP) {
-    if (meta_ex_[slot] >> param & 1u)
-      for (int i = 0; i < nmetaex_; ++i)
-        if (metaex_[i].slot == slot && metaex_[i].param == param) return metaex_[i].span;
-    if (meta_set_[slot] >> param & 1u) return hi_[slot][param] - lo_[slot][param];
-  }
-  return 1.0f;
+static float meta_ex_span(int slot, int param) __attribute__((noinline));
+static float meta_ex_span(int slot, int param) {   // an engine-own span, or 1e30 when the list has none for it
+  for (int i = 0; i < nmetaex_; ++i)
+    if (metaex_[i].slot == slot && metaex_[i].param == param) return metaex_[i].span;
+  return 1e30f;
 }
-static float msp_[NSLOT][NP];   // update 42: meta_calc's answers, kept (P asks for them hundreds of times a block; they change only in meta_put and meta_clear)
-static inline float meta_span(int slot, int param) { return param < NP ? 1.0f + msp_[slot][param] : 1.0f; }   // (stored less 1: all zero is all 1)
-static void meta_put0(int slot, int param, float lo, float hi, float span);
+// update 42: as before (the engine's own span, else the range's width when one is set, else 1), the common cases without a call: P asks hundreds of times a block
+static float meta_span(int slot, int param) __attribute__((noinline));
+static float meta_span(int slot, int param) {
+  if (param >= NP || !(meta_set_[slot] >> param & 1u)) return 1.0f;
+  if (meta_ex_[slot] >> param & 1u) { float e = meta_ex_span(slot, param); if (e != 1e30f) return e; }
+  return hi_[slot][param] - lo_[slot][param];
+}
 static void meta_put(int slot, int param, float lo, float hi, float span) {
-  meta_put0(slot, param, lo, hi, span);
-  if (slot >= 0 && slot < NSLOT && param >= 0 && param < NP) msp_[slot][param] = meta_calc(slot, param) - 1.0f;
-}
-static void meta_put0(int slot, int param, float lo, float hi, float span) {
   if (slot < 0 || slot >= NSLOT || param < 0 || param >= NP) return;
   uint32_t bit = 1u << param;
   lo_[slot][param] = lo; hi_[slot][param] = hi;
@@ -179,7 +176,7 @@ static void meta_put0(int slot, int param, float lo, float hi, float span) {
 }
 static void meta_clear() {
   memset(meta_set_, 0, sizeof(meta_set_)); memset(meta_ex_, 0, sizeof(meta_ex_)); nmetaex_ = 0;
-  for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; msp_[s][p] = 0.0f; }
+  for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; }
 }
 static int mod_id_[NSLOT];
 static float macros_[4];
