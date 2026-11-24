@@ -10,6 +10,10 @@
 static struct { int8_t lane, step; uint8_t pop, ga, gh, gt, gv, pc; uint32_t pop_at; } dp = {0, 0, 0, 0, 7, 0, 0, 0, 0};   /* pc: the pattern chip the KIT page points at */   /* GEN: the algorithm, HITS, TURN, VARY */
 enum { DPOP_NONE, DPOP_MODEL, DPOP_KIT, DPOP_DIV, DPOP_CHOKE, DPOP_GEN, DPOP_OUT, DPOP_BUSY };     /* the list showing over the picture while its knob turns */
 static void dp_pop(int kind) { dp.pop = (uint8_t)kind; dp.pop_at = plat_ms(); ui.redraw = 1; }
+/* the drum pages' empty steps in the DRUMS colour, dim (a step on is brighter, the beat steps a little more than the others) */
+#define DR_OFFB mix565(K_C_DRUMS, K_BG, 100)
+#define DR_OFF mix565(K_C_DRUMS, K_BG, 74)
+#define DR_PAST mix565(K_C_DRUMS, K_BG, 20)
 static void drum_tick(void)                   /* the main loop's: a list goes when its knob has rested */
 {
     if (dp.pop && plat_ms() - dp.pop_at > 1500u) {
@@ -175,9 +179,9 @@ static void pic_drum(void)
             uint16_t s = dr_pat[l][i];
             int32_t x = 50 + i * 11;
             int on = (s & DRS_ON) != 0;
-            uint16_t col = on ? mix565(K_C_DRUMS, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
+            uint16_t col = on ? mix565(K_C_DRUMS, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? DR_OFFB : DR_OFF);
             if (i >= dr_feel[l].len)           /* past the lane's own length: dark */
-                col = SQ_PAST;
+                col = DR_PAST;
             if (on && dr.run && pl_now - dr_flash[l] < 6000u)
                 col = mix565(K_FG, col, 110);
             if (mut)
@@ -275,7 +279,7 @@ static void pic_dfeel(void)                    /* LANE FEEL: each lane's loop as
         int sel = l == dp.lane;
         cv_text(3, y + 5, &FONT_XS, DR_LNAME[l], sel ? K_FG : K_DIM);
         for (i = 0; i < DR_STEPS; i++) {
-            uint16_t c = i < dr_feel[l].len ? ((dr_pat[l][i] & DRS_ON) ? DR_LCOL[l] : mix565(DR_LCOL[l], K_BG, 110)) : SQ_PAST;
+            uint16_t c = i < dr_feel[l].len ? ((dr_pat[l][i] & DRS_ON) ? DR_LCOL[l] : mix565(DR_LCOL[l], K_BG, 110)) : DR_PAST;
             rrect(40 + i * 11, y + 2, 9, 16, c, 2);
         }
         if (sel) {
@@ -298,7 +302,7 @@ static void pic_dgen(void)                     /* DRUM GEN: the lane's tabs, the
     dr_tabs();
     dr_gen_mask(dp.ga, len, dp.gh, dp.gt, m);
     for (i = 0; i < DR_STEPS; i++)
-        rrect(6 + i * 13, 34, 11, 34, i >= len ? SQ_PAST : m[i] ? DR_LCOL[dp.lane] : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF), 3);
+        rrect(6 + i * 13, 34, 11, 34, i >= len ? DR_PAST : m[i] ? DR_LCOL[dp.lane] : (i % 4 == 0 ? DR_OFFB : DR_OFF), 3);
     t[0] = 0;
     cat(t, DG_NAME[dp.ga]);
     if (dp.ga == DG_EUCLID || dp.ga == DG_RAND) {
@@ -338,7 +342,7 @@ static void pic_dmidi(void)                    /* DRUM MIDI: the lanes' notes, a
         cv_text(76, y + 2, &FONT_XS, dr_gm_name(dr_mid[l].note), sel ? K_FG : K_DIM);
         cv_text(168, y + 2, &FONT_XS, DR_OUTN[dr_mid[l].out], dr_mid[l].out == DO_OFF ? K_WARN : K_FG);
         int_text(dr_mid[l].ch + 1, t); cv_text(196 - (dr_mid[l].ch > 8 ? 0 : 4), y + 2, &FONT_XS, t, K_DIM);
-        rrect(214, y + 3, 9, 9, (dr_in >> l & 1u) ? K_C_DRUMS : SQ_PAST, 2);
+        rrect(214, y + 3, 9, 9, (dr_in >> l & 1u) ? K_C_DRUMS : DR_PAST, 2);
     }
     cv_text(4, 134, &FONT_XS, GI(G_MOUT) ? "OUT MIDI/ALSO: NOTES GO OUT  IN: PADS PLAY LANES" : "GLOBAL > MIDI OUT MUST BE ON", GI(G_MOUT) ? K_DIM : K_WARN);
     if (dp.pop == DPOP_OUT)
@@ -726,7 +730,7 @@ static void draw_drum_layer(void)
             int i = r * 4 + w;
             int32_t x = 6 + w * 37;
             uint16_t s = dr_pat[dp.lane][i];
-            uint16_t col = (s & DRS_ON) ? mix565(K_C_DRUMS, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
+            uint16_t col = (s & DRS_ON) ? mix565(K_C_DRUMS, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? DR_OFFB : DR_OFF);
             rrect(x, 1, 34, 33, col, 4);
             if (i == sp.held) { cv_rect(x, 1, 34, 2, K_FG); cv_rect(x, 32, 34, 2, K_FG); cv_rect(x, 1, 2, 33, K_FG); cv_rect(x + 32, 1, 2, 33, K_FG); }
             if (i == pc) { cv_rect(x + 2, 30, 30, 1, K_BG); cv_rect(x + 2, 31, 30, 2, SQ_PLAY); }

@@ -707,13 +707,20 @@ static void page_well(int pg)
  * fills the slider; a choice is not an amount (after Polyend's and Elektron's users): a list of two is a switch,
  * a short list or whole-number range shows its stops, a long one its place in the count. A modulated parameter
  * shows the range it has swept lately round the slider in its source's colour, its live value as the thumb */
+/* a gauge's colour: the knob's own, but on the pages with a colour of their own (GATE PATTERN, the drum pages) that one */
+static uint16_t gauge_col(int i)
+{
+    if (is_gate_sub(mn.page)) return K_C_GATE;
+    if (mn.page == PG_SEQ && mn.sub >= 6) return K_C_DRUMS;
+    return KNOB_C[i];
+}
 static void gauge(int i, const ui_param_t *p, float v, float live, uint16_t mc)
 {
     char t[24];
     int32_t w, sx = 3, sy = 38, sw = 50;
     float f, lf;
     int key = mn.page << 4 | mn.sub, nst;
-    uint16_t kcol = KNOB_C[i];
+    uint16_t kcol = gauge_col(i);
     if (key != cl_page) {
         int k;
         cl_page = key;

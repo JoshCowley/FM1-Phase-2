@@ -96,7 +96,6 @@ static int flash_on(int i) { return sq.run && pl_now - sq_flash[i] < 6000u; }
 /* four sliders in a row at the top, over the area: number, label, value, how far (0-1) */
 static void seq_dials(const char *const *l, char v[4][16], const float *f, uint16_t c)
 {
-    (void)c;
     int i;
     for (i = 0; i < 4; i++) {                 /* (one canvas each) */
         char n[4] = "1";
@@ -104,11 +103,11 @@ static void seq_dials(const char *const *l, char v[4][16], const float *f, uint1
         rrect(0, 0, 57, 32, l[i] ? K_CELL : GREY(9), 4);
         if (l[i]) {
             n[0] = (char)('1' + i);
-            cv_text(3, 0, &FONT_T, n, KNOB_C[i]);   /* (update 51: each knob in its own colour, as on every page) */
+            cv_text(3, 0, &FONT_T, n, c == K_C_MSEQ || c == K_C_DRUMS ? c : KNOB_C[i]);   /* (update 51: each knob in its own colour, as on every page) */
             cv_text(11, 0, &FONT_T, l[i], K_DIM);
             cv_text_acc(4, 10, &FONT_T, v[i], K_FG);
             wv_idx = i;
-            slider(5, 23, 47, f[i], KNOB_C[i], 0, 0.0f, 0.0f, f[i], 0.0f, K_CELL);
+            slider(5, 23, 47, f[i], c == K_C_MSEQ || c == K_C_DRUMS ? c : KNOB_C[i], 0, 0.0f, 0.0f, f[i], 0.0f, K_CELL);
         }
         cv_blit(2u + (uint32_t)i * 59u, 34);
     }
@@ -470,7 +469,7 @@ static void draw_seq_page(void)
     }
     if (mn.sub >= SQP_DRUM)
         drum_header_text(t, state);
-    header(SQP_NAME[mn.sub], sq.armed || (sq.rec && sq.run) ? K_WARN : K_SEQC, t, IC_SEQ, SQG_LO[sq_group(mn.sub) + 1] - SQG_LO[sq_group(mn.sub)], mn.sub - SQG_LO[sq_group(mn.sub)]);   /* (2.34: the group's own dots) */
+    header(SQP_NAME[mn.sub], sq.armed || (sq.rec && sq.run) ? K_WARN : mn.sub >= 6 ? K_C_DRUMS : K_SEQC, t, IC_SEQ, SQG_LO[sq_group(mn.sub) + 1] - SQG_LO[sq_group(mn.sub)], mn.sub - SQG_LO[sq_group(mn.sub)]);   /* (2.34: the group's own dots) */
     seq_area();
     switch (mn.sub) {
     case SQP_NOTES: {
@@ -541,7 +540,7 @@ static void draw_seq_page(void)
     case SQP_DMIDI:
     case SQP_DKIT:
         drum_dials(l, v, f);
-        seq_dials(l, v, f, K_SEQC);
+        seq_dials(l, v, f, K_C_DRUMS);
         help(drum_help());
         break;
     default:

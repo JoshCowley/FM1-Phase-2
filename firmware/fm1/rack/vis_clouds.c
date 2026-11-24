@@ -424,7 +424,7 @@ static void cp_readouts(int pg, const ui_mod_t *m)
         l[q] = 0;
         while (text_w(&FONT_T, l) > 56 && q > 1) l[--q] = 0;
         fmt(p, v, t);
-        cp_ro_cell(k, l, t, frac(p, v), p->t == UT_BIP, p->t == UT_LIST || p->t == UT_INT, KNOB_C[k], g);
+        cp_ro_cell(k, l, t, frac(p, v), p->t == UT_BIP, p->t == UT_LIST || p->t == UT_INT, cp.scene == SC_CLOUDS ? K_C_CLOUDS : KNOB_C[k], g);
     }
     cp.pkey = key;
     cp_send(CP_RY, 40, cp.rh + CP_H);
@@ -470,7 +470,7 @@ static void cp_text_layers(const float *mon, int pg, const ui_mod_t *m)
     if (has_mod_page(pg)) { np -= MOD_ROWS - 1; if (sb > m->npages) sb = m->npages; }
     if (cp.by < 26) {
         pk_icon_draw(pic_icon_of(cp.scene), 3, 1, page_colour(pg));      /* update 13: the page's icon, alive with its process */
-        cv_text(24, 2, &FONT_T, m->name, K_FG);
+        cv_text(24, 2, &FONT_T, m->name, page_colour(pg));
         cv_text(24, 12, &FONT_T, cp.scene == SC_CLOUDS ? CP_MODE[cp.mode] : pic_sub(cp.scene, mon), K_DIM);
         for (i = 0; i < np && np > 1; i++) {                        /* the page: small dots, top right */
             int32_t x = 234 - (np - 1 - i) * 7, r = i == sb ? 2 : 1;

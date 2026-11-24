@@ -133,13 +133,13 @@ def header(icons):
     return '\n'.join(lines) + '\n'
 
 # each icon's colour = its page's colour: theme.h PN_C_* (keep the two in step). name -> (RGB, the page that uses it)
-COLOURS = {'BRAIDS': ((240, 184, 104), 'SRC: BRAIDS'), 'RINGS': ((232, 108, 40), 'SHP: RINGS'), 'FILTER': ((34, 165, 95), 'ENV: FILTER'),
-           'CLOUDS': ((154, 201, 255), 'FX: CLOUDS (all three modes)'), 'CLOUDS LOOP': ((154, 201, 255), 'FX: CLOUDS LOOPDLY'), 'CLOUDS SPEC': ((154, 201, 255), 'FX: CLOUDS SPECTRL'),
-           'REVERB': ((167, 158, 255), 'FX: REVERB'), 'DELAY': ((0, 160, 200), 'FX: DELAY'), 'CHORUS': ((0, 164, 148), 'FX: CHORUS'),
-           'LFO': ((163, 118, 255), 'LFO: THREE LFOS'), 'TIDES': ((0, 255, 255), 'MOD: TIDES'), 'PEAKS': ((255, 74, 82), 'MOD: PEAKS'),
-           'FUNC': ((227, 233, 78), 'MOD: FUNC'), 'GRIDS': ((216, 235, 154), 'MOD: GRIDS'), 'MSEQ': ((246, 86, 198), 'LFO menu: MSEQ'),
-           'GATE': ((246, 154, 4), 'LFO menu: GATE PATTERN'), 'KNOB': ((255, 99, 153), 'MATRIX (the knob layer)'),
-           'DRUMS': ((255, 185, 172), 'SEQ: the DRUM pages'), 'JAM': ((0, 255, 208), 'FX menu: JAM')}
+COLOURS = {'BRAIDS': ((240, 184, 104), 'SRC: BRAIDS'), 'RINGS': ((232, 108, 40), 'SHP: RINGS'), 'FILTER': ((50, 205, 70), 'ENV: FILTER'),
+           'CLOUDS': ((125, 180, 255), 'FX: CLOUDS (all three modes)'), 'CLOUDS LOOP': ((125, 180, 255), 'FX: CLOUDS LOOPDLY'), 'CLOUDS SPEC': ((125, 180, 255), 'FX: CLOUDS SPECTRL'),
+           'REVERB': ((232, 238, 255), 'FX: REVERB'), 'DELAY': ((70, 100, 240), 'FX: DELAY'), 'CHORUS': ((20, 165, 185), 'FX: CHORUS'),
+           'LFO': ((170, 110, 245), 'LFO: THREE LFOS'), 'TIDES': ((0, 235, 255), 'MOD: TIDES'), 'PEAKS': ((255, 74, 82), 'MOD: PEAKS'),
+           'FUNC': ((232, 226, 64), 'MOD: FUNC'), 'GRIDS': ((176, 226, 84), 'MOD: GRIDS'), 'MSEQ': ((246, 86, 198), 'LFO menu: MSEQ'),
+           'GATE': ((150, 150, 255), 'LFO menu: GATE PATTERN'), 'KNOB': ((255, 120, 160), 'MATRIX (the knob layer)'),
+           'DRUMS': ((255, 196, 170), 'SEQ: the DRUM pages'), 'JAM': ((255, 244, 184), 'FX menu: JAM')}
 
 def rgb565(c): return (c[0] >> 3) << 11 | (c[1] >> 2) << 5 | c[2] >> 3
 

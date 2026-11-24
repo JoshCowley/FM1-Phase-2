@@ -163,39 +163,39 @@
 /* the table (name RGB565: page):
  *   BRAIDS  F5CD  SRC: BRAIDS
  *   RINGS   EB65  SHP: RINGS
- *   FILTER  252B  ENV: FILTER
- *   CLOUDS  9E5F  FX: CLOUDS (all three modes)
- *   REVERB  A4FF  FX: REVERB
- *   DELAY   0519  FX: DELAY
- *   CHORUS  0532  FX: CHORUS
- *   LFO     A3BF  LFO: THREE LFOS
- *   TIDES   07FF  MOD: TIDES
+ *   FILTER  3668  ENV: FILTER
+ *   CLOUDS  7DBF  FX: CLOUDS (all three modes)
+ *   REVERB  EF7F  FX: REVERB
+ *   DELAY   433E  FX: DELAY
+ *   CHORUS  1537  FX: CHORUS
+ *   LFO     AB7E  LFO: THREE LFOS
+ *   TIDES   075F  MOD: TIDES
  *   PEAKS   FA4A  MOD: PEAKS
- *   FUNC    E749  MOD: FUNC
- *   GRIDS   DF53  MOD: GRIDS
+ *   FUNC    EF08  MOD: FUNC
+ *   GRIDS   B70A  MOD: GRIDS
  *   MSEQ    F2B8  LFO menu: MSEQ
- *   GATE    F4C0  LFO menu: GATE PATTERN
- *   KNOB    FB13  MATRIX (the knob layer)
- *   DRUMS   FDD5  SEQ: the DRUM pages
- *   JAM     07FA  FX menu: JAM
+ *   GATE    94BF  LFO menu: GATE PATTERN
+ *   KNOB    FBD4  MATRIX (the knob layer)
+ *   DRUMS   FE35  SEQ: the DRUM pages
+ *   JAM     FFB7  FX menu: JAM
  */
 #define PN_C_BRAIDS RGB(240, 184, 104)
 #define PN_C_RINGS RGB(232, 108, 40)
-#define PN_C_FILTER RGB(34, 165, 95)
-#define PN_C_CLOUDS RGB(154, 201, 255)
-#define PN_C_REVERB RGB(167, 158, 255)
-#define PN_C_DELAY RGB(0, 160, 200)
-#define PN_C_CHORUS RGB(0, 164, 148)
-#define PN_C_LFO RGB(163, 118, 255)
-#define PN_C_TIDES RGB(0, 255, 255)
+#define PN_C_FILTER RGB(50, 205, 70)
+#define PN_C_CLOUDS RGB(125, 180, 255)
+#define PN_C_REVERB RGB(232, 238, 255)
+#define PN_C_DELAY RGB(70, 100, 240)
+#define PN_C_CHORUS RGB(20, 165, 185)
+#define PN_C_LFO RGB(170, 110, 245)
+#define PN_C_TIDES RGB(0, 235, 255)
 #define PN_C_PEAKS RGB(255, 74, 82)
-#define PN_C_FUNC RGB(227, 233, 78)
-#define PN_C_GRIDS RGB(216, 235, 154)
+#define PN_C_FUNC RGB(232, 226, 64)
+#define PN_C_GRIDS RGB(176, 226, 84)
 #define PN_C_MSEQ RGB(246, 86, 198)
-#define PN_C_GATE RGB(246, 154, 4)
-#define PN_C_KNOB RGB(255, 99, 153)
-#define PN_C_DRUMS RGB(255, 185, 172)
-#define PN_C_JAM RGB(0, 255, 208)
+#define PN_C_GATE RGB(150, 150, 255)
+#define PN_C_KNOB RGB(255, 120, 160)
+#define PN_C_DRUMS RGB(255, 196, 170)
+#define PN_C_JAM RGB(255, 244, 184)
 
 /* (update 55) The palette at run time: NORMAL (the look above) or DAYLIGHT (GLOBAL > DISPLAY, or hold GLO): true
  * black, white words, the knobs' and sections' colours at full strength, no see-through, thicker lines, a solid

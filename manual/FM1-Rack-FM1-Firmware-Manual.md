@@ -202,23 +202,23 @@ HOME shows the preset's category, name and number (or its user slot), the sound'
 | --- | --- | --- | --- |
 | BRAIDS | F5CD | 240, 184, 104 | SRC: BRAIDS |
 | RINGS | EB65 | 232, 108, 40 | SHP: RINGS |
-| FILTER | 252B | 34, 165, 95 | ENV: FILTER |
-| CLOUDS | 9E5F | 154, 201, 255 | FX: CLOUDS (all three modes) |
-| CLOUDS LOOP | 9E5F | 154, 201, 255 | FX: CLOUDS LOOPDLY |
-| CLOUDS SPEC | 9E5F | 154, 201, 255 | FX: CLOUDS SPECTRL |
-| REVERB | A4FF | 167, 158, 255 | FX: REVERB |
-| DELAY | 0519 | 0, 160, 200 | FX: DELAY |
-| CHORUS | 0532 | 0, 164, 148 | FX: CHORUS |
-| LFO | A3BF | 163, 118, 255 | LFO: THREE LFOS |
-| TIDES | 07FF | 0, 255, 255 | MOD: TIDES |
+| FILTER | 3668 | 50, 205, 70 | ENV: FILTER |
+| CLOUDS | 7DBF | 125, 180, 255 | FX: CLOUDS (all three modes) |
+| CLOUDS LOOP | 7DBF | 125, 180, 255 | FX: CLOUDS LOOPDLY |
+| CLOUDS SPEC | 7DBF | 125, 180, 255 | FX: CLOUDS SPECTRL |
+| REVERB | EF7F | 232, 238, 255 | FX: REVERB |
+| DELAY | 433E | 70, 100, 240 | FX: DELAY |
+| CHORUS | 1537 | 20, 165, 185 | FX: CHORUS |
+| LFO | AB7E | 170, 110, 245 | LFO: THREE LFOS |
+| TIDES | 075F | 0, 235, 255 | MOD: TIDES |
 | PEAKS | FA4A | 255, 74, 82 | MOD: PEAKS |
-| FUNC | E749 | 227, 233, 78 | MOD: FUNC |
-| GRIDS | DF53 | 216, 235, 154 | MOD: GRIDS |
+| FUNC | EF08 | 232, 226, 64 | MOD: FUNC |
+| GRIDS | B70A | 176, 226, 84 | MOD: GRIDS |
 | MSEQ | F2B8 | 246, 86, 198 | LFO menu: MSEQ |
-| GATE | F4C0 | 246, 154, 4 | LFO menu: GATE PATTERN |
-| KNOB | FB13 | 255, 99, 153 | MATRIX (the knob layer) |
-| DRUMS | FDD5 | 255, 185, 172 | SEQ: the DRUM pages |
-| JAM | 07FA | 0, 255, 208 | FX menu: JAM |
+| GATE | 94BF | 150, 150, 255 | LFO menu: GATE PATTERN |
+| KNOB | FBD4 | 255, 120, 160 | MATRIX (the knob layer) |
+| DRUMS | FE35 | 255, 196, 170 | SEQ: the DRUM pages |
+| JAM | FFB7 | 255, 244, 184 | FX menu: JAM |
 
 - **The macros**: four sliders, each with its name, its value (0–100) and a track in its knob's colour (a macro routed through an LFO or envelope shows that source's hold as a second mark); the name is what it moves (the first destination, "+2" if more), or **UNSET**. K1–K4 turn them; so do MIDI CC 20–23.
 - **The tabs** along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, **KEYS: FM-1 OFF** (or **ARP: FM-1 OFF**), means the keys or the arpeggio aren't playing the FM-1's sound (GLOBAL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)
