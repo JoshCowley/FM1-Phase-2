@@ -52,9 +52,9 @@ class Reverb {
     engine_.SetLFOFrequency(LFO_2, 0.3f / 32000.0f);
     lp_ = 0.7f;
     diffusion_ = 0.625f;
-    lite_ = false;
+    lite_ = 0;
   }
-  inline void set_lite(bool lite) { lite_ = lite; }
+  inline void set_lite(int lite) { lite_ = lite; }   // bit 0: 2.38's trims; bit 1 (update 42): no modulated read of the second delay, three input allpasses become two; bit 2: one allpass less in each loop; bit 3: one input allpass
   
   void Process(FloatFrame* in_out, size_t size) {
     // This is the Griesinger topology described in the Dattorro paper
@@ -91,7 +91,7 @@ class Reverb {
 
     float lp_1 = lp_decay_1_;
     float lp_2 = lp_decay_2_;
-    const bool lite = lite_;
+    const bool lite = (lite_ & 1) != 0, lite2 = (lite_ & 2) != 0, lite3 = (lite_ & 4) != 0, lite4 = (lite_ & 8) != 0;
 
     while (size--) {
       float wet;
@@ -109,10 +109,14 @@ class Reverb {
       // Diffuse through 4 allpasses.
       c.Read(ap1 TAIL, kap);
       c.WriteAllPass(ap1, -kap);
-      c.Read(ap2 TAIL, kap);
-      c.WriteAllPass(ap2, -kap);
-      c.Read(ap3 TAIL, kap);
-      c.WriteAllPass(ap3, -kap);
+      if (!lite4) {
+        c.Read(ap2 TAIL, kap);
+        c.WriteAllPass(ap2, -kap);
+      }
+      if (!lite2) {
+        c.Read(ap3 TAIL, kap);
+        c.WriteAllPass(ap3, -kap);
+      }
       if (!lite) {
         c.Read(ap4 TAIL, kap);
         c.WriteAllPass(ap4, -kap);
@@ -121,12 +125,14 @@ class Reverb {
       
       // Main reverb loop.
       c.Load(apout);
-      c.Interpolate(del2, 4680.0f, LFO_2, 100.0f, krt);
+      if (lite2) c.Read(del2, 4680, krt); else c.Interpolate(del2, 4680.0f, LFO_2, 100.0f, krt);
       c.Lp(lp_1, klp);
       c.Read(dap1a TAIL, -kap);
       c.WriteAllPass(dap1a, kap);
-      c.Read(dap1b TAIL, kap);
-      c.WriteAllPass(dap1b, -kap);
+      if (!lite3) {
+        c.Read(dap1b TAIL, kap);
+        c.WriteAllPass(dap1b, -kap);
+      }
       c.Write(del1, 2.0f);
       c.Write(wet, 0.0f);
 
@@ -138,8 +144,10 @@ class Reverb {
       c.Lp(lp_2, klp);
       c.Read(dap2a TAIL, kap);
       c.WriteAllPass(dap2a, -kap);
-      c.Read(dap2b TAIL, -kap);
-      c.WriteAllPass(dap2b, kap);
+      if (!lite3) {
+        c.Read(dap2b TAIL, -kap);
+        c.WriteAllPass(dap2b, kap);
+      }
       c.Write(del2, 2.0f);
       c.Write(wet, 0.0f);
 
@@ -184,7 +192,7 @@ class Reverb {
   
   float lp_decay_1_;
   float lp_decay_2_;
-  bool lite_;
+  int lite_;
   
   DISALLOW_COPY_AND_ASSIGN(Reverb);
 };

@@ -378,10 +378,10 @@ static float cg_speed_x(float sp) { return 2.0f * sp * fabsf(sp); }   /* SPEED's
 /* ---- RENDER (update 42): CLOUDS' NORMAL / HIGH / LITE (parameter 25; the benchmark's mask = the CLQ_* bits, shim/clouds/dsp/rack_cl_q.h) --------------------- */
 enum { RM_HIGH = 0, RM_FOLD = 1, RM_FASTMIX = 2, RM_SKIPDIF = 4, RM_SKIPFB = 8, RM_NORMAL = 15, RM_LITE = 191 };
 #define RH_N 96000                                /* 2 s, left channel */
-static float rh_out[2][RH_N];
+static float (*rh_out)[RH_N];   /* (shared memory: each run is in a child process, so what it leaves in the engine does not reach the checks after it) */
 /* a held chord through Clouds (MODE, TEXTURE, FEEDBACK, REVERB, DENSITY) for 2 s into rh_out[which]; mask ~0u: the page's RENDER (param 25 = page) is read instead.
  * `switches`: the mask moves HIGH -> LITE -> NORMAL every 0.6 s while it plays */
-static void rh_run(int which, unsigned mask, int page, int mode, float tex, float fb, float rev, float dens, int switches)
+static void rh_run0(int which, unsigned mask, int page, int mode, float tex, float fb, float rev, float dens, int switches)
 {
     int s, ms, i, n = 0;
     cl_patch(30, 0, 0);
@@ -398,6 +398,14 @@ static void rh_run(int which, unsigned mask, int page, int mode, float tex, floa
         for (i = 0; i < 48 && n < RH_N; i++) rh_out[which][n++] = rk_out_l()[i];
     }
     rk_clouds_mask(~0u);
+}
+static void rh_run(int which, unsigned mask, int page, int mode, float tex, float fb, float rev, float dens, int switches)
+{
+    pid_t c;
+    if (!rh_out) rh_out = mmap(0, 2 * sizeof(float) * RH_N, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    c = fork();
+    if (c == 0) { rh_run0(which, mask, page, mode, tex, fb, rev, dens, switches); _exit(0); }
+    waitpid(c, 0, 0);
 }
 static double rh_rms(int w) { double e = 0; int i; for (i = 14400; i < RH_N; i++) e += (double)rh_out[w][i] * rh_out[w][i]; return sqrt(e / (RH_N - 14400)); }
 /* (Two runs in this one process are not sample for sample the same, so the exact comparisons, NORMAL against HIGH at -60 dB and the page against its mask, are

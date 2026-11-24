@@ -146,8 +146,7 @@ struct MetaEx { uint8_t slot, param; float span; };
 static const int NMETAEX = 8;   // the engine's own: 6 (OSC's 5 and the filter's SWEEP)
 static MetaEx metaex_[NMETAEX];
 static int nmetaex_;
-static float meta_span(int slot, int param) __attribute__((noinline));
-static float meta_span(int slot, int param) {
+static float meta_calc(int slot, int param) {
   if (param < NP) {
     if (meta_ex_[slot] >> param & 1u)
       for (int i = 0; i < nmetaex_; ++i)
@@ -156,7 +155,14 @@ static float meta_span(int slot, int param) {
   }
   return 1.0f;
 }
+static float msp_[NSLOT][NP];   // update 42: meta_calc's answers, kept (P asks for them hundreds of times a block; they change only in meta_put and meta_clear)
+static inline float meta_span(int slot, int param) { return param < NP ? 1.0f + msp_[slot][param] : 1.0f; }   // (stored less 1: all zero is all 1)
+static void meta_put0(int slot, int param, float lo, float hi, float span);
 static void meta_put(int slot, int param, float lo, float hi, float span) {
+  meta_put0(slot, param, lo, hi, span);
+  if (slot >= 0 && slot < NSLOT && param >= 0 && param < NP) msp_[slot][param] = meta_calc(slot, param) - 1.0f;
+}
+static void meta_put0(int slot, int param, float lo, float hi, float span) {
   if (slot < 0 || slot >= NSLOT || param < 0 || param >= NP) return;
   uint32_t bit = 1u << param;
   lo_[slot][param] = lo; hi_[slot][param] = hi;
@@ -173,7 +179,7 @@ static void meta_put(int slot, int param, float lo, float hi, float span) {
 }
 static void meta_clear() {
   memset(meta_set_, 0, sizeof(meta_set_)); memset(meta_ex_, 0, sizeof(meta_ex_)); nmetaex_ = 0;
-  for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; }
+  for (int s = 0; s < NSLOT; ++s) for (int p = 0; p < NP; ++p) { lo_[s][p] = -1e9f; hi_[s][p] = 1e9f; msp_[s][p] = 0.0f; }
 }
 static int mod_id_[NSLOT];
 static float macros_[4];
@@ -654,14 +660,21 @@ static inline float fast_sin01_u(float p) {
 // -DRACK_Q_OFF=n takes bit n off. In the benchmark build (RACK_BENCH_AB) the mask is a variable (set_quality) so one binary plays both.
 enum { QB_RVMONO = 1,   // the reverb tank takes one sum of its two inputs (one down-sampler less)
        QB_HB = 2,       // the 24 kHz halfband filters have 23 taps, not 39 (-45 dB from 14.4 kHz, not -75 dB)
-       QB_RVAP = 4 };   // the reverb tank: no smear of its first input allpass, three input allpasses, not four (engine/shim/clouds/dsp/fx/reverb.h set_lite)
+       QB_RVAP = 4,     // the reverb tank: no smear of its first input allpass, three input allpasses, not four (engine/shim/clouds/dsp/fx/reverb.h set_lite)
+       // update 42 (24 Nov 2026, Josh: "reduce all synth size by a further 10 %"):
+       QB_RVAP2 = 8,    // the tank reads its second delay without the slow modulation and has two input allpasses, not three
+       QB_RVAP3 = 16,   // the tank's loops have one allpass each, not two
+       QB_HB2 = 32,     // the 24 kHz halfband filters have 15 taps, not 23 (flat within 0.4 dB to 9.6 kHz, -27 dB from 14.4 kHz)
+       QB_RVPRE = 64,   // the reverb's input stage works on the sum: one pre-delay line, one LO CUT filter, one 16-bit round trip, not two (the tank only reads the sum)
+       QB_RVAP4 = 128,  // the tank has one input allpass (a thinner start to the tail)
+       QB_ALL = 255 };
 #ifdef RACK_Q_FULL
 #define Q_DEFAULT 0
 #else
 #ifdef RACK_Q_OFF
-#define Q_DEFAULT (7 & ~(1 << (RACK_Q_OFF)))
+#define Q_DEFAULT (QB_ALL & ~(1 << (RACK_Q_OFF)))
 #else
-#define Q_DEFAULT 7
+#define Q_DEFAULT QB_ALL
 #endif
 #endif
 #ifdef RACK_BENCH_AB
@@ -677,6 +690,7 @@ EXPORT unsigned quality_default() { return Q_DEFAULT; }
 // -45 dB from 14.4 kHz), 8 samples (0.17 ms) less delay each way
 static const float HB24[10] = {0.315457678f, -0.097823539f, 0.050681315f, -0.028869892f, 0.016396910f,
                                -0.008843422f, 0.004345613f, -0.001840541f, 0.000600712f, -0.000099368f};
+static const float HB24T[4] = {0.329553306f, -0.098053318f, 0.046306201f, -0.027806190f};   // update 42 (QB_HB2): 15 taps, equiripple
 static const float HB24S[6] = {0.315005296f, -0.096462581f, 0.048607596f, -0.026280664f, 0.013616926f, -0.007193324f};
 #ifdef RACK_BENCH_AB
 #define HB_N_MAX 10
@@ -686,6 +700,17 @@ static const float HB24S[6] = {0.315005296f, -0.096462581f, 0.048607596f, -0.026
 struct Half24Down {   // a block at 48 kHz in, half a block at 24 kHz out (19 samples late; 11 with QB_HB)
   float h[4 * HB_N_MAX - 2 + BLOCK];
   void run(const float* x, float* y) {
+    if (Q_ON(QB_HB2)) {
+      for (int n = 0; n < BLOCK; ++n) h[14 + n] = x[n];
+      for (int m = 0; m < BLOCK / 2; ++m) {
+        const float* c = h + 7 + 2 * m;
+        float v = 0.5f * c[0];
+        v += HB24T[0] * (c[-1] + c[1]);   v += HB24T[1] * (c[-3] + c[3]);   v += HB24T[2] * (c[-5] + c[5]);   v += HB24T[3] * (c[-7] + c[7]);
+        y[m] = v;
+      }
+      for (int n = 0; n < 14; ++n) h[n] = h[n + BLOCK];
+      return;
+    }
     if (Q_ON(QB_HB)) {
       for (int n = 0; n < BLOCK; ++n) h[22 + n] = x[n];
       for (int m = 0; m < BLOCK / 2; ++m) {
@@ -728,6 +753,17 @@ struct Half24Down {   // a block at 48 kHz in, half a block at 24 kHz out (19 sa
 struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each sample, then the one halfway to the next
   float h[2 * HB_N_MAX + BLOCK / 2];
   void run(const float* y, float* x) {
+    if (Q_ON(QB_HB2)) {
+      for (int m = 0; m < BLOCK / 2; ++m) h[8 + m] = y[m];
+      for (int k = 0; k < BLOCK / 2; ++k) {
+        const float* u = h + 3 + k;
+        float v = 0.0f;
+        v += HB24T[0] * (u[0] + u[1]);   v += HB24T[1] * (u[-1] + u[2]);  v += HB24T[2] * (u[-2] + u[3]);  v += HB24T[3] * (u[-3] + u[4]);
+        x[2 * k] = u[0]; x[2 * k + 1] = 2.0f * v;
+      }
+      for (int n = 0; n < 8; ++n) h[n] = h[n + BLOCK / 2];
+      return;
+    }
     if (Q_ON(QB_HB)) {
       for (int m = 0; m < BLOCK / 2; ++m) h[12 + m] = y[m];
       for (int k = 0; k < BLOCK / 2; ++k) {
@@ -975,7 +1011,15 @@ static float mod_sum(int slot, int param, const VoiceState* v) {
 static inline float P(int slot, int param, const VoiceState* v) {
   float x = base_[slot][param];
   // a parameter nothing routes to (most of them) skips the call: P runs hundreds of times a block (10 Nov 2026)
-  if (param >= 32 || (routed_[slot + 1] >> param & 1u)) x += mod_sum(slot, param, v) * meta_span(slot, param);
+  if (param >= 32 || (routed_[slot + 1] >> param & 1u)) {
+#ifdef RACK_BENCH_AB
+    const bool kn = kn_on_;
+#else
+    const bool kn = true;
+#endif
+    // (update 42: what mod_sum answers for a parameter no row reaches, the knobs and JAM summed ahead, without the call)
+    x += (param < 32 && kn && !(rr_[slot + 1] >> param & 1u) ? kn_[slot + 1][param] : mod_sum(slot, param, v)) * meta_span(slot, param);
+  }
   return clampf(x, lo_[slot][param], hi_[slot][param]);
 }
 static int PI(int slot, int param, const VoiceState* v) {
@@ -1754,6 +1798,12 @@ static void run_func(int k) {
   float* o = &mod_out_[k * 2];
   for (int j = 0; j < 2; ++j) { int w = PI(slot, 20 + j, 0); o[j] = outs[w < 0 ? 0 : w > 6 ? 6 : w]; }
 }
+// update 42: a block of gate flags: the first sample's from the last block's, the rest the steady state after it (what the sample-by-sample loop gives: one step from a flag lands on HIGH or LOW)
+static inline void gate_run(GateFlags& prev, bool g, GateFlags* out) {
+  GateFlags f0 = ExtractGateFlags(prev, g), f1 = ExtractGateFlags(f0, g);
+  out[0] = f0; for (int i = 1; i < BLOCK; ++i) out[i] = f1;
+  prev = f1;
+}
 static void run_mod(int k) {
   int slot = S_MODA + k;
   int id = mod_id_[slot];
@@ -1765,7 +1815,7 @@ static void run_mod(int k) {
     float k1 = P(slot, 1, 0), k2 = P(slot, 2, 0);
     bool g = division_gate(PI(slot, 3, 0)) > 0.5f;
     GateFlags flags[BLOCK]; int16_t out[BLOCK];
-    for (int i = 0; i < BLOCK; ++i) { flags[i] = ExtractGateFlags(mod_prev_gate_[k], g); mod_prev_gate_[k] = flags[i]; }
+    gate_run(mod_prev_gate_[k], g, flags);
     if (func == 0) {
       peaks_env_[k].set_adsr((uint16_t)(k1 * 65535), (uint16_t)(k2 * 65535), (uint16_t)(P(slot, 4, 0) * 65535), (uint16_t)(k2 * 65535));
       peaks_env_[k].Process(flags, out, BLOCK);
@@ -1786,7 +1836,7 @@ static void run_mod(int k) {
     bool g = division_gate(PI(slot, 6, 0)) > 0.5f;
     float hz = (range == 0 ? 0.02f : range == 1 ? 0.25f : 2.0f) * powf(2.0f, freq * 8.0f);
     GateFlags flags[BLOCK];
-    for (int i = 0; i < BLOCK; ++i) { flags[i] = ExtractGateFlags(mod_prev_gate_[k], g); mod_prev_gate_[k] = flags[i]; }
+    gate_run(mod_prev_gate_[k], g, flags);
     tides::PolySlopeGenerator::OutputSample out[BLOCK];
     tides::RampMode rm = mode == 0 ? tides::RAMP_MODE_AD : mode == 1 ? tides::RAMP_MODE_LOOPING : tides::RAMP_MODE_AR;
 #ifdef RACK_FM1
@@ -1828,7 +1878,7 @@ static void run_mod(int k) {
     marbles::Ramps ramps; ramps.master = rb; ramps.external = rb + BLOCK; ramps.slave[0] = rb + BLOCK * 2; ramps.slave[1] = rb + BLOCK * 3;
     GateFlags ext[BLOCK];
     bool ext_gate = clock ? (fmodf(CLK(), divs[clock]) / divs[clock]) < 0.5f : false;
-    for (int i = 0; i < BLOCK; ++i) { ext[i] = ExtractGateFlags(mod_prev_gate_[k], ext_gate); mod_prev_gate_[k] = ext[i]; }
+    gate_run(mod_prev_gate_[k], ext_gate, ext);
     t.Process(clock != 0, ext, ramps, gates, BLOCK);
     marbles::GroupSettings x, y;
     x.control_mode = marbles::CONTROL_MODE_IDENTICAL; x.voltage_range = (marbles::VoltageRange)PI(slot, 10, 0);
@@ -2384,7 +2434,11 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
   // the gain ramps across the block from the last block's: a step every 24 samples clicked on fast attacks,
   // releases and plucks (10 Nov 2026)
   float l0 = v.gl0 * 1.41f, r0 = v.gr0 * 1.41f, dl = (gl - v.gl0) * (1.41f / BLOCK), dr = (gr - v.gr0) * (1.41f / BLOCK);
-  for (int n = 0; n < BLOCK; ++n) { l0 += dl; r0 += dr; mix_l[n] += vbuf_[n] * l0; mix_r[n] += vaux_[n] * r0; }
+  {   // (update 42: the same sums; the gain that stands still (a held note, nothing moving it) without its two ramp additions, and the buffers said apart so no sample is read again)
+    float* __restrict ml = mix_l; float* __restrict mr = mix_r; const float* __restrict vb = vbuf_; const float* __restrict va = vaux_;
+    if (dl == 0.0f && dr == 0.0f) { for (int n = 0; n < BLOCK; ++n) { ml[n] += vb[n] * l0; mr[n] += va[n] * r0; } }
+    else for (int n = 0; n < BLOCK; ++n) { l0 += dl; r0 += dr; ml[n] += vb[n] * l0; mr[n] += va[n] * r0; }
+  }
   v.gl0 = gl; v.gr0 = gr;
 }
 
@@ -2501,7 +2555,7 @@ static void run_master(float* l, float* r, float mg) {
     for (int n = 0; n < BLOCK; ++n) {
       const float xl = l[n] * gm, xr = r[n] * gm;
       lim_buf_l_[lim_w_] = xl; lim_buf_r_[lim_w_] = xr;
-      float a = fmaxf(fabsf(xl), fabsf(xr)); if (!(a == a)) a = 0.0f;
+      const float ax = fabsf(xl), ay = fabsf(xr); float a = ax > ay ? ax : ay; if (!(a == a)) a = 0.0f;   // (update 42: no libm call; a NaN on one side gives 0, as a NaN on both did)
       cur[n] = a; if (a > pre) pre = a;
       float sf = lim_sfx_[n + 1];
       float peak = pre > sf ? pre : sf;
@@ -2528,6 +2582,18 @@ EXPORT void set_rv_mono(int on) { q_mask_ = on ? (q_mask_ | QB_RVMONO) : (q_mask
 // The same operations in the same order as the general loop below it. (RACK_FM1: the sum or the two sides, as RV_MONO says.)
 template <bool PRE, bool LC>
 static void rv_front(const float* l, const float* r, int pre, float lcc, float* xl, float* xr) {
+  if (RV_MONO && Q_ON(QB_RVPRE)) {   // update 42: the sum only (the tank reads nothing else): one line, one filter, one 16-bit round trip
+    for (int n = 0; n < BLOCK; ++n) {
+      int16_t q = (int16_t)(clampf((l[n] + r[n]) * 0.5f, -1.0f, 1.0f) * 32767.0f);
+      pre_buf_l_[pre_w_] = q;
+      float in;
+      if (!PRE) { in = q * (1.0f / 16384.0f); pre_w_ = (pre_w_ + 1) & pre_mask_; }
+      else { int rd = (pre_w_ - pre) & pre_mask_; pre_w_ = (pre_w_ + 1) & pre_mask_; in = pre_buf_l_[rd] * (1.0f / 16384.0f); }
+      if (LC) { rv_lc_l_ += (in - rv_lc_l_) * lcc; in -= rv_lc_l_; }
+      xl[n] = in;
+    }
+    return;
+  }
   for (int n = 0; n < BLOCK; ++n) {
     int16_t ql = (int16_t)(clampf(l[n], -1.0f, 1.0f) * 32767.0f), qr = (int16_t)(clampf(r[n], -1.0f, 1.0f) * 32767.0f);
     pre_buf_l_[pre_w_] = ql; pre_buf_r_[pre_w_] = qr;
@@ -2554,7 +2620,11 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
     // pass loses what two did (time squared), and its damping is per sample, so twice as much a sample
     time *= time; rlp = 1.0f - (1.0f - rlp) * (1.0f - rlp);
 #endif
-    reverb_.set_lite(Q_ON(QB_RVAP));   // 2.38
+    if (Q_ON(QB_RVAP3)) {   // update 42: a trip round the loops is 11657 samples with one allpass in each, not 15358: the same T60 and damping a second, so the gain and the damping of a trip are scaled to its length
+      const float lr = 11657.0f / 15358.0f;
+      time = powf(time, lr); rlp = 1.0f - powf(1.0f - rlp, lr);
+    }
+    reverb_.set_lite((Q_ON(QB_RVAP) ? 1 : 0) | (Q_ON(QB_RVAP2) ? 2 : 0) | (Q_ON(QB_RVAP3) ? 4 : 0) | (Q_ON(QB_RVAP4) ? 8 : 0));   // 2.38, update 42
     reverb_.set_amount(1.0f);
     reverb_.set_time(time);
     reverb_.set_diffusion(0.3f + 0.6f * P(slot, 2, 0));
@@ -2570,12 +2640,21 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
       else { if (lc > 0.0f) rv_front<true, true>(l, r, pre, lcc, xl, xr); else rv_front<true, false>(l, r, pre, lcc, xl, xr); }
     } else
     for (int n = 0; n < BLOCK; ++n) {
+      float in_l, in_r;
+      if (RV_MONO && Q_ON(QB_RVPRE)) {   // update 42: the mean of the two sides, one line and one filter (the sum goes to the tank, as in rv_front)
+        int16_t q = (int16_t)(clampf((l[n] + r[n]) * 0.5f, -1.0f, 1.0f) * 32767.0f);
+        pre_buf_l_[pre_w_] = q;
+        if (pre == 0) { in_l = q / 32768.0f; pre_w_ = (pre_w_ + 1) & pre_mask_; }
+        else { int rd = (pre_w_ - pre) & pre_mask_; pre_w_ = (pre_w_ + 1) & pre_mask_; in_l = pre_buf_l_[rd] / 32768.0f; }
+        if (lc > 0.0f) { rv_lc_l_ += (in_l - rv_lc_l_) * lcc; in_l -= rv_lc_l_; }
+        in_r = in_l;
+      } else {
       int16_t ql = (int16_t)(clampf(l[n], -1.0f, 1.0f) * 32767.0f), qr = (int16_t)(clampf(r[n], -1.0f, 1.0f) * 32767.0f);
       pre_buf_l_[pre_w_] = ql; pre_buf_r_[pre_w_] = qr;
-      float in_l, in_r;
       if (pre == 0) { in_l = ql / 32768.0f; in_r = qr / 32768.0f; pre_w_ = (pre_w_ + 1) & pre_mask_; }
       else { int rd = (pre_w_ - pre) & pre_mask_; pre_w_ = (pre_w_ + 1) & pre_mask_; in_l = pre_buf_l_[rd] / 32768.0f; in_r = pre_buf_r_[rd] / 32768.0f; }
       if (lc > 0.0f) { rv_lc_l_ += (in_l - rv_lc_l_) * lcc; rv_lc_r_ += (in_r - rv_lc_r_) * lcc; in_l -= rv_lc_l_; in_r -= rv_lc_r_; }   // LO CUT: thin the tail
+      }
       if (shim > 0.0f) {         // the tail, an octave up, back into the tank
         shim_buf_[shim_w_] = (int16_t)(clampf(shim_fb_, -1.0f, 1.0f) * 32767.0f);
         shim_ph_ += 1.0f / 2048.0f; if (shim_ph_ >= 1.0f) shim_ph_ -= 1.0f;
@@ -2950,9 +3029,14 @@ static void run_fx(int slot, float* l, float* r) {
     float fb = P(slot, 1, 0) * 0.92f, tone = P(slot, 2, 0), mix = P(slot, 3, 0);
     int mode = PI(slot, 4, 0); float wow = P(slot, 5, 0);      // 0 PING, 1 MONO, 2 TAPE
     float lp = 0.05f + tone * 0.9f;
+    int rdi = 0;   // update 42: without wow (PING, MONO) the read point is a whole number of samples behind the write point: the one sample it names is read, not two weighted 1 and 0 (the same values)
+    if (mode != 2) { rdi = delay_w_ - samples; while (rdi < 0) rdi += dlen_; }
     for (int n = 0; n < BLOCK; ++n) {
+      float dl, dr;
+      if (mode != 2) { dl = DG(delay_l_[rdi]); dr = DG(delay_r_[rdi]); rdi = rdi + 1 < dlen_ ? rdi + 1 : 0; }
+      else {
       float dsamp = (float)samples;
-      if (mode == 2) {           // wow and flutter swing the read point; the repeats saturate as they pile up
+      {           // wow and flutter swing the read point; the repeats saturate as they pile up
         tape_ph1_ += 0.45f / SR; if (tape_ph1_ >= 1.0f) tape_ph1_ -= 1.0f;
         tape_ph2_ += 6.3f / SR; if (tape_ph2_ >= 1.0f) tape_ph2_ -= 1.0f;
         dsamp += wow * (SIN01U(tape_ph1_) * 90.0f + SIN01U(tape_ph2_) * 6.0f);
@@ -2963,7 +3047,8 @@ static void run_fx(int slot, float* l, float* r) {
       int i1 = i0 + 1;
       i0 = i0 < dlen_ ? i0 : i0 < 2 * dlen_ ? i0 - dlen_ : i0 % dlen_;
       i1 = i1 < dlen_ ? i1 : i1 < 2 * dlen_ ? i1 - dlen_ : i1 % dlen_;
-      float dl = DG(delay_l_[i0]) * (1 - fr2) + DG(delay_l_[i1]) * fr2, dr = DG(delay_r_[i0]) * (1 - fr2) + DG(delay_r_[i1]) * fr2;
+      dl = DG(delay_l_[i0]) * (1 - fr2) + DG(delay_l_[i1]) * fr2; dr = DG(delay_r_[i0]) * (1 - fr2) + DG(delay_r_[i1]) * fr2;
+      }
       delay_tone_l_ += (dl - delay_tone_l_) * lp; delay_tone_r_ += (dr - delay_tone_r_) * lp;
       if (lc > 0.0f) { dl_lc_l_ += (delay_tone_l_ - dl_lc_l_) * lcc; dl_lc_r_ += (delay_tone_r_ - dl_lc_r_) * lcc; delay_tone_l_ -= dl_lc_l_; delay_tone_r_ -= dl_lc_r_; }
       if (mode == 0) {           // ping-pong
