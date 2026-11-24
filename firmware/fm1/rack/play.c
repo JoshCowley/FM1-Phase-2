@@ -267,14 +267,14 @@ static int chord_notes(int raw, int q, uint8_t ext, int preview, uint8_t *out)
 }
 
 /* ------------------------------------------------------------------ the audio interrupt's side --- */
-typedef struct {
-    uint8_t n, active, sus;                   /* its notes; held; let go while the sustain pedal was down */
+typedef struct {                              /* (fields ordered by size: 24 B, not 28, for each of the 155 raw sources) */
+    uint32_t ord;                             /* STYLE: when it was pressed (the latest held key's chord plays) */
     uint16_t on;                              /* which of them sound (a strum sounds them one by one) */
-    uint8_t note[PL_MAXN];
+    uint8_t n, active, sus;                   /* its notes; held; let go while the sustain pedal was down */
     uint8_t sn, root, vel;                    /* STYLE: its chord's notes (in note[]), root, velocity (0-127) */
     uint8_t lay;                              /* its notes went to STYLE's chord layer (lay_on), not snd_on */
     uint8_t dl;                               /* ...and also straight to the FM-1 (snd_on), the chord layer not being on it */
-    uint32_t ord;                             /* STYLE: when it was pressed (the latest held key's chord plays) */
+    uint8_t note[PL_MAXN];
 } pl_raw_t;
 static pl_raw_t pl_raw[PL_NRAW];
 static uint8_t pl_snd[128];                   /* how many keys sound each note */
