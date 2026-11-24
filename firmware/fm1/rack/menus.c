@@ -151,7 +151,39 @@ static uint16_t slot_colour(int slot)
     return slot >= 0 && slot < 9 ? C[slot] : K_FG;
 }
 static const char *const SLOT_TAG[] = {"SRC", "SHP", "MOD A", "MOD B", "FX 1", "FX 2", "AMP", "GLO", "LFO"};
-static uint16_t page_colour(int pg) { return is_fixed(pg) ? fixed_colour(pg) : pg == PG_OSC ? K_OSC : pg == PG_SEQ ? K_SEQC : pg == PG_MSEQ ? K_LFO : pg == PG_FLT ? K_SHP : slot_colour(page_slot(pg)); }
+/* the colour of a module (update 40: HOME's icon and its page agree) */
+static uint16_t id_colour(int id)
+{
+    switch (id) {
+    case 2: return K_C_BRAIDS;
+    case 10: return K_C_RINGS;
+    case 12: return K_C_FILTER;
+    case 20: return K_C_PEAKS;
+    case 21: return K_C_TIDES;
+    case 23: return K_C_GRIDS;
+    case 24: return K_C_FUNC;
+    case 30: return K_C_CLOUDS;
+    case 31: return K_C_DELAY;
+    case 32: return K_C_REVERB;
+    case 33: return K_C_CHORUS;
+    default: return 0;
+    }
+}
+static uint16_t page_colour(int pg)
+{
+    uint16_t c = 0;
+    if (pg == PG_JAM) return K_C_JAM;
+    if (is_fixed(pg)) return fixed_colour(pg);
+    if (pg == PG_OSC) return K_OSC;
+    if (pg == PG_SEQ) return mn.sub >= 6 ? K_C_DRUMS : K_SEQC;   /* (6: SQP_DRUM, the drum pages) */
+    if (pg == PG_MSEQ) return K_C_MSEQ;
+    if (pg == PG_FLT) return K_C_FILTER;
+    if (pg == PG_MATRIX) return K_C_KNOB;
+    if (pg == PG_LFO) return mn.sub >= UI_LFO.npages + 3 ? K_C_GATE : K_C_LFO;
+    if (pg >= PG_SRC && pg <= PG_FX2 && page_mod(pg))
+        c = id_colour(page_mod(pg)->id);
+    return c ? c : slot_colour(page_slot(pg));
+}
 static void choices(int slot, const uint8_t **ch, int *n)
 {
     if (slot == RS_SRC) { *ch = SRC_CH; *n = 2; }
@@ -1211,7 +1243,7 @@ static void draw_hub(void)
     int rows[12], n = hub_sorted(rows), k, top, sel = mn.hrow[1], lastslot = -99;
     char t[32];
     if (sel >= n) sel = mn.hrow[1] = n ? n - 1 : 0;
-    header("MATRIX", K_MX, "BY TARGET", IC_MATRIX, NHUB, 1);
+    header("MATRIX", K_C_KNOB, "BY TARGET", IC_MATRIX, NHUB, 1);
     cv_begin(240, 16, K_BG);
     cv_text(8, 2, &FONT_T, "TARGET", K_DIM);
     cv_text(120, 2, &FONT_T, "FROM", K_DIM);
@@ -1235,7 +1267,7 @@ static void draw_hub(void)
             int32_t a = (int32_t)(amt * 100.0f + (amt < 0 ? -0.5f : 0.5f));
             if (isel) {
                 rrect(0, 0, 232, 22, K_SEL, 4);
-                cv_rect(0, 0, 2, 22, K_MX);
+                cv_rect(0, 0, 2, 22, K_C_KNOB);
             }
             dst_name(d, t);
             if (same) {                       /* under its slot's first row: the parameter alone, indented */
@@ -1282,7 +1314,7 @@ static void draw_matrix(void)
     cat(t, "ROW ");
     int_text(mn.row + 1, t + 4);
     cat(t, "/12");
-    header("MATRIX", K_MX, t, IC_MATRIX, NHUB, 0);
+    header("MATRIX", K_C_KNOB, t, IC_MATRIX, NHUB, 0);
     cv_begin(240, 16, K_BG);
     cv_text(8, 2, &FONT_T, "SOURCE", K_DIM);
     cv_text(72, 2, &FONT_T, "DESTINATION", K_DIM);
@@ -1299,7 +1331,7 @@ static void draw_matrix(void)
         cv_begin(232, 22, K_BG);
         if (sel) {
             rrect(0, 0, 232, 22, K_SEL, 4);
-            cv_rect(0, 0, 2, 22, K_MX);
+            cv_rect(0, 0, 2, 22, K_C_KNOB);
         }
         if (src) rrect(5, 8, 5, 5, on ? src_colour(src) : mix565(src_colour(src), K_BG, 100), 2);   /* its kind's colour */
         cv_text(13, 4, &FONT_T, src_name(src), on ? src_colour(src) : c);
@@ -1384,7 +1416,7 @@ static void draw_rack(void)
     cat(t, " ROUTES");
     rack_tile(6, "MOD A", RS_MODA, K_MOD, 0, 0);
     rack_tile(84, "MOD B", RS_MODB, K_MOD, 0, 0);
-    rack_tile(162, "MATRIX", -1, K_MX, t, IC_MATRIX);
+    rack_tile(162, "MATRIX", -1, K_C_KNOB, t, IC_MATRIX);
     rack_links();
     cv_blit(0, 160);
     help("EDIT ENV LFO FX ARP: PAGES   HOME: BACK");

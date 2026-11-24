@@ -25,11 +25,50 @@ static const uint8_t HR_RAMP[5][5][3] = {
 };
 static const uint32_t HR_ACC[5] = {0xFFBE5Au, 0x6EEEFFu, 0xFFFFFFu, 0xFFB850u, 0xFFE070u};
 
+/* update 40: a picture is drawn in its page's colour (theme.h K_C_*, the colour of the icon on HOME): hx_set makes a fifth ramp from it (dark, deep, the colour, a lighter
+ * tint, near white) that hr_ramp and hr_acc give in place of the family's ramps (the ice of a held Clouds keeps its own); hx_set(-1): the family's ramps */
+static uint8_t HRX[5][3];
+static uint32_t HXACC;
+static int hx_on;
+static void hx_set(int sc)
+{
+    uint16_t c = 0;
+    uint32_t r, g, b, k;
+    static const uint8_t TW[5] = {13, 72, 184, 90, 205};   /* the stops' weights of the colour (of 256), then white for the last two */
+    switch (sc) {
+    case SC_CLOUDS: c = K_C_CLOUDS; break;
+    case SC_BRAIDS: c = K_C_BRAIDS; break;
+    case SC_RINGS: c = K_C_RINGS; break;
+    case SC_FILTER: c = K_C_FILTER; break;
+    case SC_TIDES: c = K_C_TIDES; break;
+    case SC_PEAKS: c = K_C_PEAKS; break;
+    case SC_GRIDS: c = K_C_GRIDS; break;
+    case SC_FUNC: c = K_C_FUNC; break;
+    case SC_DELAY: c = K_C_DELAY; break;
+    case SC_REVERB: c = K_C_REVERB; break;
+    case SC_CHORUS: c = K_C_CHORUS; break;
+    case SC_LFO: c = K_C_LFO; break;
+    default: break;
+    }
+    hx_on = c != 0;
+    if (!c)
+        return;
+    r = (uint32_t)(c >> 11) * 255u / 31u; g = (uint32_t)((c >> 5) & 63u) * 255u / 63u; b = (uint32_t)(c & 31u) * 255u / 31u;
+    for (k = 0; k < 5; k++) {
+        uint32_t w = k < 3 ? TW[k] : 256u;           /* stops 3, 4: the colour toward white by TW */
+        uint32_t t = k < 3 ? 0u : TW[k] ;
+        HRX[k][0] = (uint8_t)(k < 3 ? r * w >> 8 : r + ((255u - r) * t >> 8));
+        HRX[k][1] = (uint8_t)(k < 3 ? g * w >> 8 : g + ((255u - g) * t >> 8));
+        HRX[k][2] = (uint8_t)(k < 3 ? b * w >> 8 : b + ((255u - b) * t >> 8));
+    }
+    HXACC = (r + ((255u - r) * 110u >> 8)) << 16 | (g + ((255u - g) * 110u >> 8)) << 8 | (b + ((255u - b) * 110u >> 8));
+}
+static uint32_t hr_acc(int pal) { return hx_on && pal != 2 ? HXACC : HR_ACC[pal]; }
 static uint32_t hr_ramp(int pal, int tv)
 {
     static const uint8_t T[5] = {0, 64, 140, 204, 255};
     static const uint16_t IV[4] = {1024, 862, 1024, 1285};   /* 65536 / the stop spacing >> 4 ... (spacing 64, 76, 64, 51 -> 256 * 256 / spacing) */
-    const uint8_t (*s)[3] = HR_RAMP[pal];
+    const uint8_t (*s)[3] = hx_on && pal != 2 ? HRX : HR_RAMP[pal];
     int i;
     uint32_t t;
     tv = tv < 0 ? 0 : tv > 255 ? 255 : tv;
@@ -113,6 +152,29 @@ static struct {
 } h2;
 static const char *const HI_NAME[HI_N] = {"BRAIDS", "RINGS", "FILTER", "CLOUDS", "LOOP", "SPECTRL", "REVERB", "DELAY", "CHORUS", "LFO", "TIDES", "PEAKS", "FUNC",
                                           "GRIDS", "MSEQ", "GATE", "KNOB", "DRUMS", "JAM"};
+/* each icon's colour: the colour of its page (theme.h K_C_*; the table is in the manual) */
+static uint16_t h2_col(int hi)
+{
+    switch (hi) {
+    case HI_BRAIDS: return K_C_BRAIDS;
+    case HI_RINGS: return K_C_RINGS;
+    case HI_FILTER: return K_C_FILTER;
+    case HI_CLOUDS: case HI_CLOUDS_LOOP: case HI_CLOUDS_SPEC: return K_C_CLOUDS;
+    case HI_REVERB: return K_C_REVERB;
+    case HI_DELAY: return K_C_DELAY;
+    case HI_CHORUS: return K_C_CHORUS;
+    case HI_LFO: return K_C_LFO;
+    case HI_TIDES: return K_C_TIDES;
+    case HI_PEAKS: return K_C_PEAKS;
+    case HI_FUNC: return K_C_FUNC;
+    case HI_GRIDS: return K_C_GRIDS;
+    case HI_MSEQ: return K_C_MSEQ;
+    case HI_GATE: return K_C_GATE;
+    case HI_KNOB: return K_C_KNOB;
+    case HI_DRUMS: return K_C_DRUMS;
+    default: return K_C_JAM;
+    }
+}
 static void home_reset(void)
 {
     int i;
@@ -181,7 +243,6 @@ static const float *home_frame(uint32_t dt)
         s->feed = 0;
         s->slot = (uint8_t)slot;
         s->flag = (uint8_t)((slot < RS_GLO && (rk_fm1_status(4) >> slot & 1)) ? 1 : 0) | (uint8_t)((slot == RS_FX1 || slot == RS_FX2) && rk_fx_bypass(slot) ? 2 : 0);
-        s->col = i == 0 ? K_SRC : i < 3 ? K_SHP : K_FX;
         if (hi == HI_CLOUDS) {
             int md;
             mon = rk_monitor(slot);
@@ -200,6 +261,7 @@ static const float *home_frame(uint32_t dt)
             }
             mon = rk_monitor(RS_AMP);
         }
+        s->col = h2_col(s->hi);
         h2_ease(s->hi, i < 3 ? env * 1.3f : pkl3);
         s->act = h2.ea[s->hi];
     }
@@ -249,7 +311,7 @@ static const float *home_frame(uint32_t dt)
         h2.md[h2.nm].feed = 0;
         h2.md[h2.nm].flag = 0;
         h2.md[h2.nm].slot = (uint8_t)i;     /* which kind of source (the order above) */
-        h2.md[h2.nm].col = i == 7 || i == 6 ? K_GOLD : i == 5 ? MC_MACRO : i == 4 ? K_GOLD : i == 3 ? MC_MSEQ : i == 2 ? MC_LFO : MC_MOD;
+        h2.md[h2.nm].col = h2_col(hi);
         h2_ease(hi, a);
         h2.md[h2.nm].act = h2.ea[hi];
         h2.nm++;

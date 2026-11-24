@@ -194,12 +194,33 @@ Each kind of source has its colour everywhere:
 
 HOME shows the preset's category, name and number (or its user slot), the sound's path, the four macros and the output.
 
-- **The path**: the slots in use, as live tiles in the order the sound goes through them: SRC › SHP › FX 1, then down to FX 2. Dots run along the arrows, as bright as the output. Empty slots are left out and the path closes up.
-- **The tiles**: each slot's module, moving with what it is doing to the sound right now. The colours tell the kinds apart: orange sources, teal shapers, purple modulators, blue effects.
-    - A switched-off effect shows **OFF** (section 10).
-    - A red tile is a module the preset needs that didn't fit in memory.
-- **The modulators** loaded in MOD A and MOD B sit under the path; small arrows pulse up from them as their outputs move.
-- **The macros**: each with its value (0–100), a slider in its knob's colour (moving with the sound, as on the pages), and what it moves (the first destination, "+2" if more), or **UNSET**. K1–K4 turn them; so do MIDI CC 20–23.
+- **The path**: the stages in use, as tiles in the order the sound goes through them: the source (Braids), Rings when it is the shaper, the filter (always there), then the effect slots as they sit (Clouds shows its mode: grains, loop or spectral). Dots run along the path, as fast and bright as the output. Stages not in use are left out and the path closes up and centres.
+- **The mods row** above it: a tile for each modulation source in use (MOD A and MOD B's module: Peaks, Tides, Grids or Func; the LFOs, MSEQ, the gate pattern and the knob layer when something is routed from them; JAM while it is on) and the DRUMS while the pattern plays. A line runs from each to every stage it moves, with a pulse as bright as the source moves; the drums' line joins the path where the effects begin. A switched-off effect shows **OFF** (section 10); a red tile is a module the preset needs that didn't fit in memory.
+- **The colours**: every icon has its own colour, and its page uses the same one (the page's header, wells and picture), so a tile, its page, its lines and pulses always agree. The scope at the bottom is tinted by the moving routes and goes white when loud; with a reverb it has a wider halo, with a delay an echo line, with a chorus a second line.
+
+| Icon | RGB565 | RGB | Page |
+| --- | --- | --- | --- |
+| BRAIDS | F5CD | 240, 184, 104 | SRC: BRAIDS |
+| RINGS | EB65 | 232, 108, 40 | SHP: RINGS |
+| FILTER | 252B | 34, 165, 95 | ENV: FILTER |
+| CLOUDS | 9E5F | 154, 201, 255 | FX: CLOUDS (all three modes) |
+| CLOUDS LOOP | 9E5F | 154, 201, 255 | FX: CLOUDS LOOPDLY |
+| CLOUDS SPEC | 9E5F | 154, 201, 255 | FX: CLOUDS SPECTRL |
+| REVERB | A4FF | 167, 158, 255 | FX: REVERB |
+| DELAY | 0519 | 0, 160, 200 | FX: DELAY |
+| CHORUS | 0532 | 0, 164, 148 | FX: CHORUS |
+| LFO | A3BF | 163, 118, 255 | LFO: THREE LFOS |
+| TIDES | 07FF | 0, 255, 255 | MOD: TIDES |
+| PEAKS | FA4A | 255, 74, 82 | MOD: PEAKS |
+| FUNC | E749 | 227, 233, 78 | MOD: FUNC |
+| GRIDS | DF53 | 216, 235, 154 | MOD: GRIDS |
+| MSEQ | F2B8 | 246, 86, 198 | LFO menu: MSEQ |
+| GATE | F4C0 | 246, 154, 4 | LFO menu: GATE PATTERN |
+| KNOB | FB13 | 255, 99, 153 | MATRIX (the knob layer) |
+| DRUMS | FDD5 | 255, 185, 172 | SEQ: the DRUM pages |
+| JAM | 07FA | 0, 255, 208 | FX menu: JAM |
+
+- **The macros**: four sliders, each with its name, its value (0–100) and a track in its knob's colour (a macro routed through an LFO or envelope shows that source's hold as a second mark); the name is what it moves (the first destination, "+2" if more), or **UNSET**. K1–K4 turn them; so do MIDI CC 20–23.
 - **The tabs** along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, **KEYS: FM-1 OFF** (or **ARP: FM-1 OFF**), means the keys or the arpeggio aren't playing the FM-1's sound (GLOBAL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)
 
 **PRESET** chooses the preset, **ALGORITHM** jumps a category and **SELECT** sets the voices (1–6). Changing preset, or loading a module into a slot, fades the sound out over a few milliseconds and the new one in, so it doesn't click; nothing of the old sound (its echoes, its last few samples) carries into the new one. Knobs glide to their new values over a few milliseconds too, so a level, a cutoff or a chorus turned quickly doesn't click or zipper; a choice from a list (a model, a type) still changes at once. Tap HOME again for **RACK**, a list of every slot, AMP, the outputs and how many matrix routes are set.

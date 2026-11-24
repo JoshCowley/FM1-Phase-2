@@ -132,18 +132,27 @@ def header(icons):
     lines.append('};')
     return '\n'.join(lines) + '\n'
 
-COL = {'src': (255, 190, 90), 'flt': (88, 240, 208), 'fx': (110, 200, 255), 'mod': (255, 150, 90), 'drum': (255, 224, 112), 'jam': (255, 224, 112)}
+# each icon's colour = its page's colour: theme.h PN_C_* (keep the two in step). name -> (RGB, the page that uses it)
+COLOURS = {'BRAIDS': ((240, 184, 104), 'SRC: BRAIDS'), 'RINGS': ((232, 108, 40), 'SHP: RINGS'), 'FILTER': ((34, 165, 95), 'ENV: FILTER'),
+           'CLOUDS': ((154, 201, 255), 'FX: CLOUDS (all three modes)'), 'CLOUDS LOOP': ((154, 201, 255), 'FX: CLOUDS LOOPDLY'), 'CLOUDS SPEC': ((154, 201, 255), 'FX: CLOUDS SPECTRL'),
+           'REVERB': ((167, 158, 255), 'FX: REVERB'), 'DELAY': ((0, 160, 200), 'FX: DELAY'), 'CHORUS': ((0, 164, 148), 'FX: CHORUS'),
+           'LFO': ((163, 118, 255), 'LFO: THREE LFOS'), 'TIDES': ((0, 255, 255), 'MOD: TIDES'), 'PEAKS': ((255, 74, 82), 'MOD: PEAKS'),
+           'FUNC': ((227, 233, 78), 'MOD: FUNC'), 'GRIDS': ((216, 235, 154), 'MOD: GRIDS'), 'MSEQ': ((246, 86, 198), 'LFO menu: MSEQ'),
+           'GATE': ((246, 154, 4), 'LFO menu: GATE PATTERN'), 'KNOB': ((255, 99, 153), 'MATRIX (the knob layer)'),
+           'DRUMS': ((255, 185, 172), 'SEQ: the DRUM pages'), 'JAM': ((0, 255, 208), 'FX menu: JAM')}
+
+def rgb565(c): return (c[0] >> 3) << 11 | (c[1] >> 2) << 5 | c[2] >> 3
 
 def sheet(icons, path):
     from PIL import Image, ImageDraw
-    cw = 120
+    cw = 150
     cols = 5
     rows = (len(icons) + cols - 1) // cols
-    im = Image.new('RGB', (cols * cw, rows * 150), (6, 8, 14))
+    im = Image.new('RGB', (cols * cw, rows * 150), (0, 0, 0))
     d = ImageDraw.Draw(im)
     for i, (n, k, g) in enumerate(icons):
         ox, oy = (i % cols) * cw, (i // cols) * 150
-        c = COL[k]
+        c = COLOURS[n][0]
         for z, (px, py) in ((4, (ox + 12, oy + 8)), (1, (ox + 12 + 96 - 24, oy + 8))):
             for y in range(N):
                 for x in range(N):
@@ -152,12 +161,14 @@ def sheet(icons, path):
                         col = tuple(int(6 + (cc - 6) * a) for cc in c)
                         d.rectangle([px + x * z, py + y * z, px + x * z + z - 1, py + y * z + z - 1], fill=col)
         d.text((ox + 12, oy + 112), n, fill=(210, 214, 230))
-        d.text((ox + 12, oy + 126), 'IC ' + k, fill=(110, 116, 140))
+        d.text((ox + 12, oy + 126), '%04X  %s' % (rgb565(c), COLOURS[n][1]), fill=c)
     im.save(path)
 
 if __name__ == '__main__':
     ic = build()
-    if '--sheet' in sys.argv:
+    if '--colours' in sys.argv:
+        for n, (c, pg) in COLOURS.items(): print('%-12s %04X  (%3d,%3d,%3d)  %s' % (n, rgb565(c), *c, pg))
+    elif '--sheet' in sys.argv:
         sheet(ic, sys.argv[sys.argv.index('--sheet') + 1])
     else:
         open(__file__.rsplit('/', 1)[0] + '/home_icons.h' if '/' in __file__ else 'home_icons.h', 'w').write(header(ic))

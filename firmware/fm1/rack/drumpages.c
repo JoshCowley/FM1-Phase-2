@@ -168,14 +168,14 @@ static void pic_drum(void)
         int sel = l == dp.lane, mut = (dr.mute >> l & 1u) != 0;
         cv_text(5, y + 3, &FONT_XS, DR_LNAME[l], mut ? GREY(80) : sel ? K_FG : K_DIM);
         if (sel)
-            cv_rect(1, y, 2, 20, K_SEQC);
+            cv_rect(1, y, 2, 20, K_C_DRUMS);
         if (mut)
             cv_text(36, y + 3, &FONT_T, "M", K_WARN);
         for (i = 0; i < DR_STEPS; i++) {
             uint16_t s = dr_pat[l][i];
             int32_t x = 50 + i * 11;
             int on = (s & DRS_ON) != 0;
-            uint16_t col = on ? mix565(K_SEQC, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
+            uint16_t col = on ? mix565(K_C_DRUMS, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
             if (i >= dr_feel[l].len)           /* past the lane's own length: dark */
                 col = SQ_PAST;
             if (on && dr.run && pl_now - dr_flash[l] < 6000u)
@@ -230,7 +230,7 @@ static void dr_pop_list(const char *title, int n, int sel, const char *const *na
     for (i = 0; i < n; i++) {
         int32_t y = 24 + i * 13;
         if (i == sel)
-            rrect(14, y, 200, 13, mix565(K_SEQC, K_CELL, 100), 2);
+            rrect(14, y, 200, 13, mix565(K_C_DRUMS, K_CELL, 100), 2);
         cv_text(20, y, &FONT_XS, names[i], i == sel ? K_FG : K_DIM);
         if (pts) {
             t[0] = 0;
@@ -332,13 +332,13 @@ static void pic_dmidi(void)                    /* DRUM MIDI: the lanes' notes, a
         int32_t y = 16 + l * 19;
         int sel = l == dp.lane;
         if (sel)
-            rrect(1, y - 1, 226, 18, mix565(K_SEQC, K_BG, 70), 3);
+            rrect(1, y - 1, 226, 18, mix565(K_C_DRUMS, K_BG, 70), 3);
         cv_text(4, y + 2, &FONT_XS, DR_LNAME[l], DR_LCOL[l]);
         int_text(dr_mid[l].note, t); cv_text(50, y + 2, &FONT_XS, t, K_FG);
         cv_text(76, y + 2, &FONT_XS, dr_gm_name(dr_mid[l].note), sel ? K_FG : K_DIM);
         cv_text(168, y + 2, &FONT_XS, DR_OUTN[dr_mid[l].out], dr_mid[l].out == DO_OFF ? K_WARN : K_FG);
         int_text(dr_mid[l].ch + 1, t); cv_text(196 - (dr_mid[l].ch > 8 ? 0 : 4), y + 2, &FONT_XS, t, K_DIM);
-        rrect(214, y + 3, 9, 9, (dr_in >> l & 1u) ? K_SEQC : SQ_PAST, 2);
+        rrect(214, y + 3, 9, 9, (dr_in >> l & 1u) ? K_C_DRUMS : SQ_PAST, 2);
     }
     cv_text(4, 134, &FONT_XS, GI(G_MOUT) ? "OUT MIDI/ALSO: NOTES GO OUT  IN: PADS PLAY LANES" : "GLOBAL > MIDI OUT MUST BE ON", GI(G_MOUT) ? K_DIM : K_WARN);
     if (dp.pop == DPOP_OUT)
@@ -353,7 +353,7 @@ static void pic_dkit(void)                     /* DRUM KIT: the patterns A-H, th
         int live = p == dr.pat, nxt = p == dr.next, cur = p == dp.pc;
         char n[2] = "A";
         n[0] = (char)('A' + p);
-        rrect(x, 3, 26, 24, live ? K_SEQC : K_CELL, 4);
+        rrect(x, 3, 26, 24, live ? K_C_DRUMS : K_CELL, 4);
         if (nxt || cur) {
             cv_rect(x, 3, 26, 1, nxt ? SQ_PLAY : K_FG); cv_rect(x, 26, 26, 1, nxt ? SQ_PLAY : K_FG);
             cv_rect(x, 3, 1, 24, nxt ? SQ_PLAY : K_FG); cv_rect(x + 25, 3, 1, 24, nxt ? SQ_PLAY : K_FG);
@@ -373,7 +373,7 @@ static void pic_dkit(void)                     /* DRUM KIT: the patterns A-H, th
     cv_text(220 - text_w(&FONT_XS, "(ESTIMATE: ALL FOUR VOICES AT ONCE)"), 66, &FONT_XS, "(ESTIMATE: ALL FOUR VOICES AT ONCE)", K_DIM);
     cv_text(10, 82, &FONT_XS, "DRUMS ON THE SECOND CORE", K_DIM);
     t[0] = 0; cat(t, "IF BUSY: "); cat(t, dr_busy == 1 ? "CLOUDS EASES" : dr_busy == 2 ? "A SYNTH VOICE SHEDS" : "NOTHING GIVES");
-    cv_text(10, 98, &FONT_XS, t, K_SEQC);
+    cv_text(10, 98, &FONT_XS, t, K_C_DRUMS);
     if (rk_drum_status(2) == 1)
         cv_text(10, 112, &FONT_XS, "CLOUDS HELD BACK NOW (DENSITY 0.9)", K_WARN);
     t[0] = 0; cat(t, "STYLE STARTS AND STOPS THE DRUMS: "); cat(t, dr_style ? "ON" : "OFF");
@@ -713,7 +713,7 @@ static void draw_drum_layer(void)
 {
     char t[48], u[8];
     int r, w, pc = dr_col(dp.lane);
-    cv_begin(240, 16, K_SEQC);
+    cv_begin(240, 16, K_C_DRUMS);
     t[0] = 0;
     cat(t, "DRUM ");
     cat(t, DR_LNAME[dp.lane]);
@@ -726,7 +726,7 @@ static void draw_drum_layer(void)
             int i = r * 4 + w;
             int32_t x = 6 + w * 37;
             uint16_t s = dr_pat[dp.lane][i];
-            uint16_t col = (s & DRS_ON) ? mix565(K_SEQC, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
+            uint16_t col = (s & DRS_ON) ? mix565(K_C_DRUMS, K_BG, 90 + (int)DRS_FORCE(s) * 41) : (i % 4 == 0 ? SQ_OFF_BEAT : SQ_OFF);
             rrect(x, 1, 34, 33, col, 4);
             if (i == sp.held) { cv_rect(x, 1, 34, 2, K_FG); cv_rect(x, 32, 34, 2, K_FG); cv_rect(x, 1, 2, 33, K_FG); cv_rect(x + 32, 1, 2, 33, K_FG); }
             if (i == pc) { cv_rect(x + 2, 30, 30, 1, K_BG); cv_rect(x + 2, 31, 30, 2, SQ_PLAY); }

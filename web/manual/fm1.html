@@ -334,14 +334,138 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <h2 id="5-home">5. HOME</h2>
 <p>HOME shows the preset's category, name and number (or its user slot), the sound's path, the four macros and the output.</p>
 <ul>
-<li><strong>The path</strong>: the slots in use, as live tiles in the order the sound goes through them: SRC › SHP › FX 1, then down to FX 2. Dots run along the arrows, as bright as the output. Empty slots are left out and the path closes up.</li>
-<li><strong>The tiles</strong>: each slot's module, moving with what it is doing to the sound right now. The colours tell the kinds apart: orange sources, teal shapers, purple modulators, blue effects.
+<li><strong>The path</strong>: the stages in use, as tiles in the order the sound goes through them: the source (Braids), Rings when it is the shaper, the filter (always there), then the effect slots as they sit (Clouds shows its mode: grains, loop or spectral). Dots run along the path, as fast and bright as the output. Stages not in use are left out and the path closes up and centres.</li>
+<li><strong>The mods row</strong> above it: a tile for each modulation source in use (MOD A and MOD B's module: Peaks, Tides, Grids or Func; the LFOs, MSEQ, the gate pattern and the knob layer when something is routed from them; JAM while it is on) and the DRUMS while the pattern plays. A line runs from each to every stage it moves, with a pulse as bright as the source moves; the drums' line joins the path where the effects begin. A switched-off effect shows <strong>OFF</strong> (section 10); a red tile is a module the preset needs that didn't fit in memory.</li>
+<li><strong>The colours</strong>: every icon has its own colour, and its page uses the same one (the page's header, wells and picture), so a tile, its page, its lines and pulses always agree. The scope at the bottom is tinted by the moving routes and goes white when loud; with a reverb it has a wider halo, with a delay an echo line, with a chorus a second line.</li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>Icon</th>
+<th>RGB565</th>
+<th>RGB</th>
+<th>Page</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>BRAIDS</td>
+<td>F5CD</td>
+<td>240, 184, 104</td>
+<td>SRC: BRAIDS</td>
+</tr>
+<tr class="even">
+<td>RINGS</td>
+<td>EB65</td>
+<td>232, 108, 40</td>
+<td>SHP: RINGS</td>
+</tr>
+<tr class="odd">
+<td>FILTER</td>
+<td>252B</td>
+<td>34, 165, 95</td>
+<td>ENV: FILTER</td>
+</tr>
+<tr class="even">
+<td>CLOUDS</td>
+<td>9E5F</td>
+<td>154, 201, 255</td>
+<td>FX: CLOUDS (all three modes)</td>
+</tr>
+<tr class="odd">
+<td>CLOUDS LOOP</td>
+<td>9E5F</td>
+<td>154, 201, 255</td>
+<td>FX: CLOUDS LOOPDLY</td>
+</tr>
+<tr class="even">
+<td>CLOUDS SPEC</td>
+<td>9E5F</td>
+<td>154, 201, 255</td>
+<td>FX: CLOUDS SPECTRL</td>
+</tr>
+<tr class="odd">
+<td>REVERB</td>
+<td>A4FF</td>
+<td>167, 158, 255</td>
+<td>FX: REVERB</td>
+</tr>
+<tr class="even">
+<td>DELAY</td>
+<td>0519</td>
+<td>0, 160, 200</td>
+<td>FX: DELAY</td>
+</tr>
+<tr class="odd">
+<td>CHORUS</td>
+<td>0532</td>
+<td>0, 164, 148</td>
+<td>FX: CHORUS</td>
+</tr>
+<tr class="even">
+<td>LFO</td>
+<td>A3BF</td>
+<td>163, 118, 255</td>
+<td>LFO: THREE LFOS</td>
+</tr>
+<tr class="odd">
+<td>TIDES</td>
+<td>07FF</td>
+<td>0, 255, 255</td>
+<td>MOD: TIDES</td>
+</tr>
+<tr class="even">
+<td>PEAKS</td>
+<td>FA4A</td>
+<td>255, 74, 82</td>
+<td>MOD: PEAKS</td>
+</tr>
+<tr class="odd">
+<td>FUNC</td>
+<td>E749</td>
+<td>227, 233, 78</td>
+<td>MOD: FUNC</td>
+</tr>
+<tr class="even">
+<td>GRIDS</td>
+<td>DF53</td>
+<td>216, 235, 154</td>
+<td>MOD: GRIDS</td>
+</tr>
+<tr class="odd">
+<td>MSEQ</td>
+<td>F2B8</td>
+<td>246, 86, 198</td>
+<td>LFO menu: MSEQ</td>
+</tr>
+<tr class="even">
+<td>GATE</td>
+<td>F4C0</td>
+<td>246, 154, 4</td>
+<td>LFO menu: GATE PATTERN</td>
+</tr>
+<tr class="odd">
+<td>KNOB</td>
+<td>FB13</td>
+<td>255, 99, 153</td>
+<td>MATRIX (the knob layer)</td>
+</tr>
+<tr class="even">
+<td>DRUMS</td>
+<td>FDD5</td>
+<td>255, 185, 172</td>
+<td>SEQ: the DRUM pages</td>
+</tr>
+<tr class="odd">
+<td>JAM</td>
+<td>07FA</td>
+<td>0, 255, 208</td>
+<td>FX menu: JAM</td>
+</tr>
+</tbody>
+</table>
 <ul>
-<li>A switched-off effect shows <strong>OFF</strong> (section 10).</li>
-<li>A red tile is a module the preset needs that didn't fit in memory.</li>
-</ul></li>
-<li><strong>The modulators</strong> loaded in MOD A and MOD B sit under the path; small arrows pulse up from them as their outputs move.</li>
-<li><strong>The macros</strong>: each with its value (0–100), a slider in its knob's colour (moving with the sound, as on the pages), and what it moves (the first destination, "+2" if more), or <strong>UNSET</strong>. K1–K4 turn them; so do MIDI CC 20–23.</li>
+<li><strong>The macros</strong>: four sliders, each with its name, its value (0–100) and a track in its knob's colour (a macro routed through an LFO or envelope shows that source's hold as a second mark); the name is what it moves (the first destination, "+2" if more), or <strong>UNSET</strong>. K1–K4 turn them; so do MIDI CC 20–23.</li>
 <li><strong>The tabs</strong> along the bottom show what's on besides the preset: the scale and chord, the arpeggiator, the STYLE, a tuning. A red tab on the left, <strong>KEYS: FM-1 OFF</strong> (or <strong>ARP: FM-1 OFF</strong>), means the keys or the arpeggio aren't playing the FM-1's sound (GLOBAL › CHORD + ARP › CHD FM-1, or two quick taps on ARP; section 10). (Update 39 took away the waveform that ran along the bottom, and HOME now only redraws the macros and tabs when they change, so it takes less of the processor's time.)</li>
 </ul>
 <p><strong>PRESET</strong> chooses the preset, <strong>ALGORITHM</strong> jumps a category and <strong>SELECT</strong> sets the voices (1–6). Changing preset, or loading a module into a slot, fades the sound out over a few milliseconds and the new one in, so it doesn't click; nothing of the old sound (its echoes, its last few samples) carries into the new one. Knobs glide to their new values over a few milliseconds too, so a level, a cutoff or a chorus turned quickly doesn't click or zipper; a choice from a list (a model, a type) still changes at once. Tap HOME again for <strong>RACK</strong>, a list of every slot, AMP, the outputs and how many matrix routes are set.</p>
@@ -407,7 +531,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tr>
 <tr class="even">
 <td><strong>Braids</strong></td>
-<td>A macro oscillator with 47 shapes: saws, triple and swarm oscillators, sync, vowels, plucked, bowed and blown models, bit-crushed and noisy shapes</td>
+<td>A macro oscillator with 33 shapes: saws, triple and swarm oscillators, sync, vowels and formants, FM, wavetables, bit-crushed and noisy shapes (the plucked, bowed, blown and fluted models, feedback FM and Braids' nine drum shapes are not offered: the drum track has its own drums)</td>
 <td>MODEL, TIMBRE, COLOR, DRIFT; BITS and RATE (crushing); its own AD envelope onto TIMBRE, COLOR, pitch or level</td>
 </tr>
 <tr class="odd">
@@ -483,6 +607,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <p>Edits are lost when you change preset unless you SAVE.</p>
 <h3 id="clouds-the-grain-controls-update-27">Clouds: the grain controls (update 27)</h3>
 <p>Clouds sits in FX 1 or FX 2 and listens to everything before it, so it granulates the FM-1's own sound, live. Its buffer is short, set by QUALITY (page 4): <strong>0.77 s</strong> at 16 ST, <strong>1.5 s</strong> at 16 MONO, <strong>3.1 s</strong> at 8 ST, <strong>6.1 s</strong> at 8 MONO (the 8-bit qualities are lo-fi). The grain controls shape GRANULR mode; LOOPDLY and SPECTRL ignore WINDOW, SPEED and JITTER.</p>
+<p>Clouds plays at most <strong>24 grains</strong> at once (Mutable's own count is 32 at 16 ST, 45 at 8 ST, 40 at 16 MONO, 57 at 8 MONO); DENSITY's range is spread over that, so the busiest setting is a little thinner than on Mutable's Clouds, and costs less processor.</p>
 <p><strong>The first two pages are the grain set.</strong> Every control is a matrix destination and a knob-layer target, and the three new ones are saved in user presets.</p>
 <table>
 <thead>
@@ -531,10 +656,67 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 </tbody>
 </table>
 <p>WINDOW has to be above 0 for SPEED and JITTER to do anything: the playhead needs a window to travel in. The older SPRAY (a random offset in the whole buffer, per control block) and SCAN (a playhead round the whole buffer) are still there, on the last pages, and add to these. The picture shows the window as two dashed lines with the playhead moving between them. A preset saved before update 27 loads with WINDOW, SPEED and JITTER at 0.</p>
+<h3 id="braids-shapes-that-are-no-longer-offered-update-61">Braids shapes that are no longer offered (update 61)</h3>
+<p>The MODEL list steps over 14 of Braids' 47 shapes. A saved sound, a user preset, a MIDI or matrix move that names one plays the nearest kept shape, and the page shows that shape:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Withdrawn</th>
+<th>Plays as</th>
+<th>Withdrawn</th>
+<th>Plays as</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>FBFM</td>
+<td>FM</td>
+<td>KICK</td>
+<td>FOLD</td>
+</tr>
+<tr class="even">
+<td>PLUK</td>
+<td>CSAW</td>
+<td>CYMB</td>
+<td>////</td>
+</tr>
+<tr class="odd">
+<td>BOWD</td>
+<td>VOSM</td>
+<td>SNAR</td>
+<td>CLOU</td>
+</tr>
+<tr class="even">
+<td>BLOW</td>
+<td>ZLPF</td>
+<td>NOIS</td>
+<td>TOY*</td>
+</tr>
+<tr class="odd">
+<td>FLUT</td>
+<td>VOWL</td>
+<td>TWLN</td>
+<td>QPSK</td>
+</tr>
+<tr class="even">
+<td>BELL</td>
+<td>RING</td>
+<td>CLKN</td>
+<td>TOY*</td>
+</tr>
+<tr class="odd">
+<td>DRUM</td>
+<td>SIx3</td>
+<td>PRTC</td>
+<td>QPSK</td>
+</tr>
+</tbody>
+</table>
+<p>The first five (FBFM to FLUT) are feedback FM and the plucked, bowed, blown and fluted models; the nine drum shapes are in the drum track, which keeps its own trimmed drum voices. Rings: MODAL, SYMPATH and SYM QNT load as STRING.</p>
 <h3 id="rings-on-the-fm-1">Rings on the FM-1</h3>
 <p>There is <strong>one Rings shared by all the voices</strong>, as on the hardware module. Every voice's sound excites it, and it rings up to two notes at once: each new note takes the next resonator, so a third note cuts off the oldest ring. The dry part of each voice (set by Rings' MIX) plays as well. Rings' parameters follow the last note played.</p>
 <ul>
-<li><strong>Models</strong>: STRING, FM VOICE and STR+VERB. MODAL, SYMPATH and SYM QNT are too heavy for the FM-1, so a preset asking for one plays STRING. For struck and bell sounds, Plaits' own MODAL and STRING models are the light alternatives.</li>
+<li><strong>Models</strong>: STRING, FM VOICE and STR+VERB. MODAL, SYMPATH and SYM QNT are not offered (they were too heavy for the FM-1 and played STRING already): a sound saved with one loads as STRING. For struck and bell sounds, Plaits' own MODAL and STRING models are the light alternatives.</li>
 <li><strong>STR+VERB</strong> adds Rings' own reverb to the strings. DAMPING then sets the strings' decay and the reverb's size together. It is much lighter on the processor than a separate reverb module.</li>
 <li><strong>Sample rate</strong>: to fit the processor, Rings runs at half the sample rate (24 kHz). Its tuning, decays and tone are kept, but it has nothing above 12 kHz.</li>
 </ul>
@@ -964,7 +1146,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <li><p><strong>TUNING + BEND</strong>: TUNING (13: equal, just, Pythagorean, meantone, Werckmeister III, Kirnberger III, rast, bayati, slendro, pelog, 19-, 24- and 31-EDO), T ROOT, A4 HZ, BEND (the pitch-bend range)</p></li>
 <li><p><strong>MIDI</strong>: PROG CHG, MIDI OUT, OUT CH, LOCAL</p></li>
 <li><p><strong>EQ + COMP</strong>: LOW, MID and HIGH EQ and COMP, over every preset</p></li>
-<li><p><strong>CPU + MEMORY</strong>: measured, not set: CPU history, memory, voices, cores</p></li>
+<li><p><strong>CPU + MEMORY</strong>: CPU, memory, voices, cores measured; K4 turns the VOICE GUARD ON or OFF (OFF by default: an overload never sheds a voice, every preset plays all its voices and may glitch; ON sheds one voice at a time as before; saved)</p></li>
 <li><p><strong>CLICK + COUNT IN</strong>: the click track (section 11):</p>
 <ul>
 <li><strong>CLICK</strong>: OFF, REC (a click on every beat while recording; to start with) or REC+PLAY (whenever the sequencer runs);</li>
@@ -1298,7 +1480,7 @@ python3 ~/fm1-base/tools/fm1_install.py fm1ph2.fwsc</code></pre>
 <tr class="odd">
 <td>18</td>
 <td>SYMPATH HARP</td>
-<td>A harp: a plucked exciter into Rings' sympathetic strings, triggered by Grids for the accents, delay and hall.</td>
+<td>A harp: a bright triple-saw exciter into Rings' strings, triggered by Grids for the accents, delay and hall.</td>
 <td>PLUCK · GRIDS · HALL · DRIFT</td>
 <td>medium</td>
 </tr>

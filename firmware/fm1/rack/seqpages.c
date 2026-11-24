@@ -360,7 +360,7 @@ static void pic_mseq(void)
     for (i = 0; i < 16; i++) {
         int v = sqs.ms[sp.ms_lane][i];
         int32_t x = 4 + (int32_t)((float)i * sw), h = v * 44 / 100;
-        uint16_t c = i == ms_cur ? K_LFO : mix565(K_LFO, K_WELL, 165);
+        uint16_t c = i == ms_cur ? K_C_MSEQ : mix565(K_C_MSEQ, K_WELL, 165);
         if (h > 0) cv_rect(x + 1, 50 - h, (int32_t)sw - 2, h, c);
         else if (h < 0) cv_rect(x + 1, 51, (int32_t)sw - 2, -h, c);
         else cv_rect(x + 1, 50, (int32_t)sw - 2, 1, c);
@@ -374,7 +374,7 @@ static void pic_mseq(void)
         cv_text(4, 104 + row * 15, &FONT_T, t, K_FG);
         for (i = 0; i < 16; i++) {
             int v = sqs.ms[l][i] < 0 ? -sqs.ms[l][i] : sqs.ms[l][i];
-            cv_rect(14 + i * 13, 108 + row * 15, 12, 8, mix565(K_LFO, K_WELL, (uint32_t)(135 + v * 121 / 100)));
+            cv_rect(14 + i * 13, 108 + row * 15, 12, 8, mix565(K_C_MSEQ, K_WELL, (uint32_t)(135 + v * 121 / 100)));
         }
         row++;
     }
@@ -427,7 +427,7 @@ static void draw_seq_page(void)
         int_text(sp.ms_lane + 1, u); cat(t, u);
         cat(t, " / STEP ");
         int_text(sp.ms_cur + 1, u); cat(t, u);
-        header("MSEQ", K_LFO, t, IC_SEQ, 1, 0);
+        header("MSEQ", K_C_MSEQ, t, IC_SEQ, 1, 0);
         seq_area();
         l[0] = "VALUE"; l[1] = "SHAPE"; l[2] = "RATE"; l[3] = "SMOOTH";
         {
@@ -439,7 +439,7 @@ static void draw_seq_page(void)
         cat(v[1], MS_SHAPES[sp.ms_shape]); f[1] = (float)sp.ms_shape / 9.0f;
         cat(v[2], MS_RATES[sqs.ms_rate]); f[2] = (float)sqs.ms_rate / 6.0f;
         int_text(sqs.ms_smooth[sp.ms_lane], v[3]); f[3] = (float)sqs.ms_smooth[sp.ms_lane] / 100.0f;
-        seq_dials(l, v, f, K_LFO);
+        seq_dials(l, v, f, K_C_MSEQ);
         help("SELECT: STEP   ALGO: LANE   SAVE: KEEP");
         return;
     }

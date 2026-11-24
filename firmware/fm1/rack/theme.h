@@ -158,17 +158,58 @@
 #define PN_MC_MSEQ RGB(214, 120, 170)
 
 
+/* update 40: each kind of source, effect and module its own colour, the colour of its icon on HOME and of its page (page_colour); chosen apart in CIELAB under normal,
+ * deuteranope and protanope sight (make_home_icons.py --colours prints the table), bright enough on black. Daylight keeps them. */
+/* the table (name RGB565: page):
+ *   BRAIDS  F5CD  SRC: BRAIDS
+ *   RINGS   EB65  SHP: RINGS
+ *   FILTER  252B  ENV: FILTER
+ *   CLOUDS  9E5F  FX: CLOUDS (all three modes)
+ *   REVERB  A4FF  FX: REVERB
+ *   DELAY   0519  FX: DELAY
+ *   CHORUS  0532  FX: CHORUS
+ *   LFO     A3BF  LFO: THREE LFOS
+ *   TIDES   07FF  MOD: TIDES
+ *   PEAKS   FA4A  MOD: PEAKS
+ *   FUNC    E749  MOD: FUNC
+ *   GRIDS   DF53  MOD: GRIDS
+ *   MSEQ    F2B8  LFO menu: MSEQ
+ *   GATE    F4C0  LFO menu: GATE PATTERN
+ *   KNOB    FB13  MATRIX (the knob layer)
+ *   DRUMS   FDD5  SEQ: the DRUM pages
+ *   JAM     07FA  FX menu: JAM
+ */
+#define PN_C_BRAIDS RGB(240, 184, 104)
+#define PN_C_RINGS RGB(232, 108, 40)
+#define PN_C_FILTER RGB(34, 165, 95)
+#define PN_C_CLOUDS RGB(154, 201, 255)
+#define PN_C_REVERB RGB(167, 158, 255)
+#define PN_C_DELAY RGB(0, 160, 200)
+#define PN_C_CHORUS RGB(0, 164, 148)
+#define PN_C_LFO RGB(163, 118, 255)
+#define PN_C_TIDES RGB(0, 255, 255)
+#define PN_C_PEAKS RGB(255, 74, 82)
+#define PN_C_FUNC RGB(227, 233, 78)
+#define PN_C_GRIDS RGB(216, 235, 154)
+#define PN_C_MSEQ RGB(246, 86, 198)
+#define PN_C_GATE RGB(246, 154, 4)
+#define PN_C_KNOB RGB(255, 99, 153)
+#define PN_C_DRUMS RGB(255, 185, 172)
+#define PN_C_JAM RGB(0, 255, 208)
+
 /* (update 55) The palette at run time: NORMAL (the look above) or DAYLIGHT (GLOBAL > DISPLAY, or hold GLO): true
  * black, white words, the knobs' and sections' colours at full strength, no see-through, thicker lines, a solid
  * slider bar and bold values, for a screen read in the sun. K_* and the rest read fm1_pal[], set by pal_set(). */
 enum { P_BG, P_WELL, P_EDGE, P_BAR, P_CELL, P_OFF, P_GRID, P_SEL, P_MID, P_FAINT, P_DIM, P_FG, P_INK, P_GLO,
        P_KN1, P_KN2, P_KN3, P_KN4, P_SRC, P_SHP, P_MOD, P_FX, P_OSC, P_AMP, P_LFO, P_MX, P_CHD, P_ARP, P_SEQC,
-       P_LBASS, P_WARN, P_OK, P_GOLD, P_INKACC, P_MCKEY, P_MCENV, P_MCMOD, P_MCLFO, P_MCMSEQ, NPAL };
+       P_LBASS, P_WARN, P_OK, P_GOLD, P_INKACC, P_MCKEY, P_MCENV, P_MCMOD, P_MCLFO, P_MCMSEQ,
+       P_C_BRAIDS, P_C_RINGS, P_C_FILTER, P_C_CLOUDS, P_C_REVERB, P_C_DELAY, P_C_CHORUS, P_C_LFO, P_C_TIDES, P_C_PEAKS, P_C_FUNC, P_C_GRIDS, P_C_MSEQ, P_C_GATE, P_C_KNOB, P_C_DRUMS, P_C_JAM, NPAL };
 static const uint16_t PAL_NORMAL[NPAL] = {
     PN_K_BG, PN_K_WELL, PN_K_EDGE, PN_K_BAR, PN_K_CELL, PN_K_OFF, PN_K_GRID, PN_K_SEL, PN_K_MID, PN_K_FAINT, PN_K_DIM,
     PN_K_FG, PN_K_INK, PN_K_GLO, PN_KN1, PN_KN2, PN_KN3, PN_KN4, PN_K_SRC, PN_K_SHP, PN_K_MOD, PN_K_FX, PN_K_OSC,
     PN_K_AMP, PN_K_LFO, PN_K_MX, PN_K_CHD, PN_K_ARP, PN_K_SEQC, PN_L_BASS, PN_K_WARN, PN_K_OK, PN_K_GOLD, PN_K_INKACC,
-    PN_MC_KEY, PN_MC_ENV, PN_MC_MOD, PN_MC_LFO, PN_MC_MSEQ};
+    PN_MC_KEY, PN_MC_ENV, PN_MC_MOD, PN_MC_LFO, PN_MC_MSEQ,
+    PN_C_BRAIDS, PN_C_RINGS, PN_C_FILTER, PN_C_CLOUDS, PN_C_REVERB, PN_C_DELAY, PN_C_CHORUS, PN_C_LFO, PN_C_TIDES, PN_C_PEAKS, PN_C_FUNC, PN_C_GRIDS, PN_C_MSEQ, PN_C_GATE, PN_C_KNOB, PN_C_DRUMS, PN_C_JAM};
 static const uint16_t PAL_DAY[NPAL] = {
     RGB(0, 0, 0), RGB(0, 0, 0), RGB(90, 90, 90), RGB(16, 16, 16), RGB(26, 26, 26), RGB(34, 34, 34), RGB(44, 44, 44),
     RGB(54, 54, 54), RGB(84, 84, 84), RGB(120, 120, 120), RGB(222, 222, 222), RGB(255, 255, 255), RGB(0, 0, 0),
@@ -177,7 +218,8 @@ static const uint16_t PAL_DAY[NPAL] = {
     RGB(255, 196, 80), RGB(80, 235, 220), RGB(196, 160, 255), RGB(110, 185, 255), RGB(255, 220, 150),
     RGB(255, 120, 90), RGB(210, 170, 255), RGB(255, 214, 110), RGB(170, 245, 120), RGB(120, 220, 255),
     RGB(255, 150, 210), RGB(255, 186, 80), RGB(255, 90, 70), RGB(90, 240, 140), RGB(255, 214, 110),
-    RGB(140, 100, 20), RGB(110, 210, 255), RGB(255, 120, 90), RGB(255, 170, 60), RGB(190, 150, 255), RGB(255, 120, 200)};
+    RGB(140, 100, 20), RGB(110, 210, 255), RGB(255, 120, 90), RGB(255, 170, 60), RGB(190, 150, 255), RGB(255, 120, 200),
+    PN_C_BRAIDS, PN_C_RINGS, PN_C_FILTER, PN_C_CLOUDS, PN_C_REVERB, PN_C_DELAY, PN_C_CHORUS, PN_C_LFO, PN_C_TIDES, PN_C_PEAKS, PN_C_FUNC, PN_C_GRIDS, PN_C_MSEQ, PN_C_GATE, PN_C_KNOB, PN_C_DRUMS, PN_C_JAM};
 static uint16_t fm1_pal[NPAL];
 static int pal_day;                           /* DAYLIGHT on: also no halos, thicker lines, a solid slider, bold values */
 static void pal_set(int day)
@@ -231,6 +273,23 @@ static void pal_set(int day)
 #define MC_MOD fm1_pal[P_MCMOD]
 #define MC_LFO fm1_pal[P_MCLFO]
 #define MC_MSEQ fm1_pal[P_MCMSEQ]
+#define K_C_BRAIDS fm1_pal[P_C_BRAIDS]
+#define K_C_RINGS fm1_pal[P_C_RINGS]
+#define K_C_FILTER fm1_pal[P_C_FILTER]
+#define K_C_CLOUDS fm1_pal[P_C_CLOUDS]
+#define K_C_REVERB fm1_pal[P_C_REVERB]
+#define K_C_DELAY fm1_pal[P_C_DELAY]
+#define K_C_CHORUS fm1_pal[P_C_CHORUS]
+#define K_C_LFO fm1_pal[P_C_LFO]
+#define K_C_TIDES fm1_pal[P_C_TIDES]
+#define K_C_PEAKS fm1_pal[P_C_PEAKS]
+#define K_C_FUNC fm1_pal[P_C_FUNC]
+#define K_C_GRIDS fm1_pal[P_C_GRIDS]
+#define K_C_MSEQ fm1_pal[P_C_MSEQ]
+#define K_C_GATE fm1_pal[P_C_GATE]
+#define K_C_KNOB fm1_pal[P_C_KNOB]
+#define K_C_DRUMS fm1_pal[P_C_DRUMS]
+#define K_C_JAM fm1_pal[P_C_JAM]
 
 /* lines: how strong a line's core and its halo are (vis.c) */
 #if FM1_LINE == 1

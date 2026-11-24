@@ -358,6 +358,7 @@ static const float *home_frame(uint32_t dt);
 static void home_draw(const float *mon, int pf);
 static void home_text(void);
 static void home_reset(void);
+static void hx_set(int sc);
 static void home_readouts(void);
 static uint32_t home_sig(void);
 
@@ -625,6 +626,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         cv_oy = -y0;
         cp.by = y0;
         cp.bh = hb;
+        hx_set(sc);                           /* (update 40: a picture in its page's colour) */
         if (sc == SC_HOME)
             home_draw(mon, pf);
         else

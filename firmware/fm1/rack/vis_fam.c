@@ -40,7 +40,7 @@ static struct {
 static inline uint16_t fm_c565(uint32_t c) { return (uint16_t)(((c >> 8) & 0xF800u) | ((c >> 5) & 0x07E0u) | ((c >> 3) & 0x1Fu)); }
 static inline uint16_t fm_sw(uint32_t c) { return swap16(fm_c565(c)); }     /* as the canvas holds it */
 static uint32_t fm_ramp(int ramp, int tv) { return hr_ramp(ramp, tv); }
-static uint32_t fm_acc(int ramp) { return HR_ACC[ramp]; }
+static uint32_t fm_acc(int ramp) { return hr_acc(ramp); }
 static inline void fm_put(int32_t x, int32_t y, uint16_t sw)
 {
     y -= cp.by;
