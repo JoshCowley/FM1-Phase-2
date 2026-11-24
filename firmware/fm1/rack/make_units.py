@@ -76,6 +76,8 @@ gp = _sub(gp, "  reverb_.set_amount(reverb_amount * 0.54f);", """#ifdef RACK_CLO
 #endif
   reverb_.set_amount(reverb_amount * 0.54f);""")
 gp = _sub(gp, "  reverb_.Process(out_, size);", "#ifdef RACK_CLOUDS_SKIP_REVERB\n  if (!rv_skip)\n#endif\n  reverb_.Process(out_, size);")
+import sys as _sys; _sys.path.insert(0, str(HERE.parent / "rack")); import clouds_q_patch
+gp = clouds_q_patch.apply(gp, _sub)   # update 42 (RENDER): the CLQ_* changes (shared with bench/make_units.py)
 # RACK_CLOUDS_NO_STRETCH (the Lite firmware: STRETCH is not offered, the engine never selects it, see rack.cc): the WSOLA player and its
 # correlator are not linked (about 3 KB of flash). The correlator's memory is still allocated: the pitch shifter uses it, so the arena's layout is as before.
 gp = _sub(gp, "    case PLAYBACK_MODE_STRETCH:\n      if (resolution() == 8) {\n        ws_player_.Play(buffer_8_, parameters_, &output[0].l, size);\n      } else {\n        ws_player_.Play(buffer_16_, parameters_, &output[0].l, size);\n      }\n      break;\n",

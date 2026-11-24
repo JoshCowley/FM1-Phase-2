@@ -41,6 +41,7 @@ void rk_pump_set(float depth, float release_s, float shape, int target);   /* up
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
 void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (the host checks and the benchmark) */
+void rk_clouds_mask(unsigned m);   /* update 42: the Clouds quality bits (shim/clouds/dsp/rack_cl_q.h); ~0u = the page's RENDER */
 void rk_set_bend(float semis);
 void rk_note_on(float note, float vel);
 void rk_note_off(float note);

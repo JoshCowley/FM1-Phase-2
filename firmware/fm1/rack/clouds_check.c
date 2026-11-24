@@ -375,6 +375,62 @@ static cg_track_t cg_track(int q, float pos, float win, float sp, float jit, int
 }
 static float cg_speed_x(float sp) { return 2.0f * sp * fabsf(sp); }   /* SPEED's knob as x real time (rack.cc) */
 
+/* ---- RENDER (update 42): CLOUDS' NORMAL / HIGH / LITE (parameter 25; the benchmark's mask = the CLQ_* bits, shim/clouds/dsp/rack_cl_q.h) --------------------- */
+enum { RM_HIGH = 0, RM_FOLD = 1, RM_FASTMIX = 2, RM_SKIPDIF = 4, RM_SKIPFB = 8, RM_NORMAL = 15, RM_LITE = 191 };
+#define RH_N 96000                                /* 2 s, left channel */
+static float rh_out[2][RH_N];
+/* a held chord through Clouds (MODE, TEXTURE, FEEDBACK, REVERB, DENSITY) for 2 s into rh_out[which]; mask ~0u: the page's RENDER (param 25 = page) is read instead.
+ * `switches`: the mask moves HIGH -> LITE -> NORMAL every 0.6 s while it plays */
+static void rh_run(int which, unsigned mask, int page, int mode, float tex, float fb, float rev, float dens, int switches)
+{
+    int s, ms, i, n = 0;
+    cl_patch(30, 0, 0);
+    s = cl_clouds_slot();
+    cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, dens); cl_set(s, P_TEX, tex); cl_set(s, P_BLEND, 1.0f);
+    cl_set(s, P_FB, fb); cl_set(s, P_REV, rev); cl_set(s, P_MODE, (float)mode);
+    if (page >= 0) cl_set(s, 25, (float)page);
+    rk_clouds_mask(mask);
+    rk_set_voices(4);
+    for (ms = 0; ms < 2000; ms++) {
+        if (ms == 0) cl_chord(0);
+        if (switches && ms % 600 == 0) rk_clouds_mask(ms == 600 ? RM_LITE : ms == 1200 ? RM_NORMAL : ms == 1800 ? RM_HIGH : mask);
+        rk_render(48);
+        for (i = 0; i < 48 && n < RH_N; i++) rh_out[which][n++] = rk_out_l()[i];
+    }
+    rk_clouds_mask(~0u);
+}
+static double rh_rms(int w) { double e = 0; int i; for (i = 14400; i < RH_N; i++) e += (double)rh_out[w][i] * rh_out[w][i]; return sqrt(e / (RH_N - 14400)); }
+/* (Two runs in this one process are not sample for sample the same, so the exact comparisons, NORMAL against HIGH at -60 dB and the page against its mask, are
+ * clouds_render_check.sh's, which renders each in a process of its own. This is the levels, the NaNs and the switching.) */
+static int check_clouds_render(void)
+{
+    int fails = 0, k;
+    static const struct { const char *nm; int mode; float tex, fb, rev, dens; } C[] = {
+        {"GRANULR TEXTURE 0.4 FEEDBACK 0 REVERB 0.3", 0, 0.4f, 0.0f, 0.3f, 0.95f}, {"GRANULR TEXTURE 0.9 FEEDBACK 0.3", 0, 0.9f, 0.3f, 0.0f, 0.95f},
+        {"LOOPDLY FEEDBACK 0.3", 1, 0.5f, 0.3f, 0.0f, 0.6f}, {"SPECTRL", 2, 0.5f, 0.2f, 0.0f, 0.6f}};
+    for (k = 0; k < 4; k++) {
+        double r0, rn, rl, nd, ld;
+        int nan = 0, i, ok;
+        rh_run(0, RM_HIGH, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0);   /* (a first run settles what the earlier checks left) */
+        rh_run(0, RM_HIGH, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); r0 = rh_rms(0);
+        rh_run(0, RM_NORMAL, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rn = rh_rms(0);
+        rh_run(0, RM_LITE, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rl = rh_rms(0);
+        for (i = 0; i < RH_N; i++) if (rh_out[0][i] != rh_out[0][i] || fabsf(rh_out[0][i]) > 4.0f) nan++;
+        nd = 20.0 * log10(rn / r0); ld = 20.0 * log10(rl / r0);
+        ok = fabs(nd) < 0.5 && fabs(ld) < 2.0 && !nan && r0 > 0.001;
+        printf("6h %-42s level against HIGH: NORMAL %+.2f dB (limit 0.5), LITE %+.2f dB (limit 2), %d bad samples%s\n", C[k].nm, nd, ld, nan, ok ? "" : "   FAIL");
+        fails += !ok;
+    }
+    {   /* switching while it plays: no NaN, no step over 0.5 (the resamplers and the dry line start again at each) */
+        double big = 0; int i, nan = 0;
+        rh_run(0, RM_HIGH, -1, 0, 0.4f, 0.2f, 0.3f, 0.95f, 1);
+        for (i = 1; i < RH_N; i++) { double d = fabs(rh_out[0][i] - rh_out[0][i - 1]); if (d > big) big = d; if (rh_out[0][i] != rh_out[0][i]) nan++; }
+        printf("6h HIGH -> LITE -> NORMAL -> HIGH every 0.6 s while playing: largest step between samples %.3f (limit 0.5), %d NaN%s\n", big, nan, big < 0.5 && !nan ? "" : "   FAIL");
+        fails += !(big < 0.5 && !nan);
+    }
+    return fails;
+}
+
 static int check_clouds_grain_run(void)
 {
     int fails = 0, k;
@@ -496,6 +552,7 @@ static int check_clouds(void)
     fails += check_clouds_arena();
     fails += check_clouds_giveway();
     fails += check_clouds_grain();
+    fails += check_clouds_render();
 #ifdef RACK_CLOUDS_SKIP_REVERB
     fails += check_clouds_skip();
 #endif

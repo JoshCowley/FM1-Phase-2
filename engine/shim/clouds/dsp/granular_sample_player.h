@@ -60,6 +60,7 @@ static inline float rack_sin4_interp(int off, float index) {
 #endif
 #include "clouds/dsp/grain.h"
 #include "clouds/dsp/parameters.h"
+#include "clouds/dsp/rack_cl_q.h"
 
 #include "clouds/resources.h"
 
@@ -103,7 +104,12 @@ class GranularSamplePlayer {
       float* out, size_t size) {
     float overlap = parameters.granular.overlap;
     overlap = overlap * overlap * overlap;
+    // update 42 (RENDER): CLQ_CAP16 / CLQ_CAP12 keep new grains to the first 16 / 12 slots (the ones above finish as they are) and the target to that many: the
+    // target grain count is what DENSITY asked for (max x overlap^3) up to the cap, so below it the density is untouched (at 24 slots DENSITY 0.7 asks for 1.1 grains)
+    const int32_t cap = (rack_cl_q & CLQ_CAP12) && max_num_grains_ > 12 ? 12 : (rack_cl_q & CLQ_CAP16) && max_num_grains_ > 16 ? 16 : max_num_grains_;
+    const int32_t midfi = cap == max_num_grains_ ? num_midfi_grains_ : 3 * cap / 4;
     float target_num_grains = max_num_grains_ * overlap;
+    if (target_num_grains > static_cast<float>(cap)) target_num_grains = static_cast<float>(cap);
     float p = target_num_grains / static_cast<float>(grain_size_hint_);
     float space_between_grains = grain_size_hint_ / target_num_grains;
     if (parameters.granular.use_deterministic_seed) {
@@ -121,7 +127,8 @@ class GranularSamplePlayer {
     }
 
     // Build a list of available grains.
-    int32_t num_available_grains = FillAvailableGrainsList();
+    int32_t num_free_grains = 0;
+    int32_t num_available_grains = FillAvailableGrainsList(cap, &num_free_grains);
     
     // Try to schedule new grains.
     bool seed_trigger = parameters.trigger;
@@ -133,9 +140,10 @@ class GranularSamplePlayer {
       bool seed = seed_probabilistic || seed_deterministic || seed_trigger;
       if (num_available_grains && seed) {
         --num_available_grains;
+        --num_free_grains;
         int32_t index = available_grains_[num_available_grains];
         GrainQuality quality;
-        if (num_available_grains < num_midfi_grains_) {
+        if (num_available_grains < midfi) {
           quality = GRAIN_QUALITY_MEDIUM;
         } else {
           quality = GRAIN_QUALITY_HIGH;
@@ -190,7 +198,7 @@ class GranularSamplePlayer {
     }
     
     // Compute normalization factor.
-    int32_t active_grains = max_num_grains_ - num_available_grains;
+    int32_t active_grains = max_num_grains_ - num_free_grains;   // (every grain that sounds, below the cap or not)
     SLOPE(num_grains_, static_cast<float>(active_grains), 0.9f, 0.2f);
 
     float gain_normalization = num_grains_ > 2.0f
@@ -210,14 +218,18 @@ class GranularSamplePlayer {
   }
   
  private:
-  int32_t FillAvailableGrainsList() {
-    int32_t num_available_grains = 0;
+  int32_t FillAvailableGrainsList(int32_t cap, int32_t* num_free) {
+    int32_t num_available_grains = 0, free_all = 0;
     for (int32_t i = 0; i < max_num_grains_; ++i) {
       if (!grains_[i].active()) {
-        available_grains_[num_available_grains] = i;
-        ++num_available_grains;
+        ++free_all;
+        if (i < cap) {
+          available_grains_[num_available_grains] = i;
+          ++num_available_grains;
+        }
       }
     }
+    *num_free = free_all;
     return num_available_grains;
   }
   

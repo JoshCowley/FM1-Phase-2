@@ -152,6 +152,7 @@ int main(int argc, char **argv)
             if (!strcmp(bcases[k].name, argv[2])) break;
         if (k == bncases) { fprintf(stderr, "no case %s (%d cases)\n", argv[2], bncases); return 2; }
         ir_mode = atoi(argv[3]);
+        if (getenv("CL_Q")) rk_clouds_mask((unsigned)strtoul(getenv("CL_Q"), 0, 0));   /* update 42: the Clouds quality bits (rack_cl_q.h) */
         bench_setup(k);
         if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(1);   /* bench_ir NAME MODE [REV|LIM|BOTH]: REV = the summed reverb input (not bit-identical), LIM = the 2.35 limiter */
         if (argc > 4 && (!strcmp(argv[4], "LIM") || !strcmp(argv[4], "BOTH"))) rk_lim_fast(0);

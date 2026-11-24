@@ -190,6 +190,11 @@ static void snapshot(upatch_t *u, const char *name, int cat)
                 v = v < -127.0f ? -127.0f : v > 127.0f ? 127.0f : v;
                 u->clx[i] = (int8_t)(v < 0.0f ? v - 0.5f : v + 0.5f);
             }
+    for (s = 0; s < 6; s++)                   /* (update 42) CLOUDS' RENDER (its parameter 25: 0 NORMAL, 1 HIGH, 2 LITE; an older save has 0 here) */
+        if (rc_patch.mod[s] == 30) {
+            int r = (int)(rk_get_param(s, 25) + 0.5f);
+            u->pad2 = (uint8_t)(r < 0 ? 0 : r > 2 ? 2 : r);
+        }
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         u->amp[i] = q_param(&UI_AMP.p[i], rk_get_param(RS_AMP, i));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)
@@ -249,6 +254,9 @@ static void apply(const upatch_t *u)
         if (rc_patch.mod[s] == 30)
             for (i = 0; i < 3; i++)
                 rk_set_param(s, 22 + i, u->pad & 8 ? (float)u->clx[i] / 127.0f : 0.0f);
+    for (s = 0; s < 6; s++)                   /* (update 42) RENDER: as saved (older saves hold 0: NORMAL) */
+        if (rc_patch.mod[s] == 30)
+            rk_set_param(s, 25, u->pad2 > 2 ? 0.0f : (float)u->pad2);
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         rc_set(RS_AMP, i, dq_param(&UI_AMP.p[i], u->amp[i]));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)

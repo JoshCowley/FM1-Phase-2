@@ -42,6 +42,7 @@ void rk_set_vintage(float v);
 void rk_set_ext_slew(int i, float s);
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
+void rk_clouds_mask(unsigned m);   /* update 42: the Clouds quality bits (rack_cl_q.h); ~0u = the page's RENDER */
 void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (this benchmark's comparison cases only) */
 void rk_note_on(float note, float vel);
 void rk_all_off(void);
@@ -675,6 +676,10 @@ static void cl_setup(const clc_t *r)
         else if (p == 10) v = 0.0f;
         else if (p == 11) v = (float)r->qual;
         else if (p == 8 && r->revz) v = 0.0f;       /* REVERB 0 (Clouds' own) */
+        if (getenv("CL_PAR")) {   /* update 42: CL_PAR="3=0.7,7=0,8=0" overrides Clouds' parameters (the host evaluation of RENDER) */
+            const char *e = getenv("CL_PAR");
+            while (*e) { int q = atoi(e); const char *eq = strchr(e, '='); if (!eq) break; if (q == p) v = (float)atof(eq + 1); e = strchr(eq, ','); if (!e) break; e++; }
+        }
         rk_set_param(S_FX1, p, v);
     }
 }

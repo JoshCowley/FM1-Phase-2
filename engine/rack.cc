@@ -404,9 +404,10 @@ static int cl_grid_ = -1;
 // = 0.45 ms (21.5 samples at 48 kHz). Buffers, grain sizes, the loop and the internal reverb last 1.5 x longer in seconds
 // (the same samples at 2/3 the rate): they are as Mutable made them.
 #include "cl_resample.h"
-#define CL_DRYD 21
+#include "clouds/dsp/rack_cl_q.h"
+#define CL_DRYD_MAX 25      // (update 42: the dry line is 21 frames long with the 3:2 resamplers, 25 with the 24 kHz halfbands: cl_dryd_)
 static Cl32Down cl_dn_[2]; static Cl32Up cl_up_[2];
-static float cl_dry_[2][CL_DRYD]; static int cl_dry_at_ = 0;
+static float cl_dry_[2][CL_DRYD_MAX]; static int cl_dry_at_ = 0, cl_dryd_ = 21;
 static float cl_mixs_ = 0.0f; static bool cl_mix_init_ = false;
 static int cl32_on_ = 1;            // runtime: the benchmark switches it per case (the firmware never does)
 #endif
@@ -459,6 +460,7 @@ static int cl_vn_ = 0;            // the voice count the job works with (a snaps
 static int cl_voff_opt_ = 1;      // run-time switch (the benchmark): 0 keeps every voice on the first core
 static uint32_t cl_wait_avg_ = 0, cl_blk_avg_ = 0, cl_wait_now_ = 0;   // ticks, smoothed over 16 blocks: the first core's wait at the join, and the whole block
 static void cl_pipe_decide();
+static void cl_join();
 #ifdef HAVE_DRUMS
 static void drums_render();
 // the pump's curve at this block's end (the sources read pump_c_; the gain slides from the last block's to this one's)
@@ -761,6 +763,78 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
 #define TANHF tanhf
 #define SIN01(p) sinf((p) * 6.2831853f)
 #define SIN01U(p) SIN01(p)
+#endif
+#ifdef RACK_CLOUDS_32K
+// ---- update 42, RENDER (Josh: "I want to use Clouds on more sounds but it is too heavy"): the Clouds page's NORMAL / HIGH / LITE (NORMAL is the default, 0: a preset or save that says nothing gets it). The CLQ_* bits (shim/clouds/dsp/rack_cl_q.h):
+// HIGH is 2.40's Clouds exactly; NORMAL the changes that cost next to nothing in sound; LITE the bolder ones (24 kHz, fewer grains, a cheaper reverb).
+#ifndef CLQ_NORMAL_MASK
+#define CLQ_NORMAL_MASK (CLQ_FOLD | CLQ_FASTMIX | CLQ_SKIPDIF | CLQ_SKIPFB)   // 15: 2.40's sound to -79 dB (rounding); the resamplers without the index sums and with the symmetric taps added first, no gain lookups, no idle diffuser or feedback
+#endif
+#ifndef CLQ_LITE_MASK
+#define CLQ_LITE_MASK (CLQ_NORMAL_MASK | CLQ_CLRV | CLQ_CAP16 | CLQ_24K)   // 191
+#endif
+static Half24Down cl_hd_[2]; static Half24Up cl_hu_[2];     // the 24 kHz mode's halfbands (the engine's, as Rings and the reverb use)
+static unsigned cl_q_ = CLQ_NORMAL_MASK;
+static int cl_fixed_q_ = 0;                                  // the benchmark's set_clouds_mask: the page's RENDER is not read
+static int cl_nf_ = 32;                                      // frames in Clouds' block: 32 (at 32 kHz), 24 (CLQ_24K)
+static void cl_reset_rs() {
+  memset(cl_hd_, 0, sizeof cl_hd_); memset(cl_hu_, 0, sizeof cl_hu_);
+  cl_nf_ = (cl_q_ & CLQ_24K) ? 24 : 32; cl_dryd_ = (cl_q_ & CLQ_24K) ? 25 : 21; cl_dry_at_ = 0;
+  clouds::rack_cl_q = cl_q_;
+}
+#ifdef RACK_PROFILE
+#define CL_NOINL __attribute__((noinline))   // (the host profile: callgrind then lists the resamplers and the mix apart)
+#else
+#define CL_NOINL
+#endif
+static CL_NOINL void cl_down(int ch, const float* x, float* y) {
+  if (cl_q_ & CLQ_24K) cl_hd_[ch].run(x, y);
+  else if (cl_q_ & CLQ_FOLD) cl_dn_[ch].runf(x, y);
+  else cl_dn_[ch].run(x, y);
+}
+static CL_NOINL void cl_up(int ch, const float* y, float* x) {
+  if (cl_q_ & CLQ_24K) cl_hu_[ch].run(y, x);
+  else if (cl_q_ & CLQ_FOLD) cl_up_[ch].runf(y, x);
+  else cl_up_[ch].run(y, x);
+}
+// the wet (w0, w1: 48 kHz, all wet out of Clouds) mixed with the dry (g0, g1, delayed cl_dryd_ frames to meet it): BLEND, TONE, the output stage. o0 / o1 may be w0 / w1
+static CL_NOINL void cl_mixout(const float* w0, const float* w1, const float* g0, const float* g1, float* o0, float* o1, float user_mix, float tone) {
+  if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
+  const float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
+  float c = 0.0f;
+  if (tone != 0.0f) { float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone); c = 1.0f - expf(-6.2831853f * hz / SR); }
+  const float dm = (user_mix - cl_mixs_) / (float)BLOCK;
+  const bool fast = (cl_q_ & CLQ_FASTMIX) != 0;
+  float fi = 0.0f, fo = 0.0f, dfi = 0.0f, dfo = 0.0f;
+  if (fast) {   // the crossfade gains at the block's first and last sample, a straight line between (BLEND moves by a hair in a block)
+    const float m0 = cl_mixs_ + dm;
+    fi = Interpolate(clouds::lut_xfade_in, m0, 16.0f); fo = Interpolate(clouds::lut_xfade_out, m0, 16.0f);
+    dfi = (Interpolate(clouds::lut_xfade_in, user_mix, 16.0f) - fi) / (float)(BLOCK - 1);
+    dfo = (Interpolate(clouds::lut_xfade_out, user_mix, 16.0f) - fo) / (float)(BLOCK - 1);
+  }
+  for (int n = 0; n < BLOCK; ++n) {
+    if (fast) { if (n) { fi += dfi; fo += dfo; } }
+    else { cl_mixs_ += dm; fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f); fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f); }
+    float wl = w0[n] * norm, wr = w1[n] * norm;
+    if (tone != 0.0f) {
+      cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
+      if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
+    }
+    float dl = cl_dry_[0][cl_dry_at_], dr = cl_dry_[1][cl_dry_at_];   // the dry signal cl_dryd_ frames late, to meet the wet
+    cl_dry_[0][cl_dry_at_] = g0[n]; cl_dry_[1][cl_dry_at_] = g1[n];
+    if (++cl_dry_at_ == cl_dryd_) cl_dry_at_ = 0;
+    o0[n] = SoftLimit((dl * fo + wl * fi) * 0.5f); o1[n] = SoftLimit((dr * fo + wr * fi) * 0.5f);
+  }
+  cl_mixs_ = user_mix;
+}
+// RENDER: the page's NORMAL (0), HIGH (1), LITE (2) (the bench: a mask). Never with a job out (run_fx calls it after the join); the resamplers and the dry line start again
+static void cl_set_q(unsigned q) {
+  if (q == cl_q_) return;
+  cl_q_ = q; cl_reset_rs();
+  memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_);
+  cl_mix_init_ = false;
+}
+static void cl_set_level(int lvl) { cl_set_q(lvl == 1 ? 0u : lvl >= 2 ? (unsigned)CLQ_LITE_MASK : (unsigned)CLQ_NORMAL_MASK); }   // the page's list: 0 NORMAL, 1 HIGH, 2 LITE
 #endif
 static inline float randf() { return Random::GetFloat(); }
 
@@ -1113,7 +1187,7 @@ static void init_fx(int id) {
     clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
     clouds::rack_gr_window = clouds::rack_gr_speed = clouds::rack_gr_jitter = 0.0f; clouds::rack_gr_ph = 0.5f;
 #ifdef RACK_CLOUDS_32K
-    memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_mix_init_ = false;
+    memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_reset_rs(); cl_mix_init_ = false;
 #ifdef FXC2
     cl_primed_ = 0;   // nothing staged: its first block out is silence, the next the first in (the dry path with it)
 #endif
@@ -1382,6 +1456,19 @@ EXPORT void set_clouds_opts(int k32, int skip_rev, int grains) {
   clouds::rack_cl_grain_cap = grains;
 #endif
   (void)k32; (void)skip_rev; (void)grains;
+}
+// update 42 (the benchmark and the host checks only): the CLQ_* bits as a mask, taking RENDER's place (a mask of ~0u gives it back)
+EXPORT void set_clouds_mask(unsigned m) {
+#ifdef RACK_CLOUDS_32K
+#ifdef FXC2
+  if (cl_forked_) cl_join();
+#endif
+  cl_fixed_q_ = m != ~0u; if (cl_fixed_q_) cl_set_q(m);
+#ifdef FXC2
+  cl_primed_ = 0;
+#endif
+#endif
+  (void)m;
 }
 EXPORT void set_voices(int n) {
   n = n < 1 ? 1 : n > MAXV ? MAXV : n;
@@ -2627,35 +2714,18 @@ static void cl_job(uint32_t) {
   float* const d0 = cl_po_[0]; float* const d1 = cl_po_[1];   // scratch for the 32 kHz blocks (32 of the 48 frames each), before the output is written
   const float ig = cl_igain_;
   for (int n = 0; n < BLOCK; ++n) { cl_g_[0][n] = clampf(cl_g_[0][n] * ig, -1.0f, 1.0f); cl_g_[1][n] = clampf(cl_g_[1][n] * ig, -1.0f, 1.0f); }
-  cl_dn_[0].run(cl_g_[0], d0); cl_dn_[1].run(cl_g_[1], d1);
-  for (int m = 0; m < 32; ++m) {
+  cl_down(0, cl_g_[0], d0); cl_down(1, cl_g_[1], d1);
+  const int nf = cl_nf_;
+  for (int m = 0; m < nf; ++m) {
     cl_in32_[m].l = (int16_t)(clampf(d0[m], -1.0f, 1.0f) * 32767.0f);
     cl_in32_[m].r = (int16_t)(clampf(d1[m], -1.0f, 1.0f) * 32767.0f);
   }
   clouds_->Prepare();
-  clouds_->Process(cl_in32_, cl_out32_, 32);      // exactly Clouds' own block: its arrays hold 32 frames
+  clouds_->Process(cl_in32_, cl_out32_, nf);      // Clouds' own block: 32 frames at 32 kHz (24 at 24 kHz in LITE); its arrays hold 32
   clouds::Parameters* p = clouds_->mutable_parameters(); p->trigger = false; p->gate = false;
-  for (int m = 0; m < 32; ++m) { d0[m] = cl_out32_[m].l / 32768.0f; d1[m] = cl_out32_[m].r / 32768.0f; }
-  cl_up_[0].run(d0, cl_po_[0]); cl_up_[1].run(d1, cl_po_[1]);      // the wet, in place in the output buffers (the up filter takes all 32 in before it writes)
-  const float user_mix = cl_umix_, tone = cl_utone_;
-  if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
-  float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
-  float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone);
-  float c = 1.0f - expf(-6.2831853f * hz / SR), dm = (user_mix - cl_mixs_) / (float)BLOCK;
-  for (int n = 0; n < BLOCK; ++n) {
-    cl_mixs_ += dm;
-    float fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f), fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f);
-    float wl = cl_po_[0][n] * norm, wr = cl_po_[1][n] * norm;
-    if (tone != 0.0f) {
-      cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
-      if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
-    }
-    float dl = cl_dry_[0][cl_dry_at_], dr = cl_dry_[1][cl_dry_at_];
-    cl_dry_[0][cl_dry_at_] = cl_g_[0][n]; cl_dry_[1][cl_dry_at_] = cl_g_[1][n];
-    if (++cl_dry_at_ == CL_DRYD) cl_dry_at_ = 0;
-    cl_po_[0][n] = SoftLimit((dl * fo + wl * fi) * 0.5f); cl_po_[1][n] = SoftLimit((dr * fo + wr * fi) * 0.5f);
-  }
-  cl_mixs_ = user_mix;
+  for (int m = 0; m < nf; ++m) { d0[m] = cl_out32_[m].l / 32768.0f; d1[m] = cl_out32_[m].r / 32768.0f; }
+  cl_up(0, d0, cl_po_[0]); cl_up(1, d1, cl_po_[1]);      // the wet, in place in the output buffers (the up filter takes all in before it writes)
+  cl_mixout(cl_po_[0], cl_po_[1], cl_g_[0], cl_g_[1], cl_po_[0], cl_po_[1], cl_umix_, cl_utone_);
   if (ticks_) st_job_ += ticks_() - t0;
 }
 // update 10: do the voices above CL_V1 ride in the second core's job? Only where that helps and changes nothing but the order they are added in:
@@ -2736,6 +2806,9 @@ static void run_fx(int slot, float* l, float* r) {
     p->texture = P(slot, 4, 0); p->dry_wet = P(slot, 5, 0);
     p->stereo_spread = P(slot, 6, 0); p->feedback = P(slot, 7, 0); p->reverb = P(slot, 8, 0);
     int cmode = PI(slot, 9, 0);
+#ifdef RACK_CLOUDS_32K
+    if (!cl_fixed_q_) cl_set_level(PI(slot, 25, 0));   // update 42: RENDER, the page's HIGH / NORMAL / LITE (the benchmark fixes the mask instead)
+#endif
 #ifdef RACK_CLOUDS_NO_STRETCH
     // The Lite firmware's MODE list is GRANULR, LOOPDLY, SPECTRL: Clouds' STRETCH is left out, because with the Mutable
     // checkout used (f4cfa76) it plays silence (clouds/dsp/window.h: Window::Start never clears done_, so no WSOLA window
@@ -2795,36 +2868,20 @@ static void run_fx(int slot, float* l, float* r) {
       static_assert(BLOCK == 48, "RACK_CLOUDS_32K: the engine block is 48 frames, Clouds' 32 at 32 kHz");
       float g[2][BLOCK], d[2][32], w[2][BLOCK];
       clouds::ShortFrame in32[32], out32[32];
+      const int nf = cl_nf_;
       for (int n = 0; n < BLOCK; ++n) { g[0][n] = clampf(l[n] * igain, -1.0f, 1.0f); g[1][n] = clampf(r[n] * igain, -1.0f, 1.0f); }
-      cl_dn_[0].run(g[0], d[0]); cl_dn_[1].run(g[1], d[1]);
-      for (int m = 0; m < 32; ++m) {
+      cl_down(0, g[0], d[0]); cl_down(1, g[1], d[1]);
+      for (int m = 0; m < nf; ++m) {
         in32[m].l = (int16_t)(clampf(d[0][m], -1.0f, 1.0f) * 32767.0f);
         in32[m].r = (int16_t)(clampf(d[1][m], -1.0f, 1.0f) * 32767.0f);
       }
       p->dry_wet = 1.0f;                      // all wet out of Clouds: the mix is made here, at 48 kHz, with the dry signal untouched
       static_assert(clouds::kMaxBlockSize == 32, "Clouds' arrays hold 32 frames: exactly what is passed");
-      clouds_->Process(in32, out32, 32);      // exactly Clouds' own block: its arrays hold 32 frames
+      clouds_->Process(in32, out32, nf);      // Clouds' own block: 32 frames at 32 kHz (24 at 24 kHz in LITE)
       p->trigger = false; p->gate = false;
-      for (int m = 0; m < 32; ++m) { d[0][m] = out32[m].l / 32768.0f; d[1][m] = out32[m].r / 32768.0f; }
-      cl_up_[0].run(d[0], w[0]); cl_up_[1].run(d[1], w[1]);
-      if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
-      float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
-      float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone);
-      float c = 1.0f - expf(-6.2831853f * hz / SR), dm = (user_mix - cl_mixs_) / (float)BLOCK;
-      for (int n = 0; n < BLOCK; ++n) {
-        cl_mixs_ += dm;
-        float fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f), fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f);
-        float wl = w[0][n] * norm, wr = w[1][n] * norm;
-        if (tone != 0.0f) {
-          cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
-          if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
-        }
-        float dl = cl_dry_[0][cl_dry_at_], dr = cl_dry_[1][cl_dry_at_];   // the dry signal CL_DRYD frames late, to meet the wet
-        cl_dry_[0][cl_dry_at_] = g[0][n]; cl_dry_[1][cl_dry_at_] = g[1][n];
-        if (++cl_dry_at_ == CL_DRYD) cl_dry_at_ = 0;
-        l[n] = SoftLimit((dl * fo + wl * fi) * 0.5f); r[n] = SoftLimit((dr * fo + wr * fi) * 0.5f);   // the same output stage as Clouds
-      }
-      cl_mixs_ = user_mix;
+      for (int m = 0; m < nf; ++m) { d[0][m] = out32[m].l / 32768.0f; d[1][m] = out32[m].r / 32768.0f; }
+      cl_up(0, d[0], w[0]); cl_up(1, d[1], w[1]);
+      cl_mixout(w[0], w[1], g[0], g[1], l, r, user_mix, tone);
     } else
 #endif
     {
