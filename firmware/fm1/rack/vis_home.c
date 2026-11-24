@@ -138,7 +138,7 @@ static void hm_spectrum(uint8_t *lv)
 #define H_TW 38                               /* a path tile's width, and the gap between */
 #define H_TG 11
 #define H_SBOT 174                            /* the scope's bottom */
-typedef struct { int16_t x; uint16_t col; uint8_t hi, act, feed, flag, slot; } h2_t;   /* flag: 1 lost (no room), 2 off (bypassed); slot: a stage's engine slot, a mods tile's kind */
+typedef struct { int16_t x; uint16_t col; uint8_t hi, act, feed, flag, slot, p, q; int8_t v; } h2_t;   /* (update 41 step 3) v, p, q: what the icon shows moving: the source's value, a stage's own settings; see h2_icon_live */   /* flag: 1 lost (no room), 2 off (bypassed); slot: a stage's engine slot, a mods tile's kind */
 static struct {
     h2_t st[5], md[8];                        /* the path's stages, the mods row's tiles (the drums last) */
     uint8_t ns, nm, drum, ea[HI_N];           /* counts; the drum tile's index (255: none); each icon's eased activity */
@@ -149,7 +149,9 @@ static struct {
     uint32_t hit_at;
     uint8_t jam;
     int8_t sweep;                             /* the filter's SWEEP x 100 */
+    uint32_t ms;                              /* the frame's time (the icons' animation) */
 } h2;
+float rk_eff_param(int slot, int param);
 static const char *const HI_NAME[HI_N] = {"BRAIDS", "RINGS", "FILTER", "CLOUDS", "LOOP", "SPECTRL", "REVERB", "DELAY", "CHORUS", "LFO", "TIDES", "PEAKS", "FUNC",
                                           "GRIDS", "MSEQ", "GATE", "KNOB", "DRUMS", "JAM"};
 /* each icon's colour: the colour of its page (theme.h K_C_*; the table is in the manual) */
@@ -225,6 +227,7 @@ static const float *home_frame(uint32_t dt)
     int i, k, ti[8], jam = jam_v[JV_ON] > 0.5f, lfo = 0, mseq = 0, gate = 0, knob = 0, ma, mb;
     cp_level(raw, dt);
     cp.nlive = 0;
+    h2.ms = plat_ms();
     h2.lev += (h2_level() - h2.lev) * (dt > 60u ? 0.8f : 0.4f);
     h2.ph += (float)dt * (0.012f + 0.09f * h2.lev);
     h2.ph2 += (float)dt * 0.0011f;
@@ -242,17 +245,28 @@ static const float *home_frame(uint32_t dt)
         s->hi = (uint8_t)hi;
         s->feed = 0;
         s->slot = (uint8_t)slot;
+        s->v = 0; s->p = 0; s->q = 0;
+        if (hi == HI_FILTER) {                /* the filter's curve: cutoff and resonance as they are now (the matrix and the envelope in), the type */
+            s->v = (int8_t)(fm_clampf(rk_eff_param(RS_GLO, FLT_P0 + 1), 0.0f, 1.0f) * 127.0f);
+            s->p = (uint8_t)(fm_clampf(rk_eff_param(RS_GLO, FLT_P0 + 2), 0.0f, 1.0f) * 255.0f);
+            s->q = (uint8_t)(rk_get_param(RS_GLO, FLT_P0) + 0.5f);
+        }
         s->flag = (uint8_t)((slot < RS_GLO && (rk_fm1_status(4) >> slot & 1)) ? 1 : 0) | (uint8_t)((slot == RS_FX1 || slot == RS_FX2) && rk_fx_bypass(slot) ? 2 : 0);
         if (hi == HI_CLOUDS) {
             int md;
             mon = rk_monitor(slot);
             md = (int)(P(mon, 9) + 0.5f);
             s->hi = (uint8_t)(md == 1 ? HI_CLOUDS_LOOP : md == 2 ? HI_CLOUDS_SPEC : HI_CLOUDS);
+            s->v = (int8_t)(fm_clampf(P(mon, 3), 0.0f, 1.0f) * 127.0f);      /* DENSITY, SIZE */
+            s->p = (uint8_t)(fm_clampf(P(mon, 1), 0.0f, 1.0f) * 255.0f);
             mon = rk_monitor(RS_AMP);
         } else if (hi == HI_REVERB || hi == HI_DELAY || hi == HI_CHORUS) {
             int bp = s->flag & 2;
             float mix;
             mon = rk_monitor(slot);
+            if (hi == HI_REVERB) { s->v = (int8_t)(fm_clampf(P(mon, 0), 0.0f, 1.0f) * 127.0f); s->p = (uint8_t)(fm_clampf(P(mon, 3), 0.0f, 1.0f) * 255.0f); }                       /* SIZE, MIX */
+            else if (hi == HI_DELAY) { s->v = (int8_t)(fm_clampf(P(mon, 1), 0.0f, 1.0f) * 127.0f); s->p = (uint8_t)(fm_clampf(P(mon, 3), 0.0f, 1.0f) * 255.0f); s->q = (uint8_t)(fm_clampf(pk_delay_s(mon), 0.0f, 1.0f) * 250.0f); }   /* FEEDBACK, MIX, the time (4 ms) */
+            else { s->v = (int8_t)(fm_clampf(P(mon, 0), 0.0f, 1.0f) * 127.0f); s->p = (uint8_t)(fm_clampf(P(mon, 1), 0.0f, 1.0f) * 255.0f); }                                                  /* RATE, DEPTH */
             mix = hi == HI_DELAY ? 0.35f + 0.65f * P(mon, 3) : hi == HI_REVERB ? 0.35f + 0.65f * P(mon, 3) : 0.35f + 0.65f * P(mon, 2);
             if (!bp) {
                 if (hi == HI_REVERB) h2.rv = (uint16_t)(mix * 255.0f);
@@ -311,6 +325,10 @@ static const float *home_frame(uint32_t dt)
         h2.md[h2.nm].feed = 0;
         h2.md[h2.nm].flag = 0;
         h2.md[h2.nm].slot = (uint8_t)i;     /* which kind of source (the order above) */
+        h2.md[h2.nm].v = 0; h2.md[h2.nm].p = 0; h2.md[h2.nm].q = 0;
+        if (i == 2) { float bv = 0.0f; for (k = 0; k < 3; k++) if (fm_fabsf(mon[44 + k]) > fm_fabsf(bv)) bv = mon[44 + k]; h2.md[h2.nm].v = (int8_t)(fm_clampf(bv, -1.0f, 1.0f) * 127.0f); }   /* the LFO moving most */
+        else if (i < 2) h2.md[h2.nm].v = (int8_t)(fm_clampf(mon[40 + 2 * i], -1.0f, 1.0f) * 127.0f);     /* the module's first output */
+        else if (i == 4) h2.md[h2.nm].v = (int8_t)(gp[0].on || gp[1].on ? 127 : -127);
         h2.md[h2.nm].col = h2_col(hi);
         h2_ease(hi, a);
         h2.md[h2.nm].act = h2.ea[hi];
@@ -335,6 +353,7 @@ static const float *home_frame(uint32_t dt)
         st = h2_stage_of((int)((d >> 8) & 0x7Fu) - 1, d & 0xFF);
         tl = src == 9 || src == 10 ? ti[0] : src == 11 || src == 12 ? ti[1] : src >= 13 && src <= 15 ? ti[2] : src >= 17 && src <= 20 ? ti[3] : src >= 23 ? ti[4] : src >= 1 && src <= 4 ? ti[5] : -1;
         h2_feed(tl, st);
+        if (tl >= 0 && (src >= 17 && src <= 20)) h2.md[tl].v = (int8_t)(fm_clampf(mon[50 + i] / (fm_fabsf(amt) > 0.05f ? amt : 1.0f), -1.0f, 1.0f) * 127.0f);   /* MSEQ: the route's value, the source's own */
         if (i < 12 && fm_fabsf(mon[50 + i]) > 0.03f) {
             float w = fm_clampf(fm_fabsf(mon[50 + i]) * 2.0f, 0.0f, 1.0f);
             uint16_t c = src_colour(src);
@@ -357,7 +376,8 @@ static const float *home_frame(uint32_t dt)
                 h2_feed(ti[6], i);
     /* the knob layer's tile moves when a knob was turned lately (cp_ro_act) */
     if (ti[5] >= 0) {
-        uint32_t now = plat_ms();
+        uint32_t now = plat_ms(), best = 0;
+        for (k = 0; k < 4; k++) if (cp.act[k] >= best) { best = cp.act[k]; h2.md[ti[5]].v = (int8_t)((rc_patch.macro[k] * 2.0f - 1.0f) * 127.0f); }   /* the macro turned last */
         for (k = 0; k < 4; k++)
             if (cp.act[k] && now - cp.act[k] < 600u && h2.md[ti[5]].act < 220)
                 h2.md[ti[5]].act = (uint8_t)(255u - (now - cp.act[k]) * 255u / 600u);
@@ -396,16 +416,18 @@ static uint32_t home_sig(void)
     for (i = 0; i < h2.ns; i++) s = s * 31u + h2.st[i].hi * 7u + (h2.st[i].act >> 4) + (uint32_t)h2.st[i].flag * 3u;
     for (i = 0; i < h2.nm; i++) s = s * 31u + h2.md[i].hi * 7u + (h2.md[i].act >> 4) + h2.md[i].feed * 5u;
     for (i = 0; i < 4; i++) s = s * 131u + (uint32_t)(rc_patch.macro[i] * 1000.0f);
+    for (i = 0; i < h2.ns; i++) s = s * 17u + (uint32_t)(uint8_t)h2.st[i].v + h2.st[i].p;
+    for (i = 0; i < h2.nm; i++) s = s * 17u + (uint32_t)(uint8_t)h2.md[i].v;
     return s;
 }
 
 /* ------------------------------------------------------------------------------------------------ drawing (band by band) */
-static void h2_icon(int hi, int32_t x, int32_t y, uint16_t c, uint32_t br)   /* 24 x 24 coverage, in the colour c at br/256 */
+static void h2_icon_rows(int hi, int32_t x, int32_t y, uint16_t c, uint32_t br, int32_t rmax)   /* 24 x 24 coverage, in the colour c at br/256; the first rmax rows */
 {
     uint16_t lut[16];
     int32_t r0 = cp.by - y, r1 = cp.by + cp.bh - y, r, q;
     if (r0 < 0) r0 = 0;
-    if (r1 > 24) r1 = 24;
+    if (r1 > rmax) r1 = rmax;
     if (r0 >= r1)
         return;
     lut[0] = 0;
@@ -418,6 +440,196 @@ static void h2_icon(int hi, int32_t x, int32_t y, uint16_t c, uint32_t br)   /* 
                 if (p[q] >> 4) cv_pset(x + 2 * q, y + r, lut[p[q] >> 4]);
                 if (p[q] & 15) cv_pset(x + 2 * q + 1, y + r, lut[p[q] & 15]);
             }
+    }
+}
+static void h2_icon(int hi, int32_t x, int32_t y, uint16_t c, uint32_t br) { h2_icon_rows(hi, x, y, c, br, 24); }
+
+/* ---- update 41, step 3: the icons move with what their module does to the sound. Real data only (the engine's current parameters with the matrix in,
+ * the modules' outputs, the output's level, the hits); the plain icon, dim, when a module is idle (its eased activity under 14). One frame's drawing is a few
+ * dozen pixels a tile; nothing is stored but each tile's three bytes (v, p, q). */
+static uint32_t h2_hash(uint32_t x) { x ^= x >> 15; x *= 0x2c1b3c6du; x ^= x >> 12; x *= 0x297a2d39u; x ^= x >> 15; return x; }
+static void h2_px(int32_t x, int32_t y, uint16_t c, uint32_t a) { cv_pset(x, y, mix565(c, K_BG, a > 256u ? 256u : a)); }
+static void h2_dot3(int32_t x, int32_t y, uint16_t c, uint32_t a)       /* 3 x 3, the centre brightest */
+{
+    int32_t i, j;
+    for (j = -1; j <= 1; j++)
+        for (i = -1; i <= 1; i++)
+            h2_px(x + i, y + j, c, i || j ? a / 2u : a);
+}
+static const int8_t H2_SIN[32] = {0,25,49,71,90,106,118,125,127,125,118,106,90,71,49,25,0,-25,-49,-71,-90,-106,-118,-125,-127,-125,-118,-106,-90,-71,-49,-25};   /* a sine x 127, 32 steps a turn */
+static int32_t h2_sin(float u)               /* sin(2 pi u) x 127, u in turns, any sign: the table, linearly between its steps */
+{
+    int32_t i = (int32_t)((u - fm_floorf(u)) * 512.0f), j = i >> 4, f = i & 15;
+    return (H2_SIN[j & 31] * (16 - f) + H2_SIN[(j + 1) & 31] * f) >> 4;
+}
+static const int8_t H2_CIRC[28][2] = {{0,64},{14,62},{28,57},{40,50},{51,39},{58,28},{62,14},{64,0},{62,-14},{58,-28},{51,-39},{40,-50},{28,-57},{14,-62},{0,-64},{-14,-62},{-28,-57},{-40,-50},{-51,-39},{-58,-28},{-62,-14},{-64,0},{-62,14},{-58,28},{-51,39},{-40,50},{-28,57},{-14,62}};   /* sin, cos x 64 */
+static void h2_filter(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t *t)   /* the filter's response: cutoff, resonance and type as they are now */
+{
+    float cut = (float)t->v * (1.0f / 127.0f), res = (float)t->p * (1.0f / 255.0f), fc = 0.14f + cut * 0.72f, prev = 0.0f;
+    int col, ty = t->q;
+    cv_rect(x, y + 22, 24, 1, mix565(c, K_BG, br / 3u));
+    for (col = 0; col < 24; col++) {
+        float f = ((float)col + 0.5f) * (1.0f / 24.0f), r = f / fc, d = (f - fc) * 9.0f, g, pk = res * 0.85f / (1.0f + d * d * 1.6f);
+        switch (ty) {
+        case 1: g = 1.0f / (1.0f + d * d * 0.7f); pk *= 0.4f; break;                                             /* BP */
+        case 2: r = fc / (f + 0.02f); g = 1.0f / (1.0f + r * r * 0.9f); break;                           /* HP */
+        case 3: r = r * r; g = 1.0f / (1.0f + r * r * 0.9f); break;                                      /* LP24 */
+        case 4: g = 1.0f - 0.95f / (1.0f + d * d * 2.0f); pk = 0.0f; break;                                      /* NOTCH */
+        case 5: g = 0.35f + 0.9f / (1.0f + d * d * 1.0f); pk *= 0.5f; break;                                      /* PEAK */
+        default: g = 1.0f / (1.0f + r * r * 0.9f); break;                                               /* LP */
+        }
+        g = (g + pk) * 0.62f;
+        g = g > 1.0f ? 1.0f : g;
+        g = g * 19.0f;
+        if (col) {
+            cv_line(x + col - 1, y + 21 - (int32_t)prev, x + col, y + 21 - (int32_t)g, c);
+            cv_line(x + col - 1, y + 22 - (int32_t)prev, x + col, y + 22 - (int32_t)g, mix565(c, K_BG, br * 2u / 3u));
+        }
+        prev = g;
+    }
+    {                                         /* the cutoff, ticked on the floor */
+        int32_t cx = x + (int32_t)(fc * 24.0f);
+        cv_rect(cx, y + 22, 1, 2, K_FG);
+    }
+}
+static void h2_reverb(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t *t)   /* waves going out from a point, faster with SIZE, more of them with MIX, brighter with the level */
+{
+    float tt = (float)h2.ms * 0.001f * (0.35f + (float)t->v * (0.9f / 127.0f));
+    int k, j, nr = 3 + (t->p > 128);
+    h2_dot3(x + 3, y + 12, c, br);
+    for (k = 0; k < nr; k++) {
+        float u = tt + (float)k / (float)nr;
+        int32_t r, px = 0, py = 0;
+        uint16_t col;
+        u -= fm_floorf(u);
+        r = 2 + (int32_t)(u * 20.0f);
+        col = mix565(c, K_BG, (uint32_t)((1.0f - u) * (float)br * (0.35f + 0.65f * (float)t->act * (1.0f / 255.0f))));
+        for (j = 3; j <= 11; j++) {           /* the arc from 60 degrees above the horizontal to 60 below: nine points of the circle table, joined */
+            int32_t ax = x + 3 + (H2_CIRC[j][0] * r + 32) / 64, ay = y + 12 - (H2_CIRC[j][1] * r + 32) / 64;
+            if (j > 3 && ax < x + 26) cv_line(px, py, ax, ay, col);
+            px = ax; py = ay;
+        }
+    }
+}
+static void h2_delay(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t *t)    /* the echoes: bars falling with FEEDBACK, each lit in turn at the delay's time */
+{
+    int k, lit;
+    float ratio = 0.3f + (float)t->v * (0.65f / 127.0f), hh = 19.0f;
+    uint32_t tm = (uint32_t)t->q * 4u;
+    tm = tm < 70u ? 70u : tm;
+    lit = (int)((h2.ms / tm) % 7u);
+    for (k = 0; k < 5; k++) {
+        int32_t bh = (int32_t)hh + 1;
+        uint32_t a = k == lit ? 256u : br * 2u / 5u + (k + 1 == lit ? br / 4u : 0u);
+        cv_rect(x + 2 + 4 * k, y + 22 - bh, 3, bh, mix565(c, K_BG, a));
+        hh *= ratio;
+    }
+    cv_rect(x + 1, y + 22, 22, 1, mix565(c, K_BG, br / 2u));
+}
+static void h2_chorus(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t *t)   /* two lines swaying at RATE, as far apart as DEPTH */
+{
+    float ph = (float)h2.ms * 0.001f * (0.25f + (float)t->v * (4.0f / 127.0f)), off = 0.18f + (float)t->p * (0.5f / 255.0f);
+    int32_t amp = 640 + (int32_t)t->p * 1536 / 255, col, py0 = 12, py1 = 12;      /* x 256 */
+    uint16_t c0 = mix565(c, K_BG, br), c1 = mix565(c, K_BG, br * 3u / 5u);
+    for (col = 0; col < 24; col++) {
+        float u = (float)col * (1.0f / 16.0f) + ph;
+        int32_t y0 = 12 + ((h2_sin(u) * amp) >> 15), y1 = 12 + ((h2_sin(u + off) * amp * 7 / 8) >> 15);
+        if (col) {
+            cv_line(x + col - 1, y + py1, x + col, y + y1, c1);
+            cv_line(x + col - 1, y + py0, x + col, y + y0, c0);
+        }
+        py0 = y0; py1 = y1;
+    }
+}
+static void h2_clouds(const h2_t *t, int32_t x, int32_t y, uint16_t c, uint32_t br)   /* the cloud and its grains: as many as DENSITY says, new ones as often */
+{
+    int hi = t->hi, k, n = 1 + (int)((float)t->v * (11.0f / 127.0f));
+    uint32_t per = 50u + (uint32_t)(127 - t->v) * 2u, e = h2.ms / per;
+    h2_icon_rows(hi, x, y, c, br, 14);
+    if (hi == HI_CLOUDS) {                    /* grains scattering */
+        for (k = 0; k < n; k++) {
+            uint32_t hh = h2_hash(e * 7u + (uint32_t)k * 131u);
+            int32_t gx = 2 + (int32_t)(hh % 20u), gy = 15 + (int32_t)((hh >> 8) % 8u);
+            uint32_t a = 90u + (hh >> 16) % 166u;
+            h2_px(x + gx, y + gy, c, a * br / 256u);
+            h2_px(x + gx + 1, y + gy, c, a * br / 512u);
+            h2_px(x + gx, y + gy + 1, c, a * br / 512u);
+        }
+    } else if (hi == HI_CLOUDS_LOOP) {        /* the loop: a grain going round a coil */
+        float u = (float)h2.ms * (0.002f + (float)t->v * (0.006f / 127.0f));
+        int j;
+        for (j = 0; j < 4; j++) {
+            float a = u - (float)j * 0.45f, r = 3.0f + 0.9f * fm_sinf(a * 0.5f) ;
+            h2_dot3(x + 12 + (int32_t)(r * fm_cosf(a) * 1.8f), y + 19 + (int32_t)(r * fm_sinf(a)), c, br * (4u - (uint32_t)j) / 4u);
+        }
+    } else {                                  /* the spectrum: eight bars, their heights moving as the grains do */
+        for (k = 0; k < 8; k++) {
+            uint32_t hh = h2_hash(e * 13u + (uint32_t)k * 977u);
+            int32_t bh = 2 + (int32_t)(hh % 7u) * (1 + t->v / 40) / 2;
+            bh = bh > 9 ? 9 : bh;
+            cv_rect(x + 2 + 3 * k, y + 23 - bh, 2, bh, mix565(c, K_BG, br * 4u / 5u));
+        }
+    }
+}
+static void h2_knob(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t *t)     /* the knob layer: a dial and its pointer at the macro turned last */
+{
+    float m = ((float)t->v + 127.0f) * (1.0f / 254.0f), a = -2.356f + m * 4.712f;
+    int k;
+    float sa = fm_sinf(a), ca = fm_cosf(a);
+    int32_t px = x + 12 + (int32_t)(8.0f * sa + (sa < 0 ? -0.5f : 0.5f)), py = y + 12 - (int32_t)(8.0f * ca + (ca < 0 ? -0.5f : 0.5f));
+    uint16_t dc = mix565(c, K_BG, br / 2u);
+    for (k = 0; k < 28; k++) {                /* the dial: 270 degrees of ring (the bottom quarter open) */
+        if (k >= 11 && k <= 17) continue;
+        cv_pset(x + 12 + (H2_CIRC[k][0] * 21 + 64) / 128, y + 12 - (H2_CIRC[k][1] * 21 + 64) / 128, dc);
+    }
+    cv_line(x + 12, y + 12, px, py, c);
+    h2_dot3(px, py, c, br);
+    h2_dot3(x + 12, y + 12, c, br / 2u);
+}
+static void h2_icon_live(const h2_t *t, int32_t x, int32_t y, uint16_t c, uint32_t br)
+{
+    int hi = t->hi;
+    uint32_t a = t->act;
+    int32_t dx = 0, dy = 0;
+    float tt = (float)h2.ms * 0.001f;
+    if (a < 14u) {                            /* idle: still and dim */
+        h2_icon(hi, x, y, c, br);
+        return;
+    }
+    switch (hi) {
+    case HI_FILTER: h2_filter(x, y, c, br, t); return;
+    case HI_REVERB: h2_reverb(x, y, c, br, t); return;
+    case HI_DELAY: h2_delay(x, y, c, br, t); return;
+    case HI_CHORUS: h2_chorus(x, y, c, br, t); return;
+    case HI_CLOUDS: case HI_CLOUDS_LOOP: case HI_CLOUDS_SPEC: h2_clouds(t, x, y, c, br); return;
+    case HI_KNOB: h2_knob(x, y, c, br, t); return;
+    case HI_BRAIDS: dy = (int32_t)(fm_sinf(tt * 9.0f) * (float)a * (1.6f / 255.0f) + 0.5f); break;      /* wobbling with its level */
+    case HI_RINGS: dx = (int32_t)(fm_sinf(tt * 7.0f) * (float)a * (1.6f / 255.0f) + 0.5f); dy = (int32_t)(fm_cosf(tt * 9.0f) * (float)a * (1.2f / 255.0f) + 0.5f); break;
+    case HI_DRUMS: dy = (int32_t)(a * 3u / 255u); break;                                                   /* the drum's head gives under a hit */
+    default: break;
+    }
+    if (hi == HI_GRIDS) {                     /* the grid: cells lit by the pattern, more of them as it works */
+        uint32_t e = h2.ms / 90u;
+        int i, j;
+        for (j = 0; j < 4; j++)
+            for (i = 0; i < 4; i++) {
+                uint32_t hh = h2_hash(e * 31u + (uint32_t)(j * 4 + i));
+                int lit = (int)(hh % 256u) < (int)a;
+                cv_rect(x + 2 + 6 * i, y + 2 + 6 * j, 3, 3, mix565(c, K_BG, lit ? br : br / 4u));
+            }
+        return;
+    }
+    h2_icon(hi, x + dx, y + dy, c, br);
+    if (hi == HI_JAM) {                       /* a move fired: a ring goes out */
+        int32_t r = 3 + (int32_t)(255u - a) * 9 / 255;
+        uint16_t col = mix565(c, K_BG, a * br / 256u);
+        int k;
+        for (k = 0; k < 28; k++)
+            cv_pset(x + 12 + (H2_CIRC[k][0] * r + 32) / 64, y + 12 - (H2_CIRC[k][1] * r + 32) / 64, col);
+    } else if (hi == HI_LFO || hi == HI_TIDES || hi == HI_PEAKS || hi == HI_FUNC || hi == HI_MSEQ || hi == HI_GATE) {   /* the value now: a dot riding the right edge */
+        int32_t py = y + 21 - ((int32_t)t->v + 127) * 18 / 254;
+        cv_rect(x + 21, y + 2, 1, 20, mix565(c, K_BG, br / 4u));
+        h2_dot3(x + 21, py, K_FG, 256u);
     }
 }
 static int h2_vis(int32_t y, int32_t h) { return y + h > cp.by && y < cp.by + cp.bh; }
@@ -435,7 +647,8 @@ static void h2_tile(const h2_t *t, int32_t y, int32_t w, int32_t h)
         rrect(x - 1, y - 1, w + 2, h + 2, mix565(c, K_BG, 30u + a / 5u), 4);
     rrect(x, y, w, h, mix565(c, K_BG, 90u + a / 3u), 3);
     rrect(x + 1, y + 1, w - 2, h - 2, K_BG, 2);
-    h2_icon(t->hi, x + (w - 24) / 2, y + 4, c, br);
+    if (off || lost) h2_icon(t->hi, x + (w - 24) / 2, y + 4, c, br);
+    else h2_icon_live(t, x + (w - 24) / 2, y + 4, c, br);
     if (t->hi == HI_FILTER && h2.sweep && h2_vis(y + 27, 3)) {      /* the SWEEP: a short scale under the curve, a mark where it is, the centre ticked */
         int32_t bx = x + (w - 24) / 2, mx = bx + 12 + (int32_t)h2.sweep * 11 / 100;
         cv_rect(bx, y + 28, 24, 1, mix565(c, K_BG, 70));

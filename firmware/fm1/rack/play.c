@@ -657,7 +657,7 @@ static void pl_rechord_one(int raw)
         for (i = 0; i < pa.count; i++)
             if (pa.raw[i] == raw) {
                 pa.n[i] = (uint8_t)n;
-                memcpy(pa.note[i], nn, (size_t)n);
+                memcpy(pa.note[i], nn, n);
             }
     for (i = 0; i < pl_npend;)                /* a strum not finished: its notes are the new chord's now */
         if (pl_pend[i].raw == raw && pl_pend[i].on) {
