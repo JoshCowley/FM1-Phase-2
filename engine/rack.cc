@@ -614,7 +614,9 @@ static bool any_gate_ = false;
 static float master_ = 0.7f;
 
 // io
-#ifdef RACK_FM1
+#ifdef RACK_OUTN
+static const int OUTN = RACK_OUTN;   // the firmware: a block is 256 codec frames, at most 279 engine frames (fm1.toml; rack_core.c RC_BUFN is the same number)
+#elif defined(RACK_FM1)
 static const int OUTN = 512;   // the FM-1: ~280 frames a block, the bench 480 (update 44: 4 KB less RAM)
 #else
 static const int OUTN = 1024;

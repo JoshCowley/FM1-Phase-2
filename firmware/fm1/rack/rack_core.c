@@ -364,7 +364,12 @@ static struct {
     uint32_t fin;                             /* frames since the sound came back: the fade in (RC_FIN) */
 } rc_audio;
 #define RC_FIN 441u                           /* 10 ms */
-#define RC_BUFN 512u                          /* engine frames a block at most (256 codec frames need ~280; update 44: was 1024) */
+#ifdef APP_BLOCK                              /* the firmware: a block is APP_BLOCK codec frames, always (fm1-base's REND_FRAMES), which is at most 279 engine frames */
+#define RC_BUFN 288u                          /* engine frames a block at most (2.42: was 512; the engine's OUTN is the same, fm1.toml RACK_OUTN) */
+typedef char rc_bufn_check[RC_BUFN >= APP_BLOCK * 48000u / 44100u + 2u ? 1 : -1];
+#else
+#define RC_BUFN 512u                          /* the host tools (rack_host, render_preset ...): any block up to 512 engine frames (update 44: was 1024) */
+#endif
 static float rc_buf_l[RC_BUFN + 1u], rc_buf_r[RC_BUFN + 1u];  /* position 0: the last frame; then this block's */
 /* the screen's scope: the last 1024 output frames (mono, 16-bit), written by the audio interrupt, read by the main
  * loop (a frame torn between the two only draws one wrong pixel) */
