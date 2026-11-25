@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 #ifdef RACK_BENCH_AB
     if (getenv("RP_Q")) set_quality((unsigned)atoi(getenv("RP_Q")));   /* 2.38: the quality trims as a mask (build with RACK_FLAGS=-DRACK_BENCH_AB): 0 = the 2.37 sound, 1 reverb sum, 2 short halfband, 4 light reverb diffusion */
 #endif
-    if (getenv("RP_CLQ")) rk_clouds_mask((unsigned)strtoul(getenv("RP_CLQ"), 0, 0));   /* update 42: the Clouds quality bits (shim/clouds/dsp/rack_cl_q.h): 0 = 2.40's Clouds, 31 NORMAL, 191 LITE */
+    if (getenv("RP_CLQ")) rk_clouds_mask((unsigned)strtoul(getenv("RP_CLQ"), 0, 0));   /* update 42: the Clouds quality bits (shim/clouds/dsp/rack_cl_q.h): 0 = 2.40's Clouds (HIGH), 15 NORMAL (2.43's), 3887 LIGHT (update 44, the default) */
     if (getenv("RP_CAP")) rk_clouds_opts(getenv("RP_K32") ? atoi(getenv("RP_K32")) : 1, 1, atoi(getenv("RP_CAP")));   /* RP_CAP=n RP_K32=0|1: the Clouds grain ceiling / 48 kHz switch, for A/B renders */
     rk_seed(0x21u);
     rc_pause();
@@ -75,6 +75,7 @@ int main(int argc, char **argv)
     rc_resume();
     if (voices) rc_voices(voices);
     for (i = 0; i < npar; i++) rc_set(pars[i][0], pars[i][1], parv[i]);
+    if (npar) rk_fm1_fit();   /* update 44: the arena follows the values just set (a RENDER above LIGHT needs the full buffers), as the firmware refits once the knobs rest */
     for (i = 0; i < 4; i++) mac[i] = rc_patch.macro[i];
     for (i = 0; i < nmv; i++) if (mv[i].k >= 0 && mv[i].k < 4 && mv[i].t0 == 0.0f) { /* first value applies at once */ }
     {
