@@ -19,7 +19,7 @@ CLF="-DRACK_CLOUDS_32K -DRACK_CLOUDS_MAX_GRAINS=24 -DRACK_CLOUDS_SKIP_REVERB -DR
 [ "$(cat $OUT/.flags 2>/dev/null)" = "$RACK_FLAGS" ] || { rm -f $OUT/*.o $OUT/*.oa $OUT/*.oc; echo "$RACK_FLAGS" > $OUT/.flags; }
 EURORACK="$EURORACK" python3 make_units.py
 ARENA=$(sed -n 's/.*-DRACK_ARENA_KB=\([0-9]*\).*/\1/p' fm1.toml)
-CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH -DRACK_CLOUDS_SHARE_SINE $CLF $RACK_FLAGS -I$ENG/shim -Iunits -I$EURORACK"
+CXX="${CXX:-c++} -O2 -ffp-contract=off -fno-exceptions -fno-rtti -std=gnu++11 -w -DTEST -DRACK_FM1 -DRACK_LITE -DRACK_ARENA_KB=$ARENA -DRACK_RINGS16 -DRACK_NO_PLAITS -DRACK_CLOUDS -DRACK_CLOUDS_NO_STRETCH -DRACK_CLOUDS_SHARE_SINE -DRACK_BRAIDS_TRIM $CLF $RACK_FLAGS -I$ENG/shim -Iunits -I$EURORACK"
 rm -f $OUT/plaits_*.o   # FM1 Phase 2: no Plaits
 for src in $(grep -vE '^(elements|warps|marbles|plaits)/' $ENG/sources.txt) ; do
   o="$OUT/$(echo "$src" | sed 's#/#_#g; s#\.cc$##').o"
