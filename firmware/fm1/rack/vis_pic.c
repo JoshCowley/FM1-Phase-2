@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* FM1 Phase 2 firmware: update 13, the picture kit and the pictures of every module page, part of app.c (included at the end of vis_clouds.c).
+/* FM1 Phase 2 firmware: update 13, the picture kit and the pictures of every module page, part of app.c (included at the end of vis_kit.c).
  *
- * The CLOUDS page's machinery (vis_clouds.c: the layout of a picture over four slim read-outs, the glow sprites added with saturation into RGB565,
+ * The picture kit's machinery (vis_kit.c: the layout of a picture over four slim read-outs, the glow sprites added with saturation into RGB565,
  * the mote field, the 20-frames-a-second cap, the changed-rows-only transfer, the DRAW / LCD / FPS read-out) is the one every picture uses; this
  * file adds the primitives (a glowing line, a string, a ring, a haze, the process icons) and one scene per module:
  *
@@ -138,7 +138,7 @@ static void pk_blob(int sz, int soft, int32_t x, int32_t y, uint32_t c, uint32_t
     default: cp_spr(soft ? SPR_S19 : SPR_H19, 19, 19, x - 9, y - 9, c, g); break;
     }
 }
-/* the motes of the pictures but CLOUDS and HOME: flags 1 soft, 2 a small spark, 4 an expanding ring (sz: its last radius / 8) */
+/* the motes of the pictures but HOME: flags 1 soft, 2 a small spark, 4 an expanding ring (sz: its last radius / 8) */
 static void pk_motes(uint32_t colmul)
 {
     int i;
@@ -213,7 +213,7 @@ static int pk_icon_known(int ic)
 {
     switch (ic) {
     case IC_BRAIDS: case IC_RINGS: case IC_FILTER: case IC_PEAKS: case IC_TIDES: case IC_GRIDS: case IC_DELAY: case IC_REVERB: case IC_CHORUS:
-    case IC_AMP: case IC_LFO: case IC_MATRIX: case IC_SAVE: case IC_OUT: case IC_GLOBAL: case IC_ARP: case IC_CHORD: case IC_SEQ: case IC_FUNC: case IC_CLOUDS:
+    case IC_AMP: case IC_LFO: case IC_MATRIX: case IC_SAVE: case IC_OUT: case IC_GLOBAL: case IC_ARP: case IC_CHORD: case IC_SEQ: case IC_FUNC: case IC_WAVE:
         return 1;
     default:
         return 0;
@@ -318,18 +318,13 @@ static void pk_icon_draw(int ic, int32_t x, int32_t y, uint16_t col)
             }
         }
         break;
-    case IC_CLOUDS: {                                   /* motes rising off a ribbon */
-        int32_t py = 13;
+    case IC_WAVE: {                                     /* a wave morphing from sine to saw and back, a scan line across it */
+        int32_t py = 8, mo = (cp_sin(ph) + 16384) >> 7, sx = (ph >> 2) & 15;
         for (i = 0; i < 16; i++) {
-            int32_t yy = 13 + (cp_sin(i * 30 + ph * 2) >> 14);
+            int32_t sn = cp_sin(i * 16), sw = 16384 - i * 2048, yy = 8 - (((sn * (256 - mo) + sw * mo) >> 8) * 5 >> 14);
             if (i) ik_l(i - 1, py, i, yy, 230);
-            ik_p(i, yy + 1, 70);
+            if (i == sx) { ik_w(i, yy, 255); ik_p(i, yy - 1, 90); ik_p(i, yy + 1, 90); }
             py = yy;
-        }
-        for (k = 0; k < 4; k++) {
-            int32_t t = (ph + k * 64) & 255, yy = 11 - t * 10 / 256, xx = 2 + k * 4 + (cp_sin(t + k * 70) >> 13);
-            uint32_t a = (uint32_t)(t < 40 ? t * 6 : 255 - (t - 40) * 255 / 216);
-            ik_w(xx, yy, a); ik_p(xx + 1, yy, a / 3); ik_p(xx - 1, yy, a / 3); ik_p(xx, yy + 1, a / 3);
         }
         break;
     }
@@ -423,7 +418,7 @@ static void pk_tick(const float *mon)
     t[IC_FILTER] = (uint8_t)Q8(e * 1.1f);
     t[IC_PEAKS] = t[IC_TIDES] = t[IC_FUNC] = (uint8_t)Q8(mo * 1.6f);
     t[IC_LFO] = (uint8_t)Q8(lf * 1.6f);
-    t[IC_GRIDS] = t[IC_DELAY] = t[IC_REVERB] = t[IC_CHORUS] = t[IC_CLOUDS] = t[IC_OUT] = t[IC_HOME] = (uint8_t)Q8(pkl * 3.0f);
+    t[IC_GRIDS] = t[IC_DELAY] = t[IC_REVERB] = t[IC_CHORUS] = t[IC_WAVE] = t[IC_OUT] = t[IC_HOME] = (uint8_t)Q8(pkl * 3.0f);
     t[IC_MATRIX] = (uint8_t)Q8(rt * 1.5f);
     t[IC_ARP] = AI(A_MODE) != AM_OFF ? (uint8_t)Q8(e * 1.3f + 0.25f) : 0;
     t[IC_CHORD] = CI(C_TYPE) != CT_OFF ? (uint8_t)Q8(e * 1.3f + 0.1f) : 0;
@@ -481,6 +476,10 @@ static const char *pic_sub(int sc, const float *mon)
     int v = (int)(P(mon, 0) + 0.5f);
     const ui_mod_t *m = page_mod(mn.page);
     switch (sc) {
+    case SC_WAVE: {
+        static const char *const BN[4] = {"ADDITIVE BANK", "FORMANT BANK", "VOCAL BANK", "SHUFFLE BANK"};
+        return BN[(int)(fm_clampf(P(mon, 0), 0.0f, 1.0f) * 3.0f + 0.5f)];
+    }
     case SC_BRAIDS: return v >= 0 && v < 47 ? UI_OPT[UP_BRAIDS[0].opt + rk_list_map(2, v)] : "";
     case SC_RINGS: return v >= 0 && v < 6 ? RN[rk_list_map(10, v)] : "";
     case SC_FILTER: return v >= 0 && v < 6 ? FN[v] : "";

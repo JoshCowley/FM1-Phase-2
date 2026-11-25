@@ -218,6 +218,19 @@ static float P(const float *mon, int i) { return i < 16 ? mon[i] : mon[168 + i -
 
 /* (Plaits' well, vis_plaits: gone with Plaits, FM1 Phase 2, 14 Nov 2026) */
 
+#define WV_MON 200                            /* 2.48: the wavetable source's current wave in the monitor: 64 points of one cycle, 200-263 (engine/rack.cc mon_) */
+static void vis_wave(const float *mon, uint16_t c)   /* the wave the voice plays now, two cycles, over a hairline */
+{
+    int16_t ys[115];
+    int x;
+    for (x = 0; x < 115; x++) {
+        float u = (float)x * (128.0f / 114.0f), f = u - (float)(int)u;
+        int i0 = (int)u;
+        float w = mon[WV_MON + (i0 & 63)] * (1.0f - f) + mon[WV_MON + ((i0 + 1) & 63)] * f;
+        ys[x] = ycl(21.0f - w * 16.0f);
+    }
+    glow(ys, 115, kc(1, c));
+}
 static void vis_braids(const float *mon, uint16_t c)
 {
     static const uint8_t BITS[] = {2, 3, 4, 6, 8, 12, 16}, STEP[] = {12, 6, 3, 2, 1, 1};
@@ -494,6 +507,7 @@ static void vis_draw(int slot, int id, int sub, uint16_t c)
     }
     switch (id) {
     case 2: vis_braids(mon, c); break;
+    case 5: vis_wave(mon, c); break;
     case 10: vis_rings(mon, c); break;
     case 12: vis_filter(mon, c); break;
     case 20: case 21:
@@ -521,7 +535,7 @@ static void vis_mini(int slot, int id, int32_t x, int32_t y, int32_t w, int32_t 
     vm_oy = y;
     vm_sx = (float)w / (float)VW;
     vm_sy = (float)h / (float)VH;
-    if (id == 1 || id == 2 || id == 10 || id == 12 || id == 20 || id == 21 || id == 23 || id == 24 || id >= 31)
+    if (id == 1 || id == 2 || id == 5 || id == 10 || id == 12 || id == 20 || id == 21 || id == 23 || id == 24 || id >= 31)
         vis_draw(slot, id, 0, c);
     vm_on = 0;
 }

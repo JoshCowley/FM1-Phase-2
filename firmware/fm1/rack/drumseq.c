@@ -81,7 +81,7 @@ enum { DO_SOUND, DO_MIDI, DO_ALSO, DO_OFF };
 typedef struct { uint8_t note, ch, out; } dr_mid_t;
 static dr_mid_t dr_mid[DR_LANES];
 static uint8_t dr_in;                         /* the lanes MIDI in plays (bit per lane) */
-static uint8_t dr_busy = 1;                   /* IF BUSY (the engine's numbering): 0 NONE, 1 CLOUD, 2 VOICES */
+static uint8_t dr_busy = 1;                   /* IF BUSY (the engine's numbering): 0 NONE, 1 REVERB, 2 VOICES */
 static uint8_t dr_style = 1;                  /* STYLE starts and stops the drums */
 /* update 41, step 5: PUMP, the kick ducking the synth (the engine's pump_set, drumrun.c; the DRUM PUMP page). DEPTH 0 is off (the default) */
 #define DR_PREL_N 8

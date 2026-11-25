@@ -47,7 +47,7 @@ expect jam_moves 0
 # each key its own move: the name when it fires (HOLD)
 key 15 down 100
 wait 250
-said GRAIN DELAY
+said DELAY THROW
 key 15 up
 wait 1500
 key 16 down 100

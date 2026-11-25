@@ -69,10 +69,10 @@ static struct {
     int home_long;
 } mn;
 
-static const uint8_t SRC_CH[] = {1, 2};
+static const uint8_t SRC_CH[] = {2, 5};   /* BRAIDS, WAVETABLE (Plaits' wavetable engine, 2.48) */
 static const uint8_t SHP_CH[] = {10, 0};   /* (update 26: the filter is no choice here: it is always in the chain, its own page) */
 static const uint8_t MOD_CH[] = {20, 21, 23, 24, 0};
-static const uint8_t FX_CH[] = {30, 31, 32, 33, 0};
+static const uint8_t FX_CH[] = {31, 32, 33, 0};
 static const char *const SRC_NAMES[] = {"-", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV", "A OUT 1",
                                         "A OUT 2", "B OUT 1", "B OUT 2", "LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1",
                                         "SEQ 2", "SEQ 3", "SEQ 4", "WHEEL", "PRESS", "GATE 1", "GATE 2", "PUMP"};
@@ -156,13 +156,13 @@ static uint16_t id_colour(int id)
 {
     switch (id) {
     case 2: return K_C_BRAIDS;
+    case 5: return K_C_WAVE;
     case 10: return K_C_RINGS;
     case 12: return K_C_FILTER;
     case 20: return K_C_PEAKS;
     case 21: return K_C_TIDES;
     case 23: return K_C_GRIDS;
     case 24: return K_C_FUNC;
-    case 30: return K_C_CLOUDS;
     case 31: return K_C_DELAY;
     case 32: return K_C_REVERB;
     case 33: return K_C_CHORUS;
@@ -189,7 +189,7 @@ static void choices(int slot, const uint8_t **ch, int *n)
     if (slot == RS_SRC) { *ch = SRC_CH; *n = 2; }
     else if (slot == RS_SHP) { *ch = SHP_CH; *n = 2; }
     else if (slot == RS_MODA || slot == RS_MODB) { *ch = MOD_CH; *n = 5; }
-    else { *ch = FX_CH; *n = 5; }
+    else { *ch = FX_CH; *n = 4; }
 }
 static int page_first(const ui_mod_t *m, int sub)
 {
@@ -198,7 +198,7 @@ static int page_first(const ui_mod_t *m, int sub)
         o += m->pages[i];
     return o;
 }
-/* update 27: the parameter on knob k of page `sub`: the page's place in the parameters, or (CLOUDS, whose pages group the grain controls: ui_mod_t.pm)
+/* update 27: the parameter on knob k of page `sub`: the page's place in the parameters, or (a module with a page table: ui_mod_t.pm; none since 2.48)
  * the parameter that page's table names. k is the knob (0-3), and k < m->pages[sub] */
 static int page_ix(const ui_mod_t *m, int sub, int k)
 {
@@ -532,7 +532,7 @@ static void adsr(int32_t w, int32_t h, uint16_t c)
 #undef cv_pset
 #undef cv_rect
 #undef rrect
-#include "vis_clouds.c"
+#include "vis_kit.c"
 
 static void well(int pg, const ui_mod_t *m, uint16_t c)
 {
@@ -1082,8 +1082,8 @@ static void draw_param_page(int pg)
     }
     if (mn.sub >= npages(pg))
         mn.sub = npages(pg) - 1;
-    if (pic_scene(pg) >= 0) {                 /* CLOUDS (update 7), every module's page (update 13): the picture to the read-outs, no header, no help line */
-        clouds_screen(pg, m, 0);
+    if (pic_scene(pg) >= 0) {                 /* every module's page (update 13): the picture to the read-outs, no header, no help line */
+        pic_screen(pg, m, 0);
         return;
     }
     title[0] = 0;
@@ -1460,10 +1460,6 @@ static void load_module(void)
         vals[i] = m->p[i].def;
     rc_fade_pause();
     rc_swap(slot, ch[mn.pick_ix], vals, m ? m->nparams : 0);
-    if (ch[mn.pick_ix] == 30 && rc_patch.mode == RVM_POLY && rc_patch.voices_now > START_VOICES && !set.voices) {   /* Clouds: starts with 3 */
-        rk_set_voices(START_VOICES);
-        rc_patch.voices_now = START_VOICES;
-    }
     rc_resume();
     mn.pick = 0;
     mn.sub = 0;
@@ -1911,7 +1907,7 @@ static void fx_toggle(int slot)
     ui.redraw = 1;
 }
 
-/* OCT- and OCT+ held together, off the CLOUDS pages: what is sounding, for a note that hangs. ON: voices the engine has not
+/* OCT- and OCT+ held together, off the picture pages: what is sounding, for a note that hangs. ON: voices the engine has not
  * silenced; GATE: of them, held by a key; SND: notes counted sounding; KEY: held keys the play layer has; PED, HLD: the
  * sustain pedal and ARP > HOLD; WD: times the watchdog ended gates held with nothing counted (play.c) */
 static void cat_int(char *d, int v)
@@ -1948,7 +1944,7 @@ static void voices_readout(void)
 /* the buttons and encoders of the menus; 1 when they were the menus' (input() does the rest) */
 static int menu_input(uint32_t press, uint32_t btn)
 {
-    {   /* CLOUDS page: OCT- and OCT+ held together turn the picture's draw-time read-out on or off (their octave steps cancel) */
+    {   /* a picture page: OCT- and OCT+ held together turn the picture's draw-time read-out on or off (their octave steps cancel) */
         int oc = (btn >> B_OCTDN & 1u) && (btn >> B_OCTUP & 1u);
         if (oc && !cp.oct_both && pic_scene(mn.page) < 0)
             voices_readout();

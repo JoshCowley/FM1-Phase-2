@@ -12,6 +12,8 @@ GRIT = ("Drive and resonance, then a per-note pitch scatter and a bit-crush near
 
 
 def round3(pool):
+    from bank45_wave import wave_presets
+    WV = wave_presets()
     S = lambda *a, **kw: spec(*a, pool=pool, **kw)
     N = newp
     L = []
@@ -40,15 +42,7 @@ def round3(pool):
            ("SLIDE", "Notes glide into each other more and more; past 70% a per-note pitch scatter and a bit-crush join.",
             "ROW @1 .05 .7 1 SL; SRC.BITS -.3 .88 1 T; SRC.DRIFT .4 .3 1 L; SHP.DRIVE .4 .3 1 L; SHP.CUTOFF -.25 .5 1 L")]))
 
-    a(S("SNAP BASS", cat="BASS", move="medium", level=0.5, rows=RND,
-        summary="A plucky mono bass: a fast filter snap on every note, a Tides motion on the colour and a little chorus.",
-        k=[("TONE", "A soft, round pluck at 0, a sharper snap by the middle; the top is a hard, ringing snap.",
-            "SHP.AUDIO FM .5 .6 1 SL"),
-           ("MOTION", "The snap and the filter movement speed up with the Tides; the top is a fast, chopped wobble.",
-            "ROW 13 .02 .4 1 SL; ROW 15 .3 .3 1 SL; LFO.RATE 1 .4 .3 1 SL; SHP.CUTOFF .25 0 1 L"),
-           ("SPACE", "A dry pluck at 0, a room and a chorus around it; past 65% the chorus feeds back.",
-            "FX 1.FEEDBACK .4 .6 1 SL; AMP.RELEASE .4 .5 1 S"),
-           ("GRIT", *GRIT)]))
+    a(WV["WAVE BASS"])
 
     a(S("ACID LINE", name="ACID BASS", cat="BASS", move="medium", level=0.5, rows=RND,
         summary="A 303-style mono line: a resonant saw filter with accent and a ping-pong delay, Tides moving the cutoff.",
@@ -147,28 +141,9 @@ def round3(pool):
         rows=RND, macros=(0.5, 0.3, 0.4, 0.3), voices=4, level=0.5, move="subtle", kind="thumb",
         summary="A struck singing bowl: a high FM overtone over a long, slowly beating ring, a chorus and a big hall."))
 
-    a(S("ATMOSPHERE", cat="FX", move="medium", level=0.5, rows=RND, kind="chords",
-        summary="A wavetable atmosphere: a slow Tides loop and two Func cycles move the colour, the timbre and the cutoff, a tape delay and a shimmer reverb.",
-        k=[("TONE", "A dark, soft atmosphere at 0, opening and brightening to the middle; the top is bright and glassy.",
-            "SHP.AUDIO FM .5 .6 1 SL"),
-           ("MOTION", "The Tides loop and the Func cycles speed up and the LFOs follow; the top is a fast, shimmering churn.",
-            "LFO.RATE 1 .4 .3 1 SL; ROW 13 .3 .3 1 SL; ROW 15 .3 .3 1 SL; ROW 16 .3 .3 1 SL; SHP.CUTOFF .3 .5 1 L; FX 2.MIX .3 .5 1 L"),
-           ("SPACE", "A close atmosphere at 0, a tape delay and a shimmer hall that grow; past 65% the delay feeds back.",
-            "FX 1.FEEDBACK .35 .6 1 SL; AMP.RELEASE .3 .5 1 S"),
-           ("GRIT", "Drive and resonance, then a per-note pitch scatter and a bit-crush near the top.",
-            "ROW @1 .05 .7 1 SL; SRC.BITS -.3 .88 1 T; SRC.DRIFT .4 .3 1 L; SHP.DRIVE .3 .5 1 L")]))
+    a(WV["WAVE DRONE"])
 
-    a(S("FX TIDAL WASH", name="TIDAL WASH", cat="FX", move="bold", level=0.5, rows=RND, kind="chords",
-        lfo_tgt=[("SHP.CUTOFF", 0.05), ("PAN", 0.1), ("SRC.COLOR", 0.05), None, None, None],
-        summary="A saw wash the Tides sweeps through a dark filter on a very slow loop, with chorus and a big hall.",
-        k=[("TONE", "A dark, muffled wash at 0, the filter opening to a bright sweeping wash; the top is bright and hissing.",
-            "SHP.AUDIO FM .5 .6 1 SL; SRC.TIMBRE .3 .3 1 L; FX 1.MIX .2 .5 1 L"),
-           ("TIDE", "The Tides loop speeds up and the cutoff and colour LFOs follow; the top is a fast, chopping tide.",
-            "ROW 13 .3 .3 1 SL; ROW 15 .3 .3 1 SL; LFO.RATE 1 .4 .3 1 SL; SHP.CUTOFF .25 0 1 L"),
-           ("WASH", "A close wash at 0, a huge hall and a thick chorus; past 65% the chorus feeds back.",
-            "FX 2.SIZE .2 .3 1 L; FX 1.FEEDBACK .4 .6 1 SL; AMP.RELEASE .3 .5 1 S"),
-           ("GRIT", "Drive and resonance, then a per-note pitch scatter and a bit-crush near the top.",
-            "ROW @1 .05 .7 1 SL; SRC.BITS -.3 .88 1 T; SRC.DRIFT .4 .3 1 L")]))
+    a(WV["WAVE TEXTURE"])
 
     a(S("TAPE KEYS", cat="FX", move="medium", level=0.5, rows=RND, drop=[(1, "SRC.TIMBRE"), (1, "SRC.COLOR"), (1, "SHP.CUTOFF")], kind="melodic",
         summary="Tape-worn keys: a saw through a Func envelope, a tape delay with wow and flutter, and a plate.",

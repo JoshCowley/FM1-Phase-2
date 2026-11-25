@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0
 # FM1 Phase 2: licensed GPL-3.0, see LICENSE; third-party code and its licences: NOTICE.md.
-"""FM1 Phase 2 update 11: measures the granular batch (presets_granular.py) through the firmware's own sound path.
+"""FM1 Phase 2 update 11: the measuring toolkit (render through the firmware's own sound path, spectra, centroids, RMS) that the bank reports use. (Until 2.47 its own main measured the granular batch, which went with Clouds in 2.48.)
 
   python3 granular_batch.py [NAME ...] [--mp3 DIR] [--json FILE]
 
@@ -278,27 +278,7 @@ def show(r):
 
 
 def main():
-    args = sys.argv[1:]
-    mp3 = args[args.index("--mp3") + 1] if "--mp3" in args else None
-    js = args[args.index("--json") + 1] if "--json" in args else None
-    names = [a for i, a in enumerate(args) if not a.startswith("--") and (i == 0 or args[i - 1] not in ("--mp3", "--json"))]
-    sys.path.insert(0, str(HERE))
-    from presets_granular import granular, KINDS
-    KIND.update(KINDS)
-    P = granular()
-    for i, q in enumerate(P):
-        NUMBER[q["name"]] = i + 1
-    import tempfile
-    out = []
-    with tempfile.TemporaryDirectory() as t:
-        for q in P:
-            if names and q["name"] not in names:
-                continue
-            r = measure(q["name"], q["macros"], KIND.get(q["name"], "pad"), Path(t), mp3)
-            show(r)
-            out.append(r)
-    if js:
-        Path(js).write_text(json.dumps(out, indent=1))
+    sys.exit("granular_batch.py is the measuring toolkit now (the granular batch went with Clouds in 2.48): run bank45_report.py")
 
 
 if __name__ == "__main__":

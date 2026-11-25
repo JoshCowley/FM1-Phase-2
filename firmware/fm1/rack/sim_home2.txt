@@ -1,4 +1,4 @@
-# sim_home2 (update 40): HOME, the signal path. Eight screens: a pad with chorus and reverb (WARM PAD), TIDE PAD (Clouds), a Rings preset (STRING BLOOM),
+# sim_home2 (update 40): HOME, the signal path. Eight screens: a pad with chorus and reverb (WARM PAD), TIDE PAD (reverb and chorus), a Rings preset (STRING BLOOM),
 # a mono lead with a delay (SAW LEAD), the knobs moving (ACID BASS: K1-K4 turned), the filter swept (ENV held + K1), JAM on (TIDAL WASH), and a drum
 # pattern playing (ARP PLUCK + a kick on four steps). Exit 0 = it ran and every expect held; the shots are the screens to look at (home2_*.png).
 listen
@@ -23,7 +23,7 @@ key w0 down 100
 key w4 down 100
 key w7 down 90
 wait 2500
-shot home2_clouds.png
+shot home2_tide.png
 key w0 up
 key w4 up
 key w7 up

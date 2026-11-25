@@ -183,18 +183,7 @@ static void snapshot(upatch_t *u, const char *name, int cat)
         for (i = 0; m && i < m->nparams && i < 16; i++)
             u->p[s][i] = q_param(&m->p[i], rk_get_param(s, i));
     }
-    for (s = 0; s < 6; s++)                   /* CLOUDS' grain controls (its parameters 22-24, past the 16 the slots keep) */
-        if (rc_patch.mod[s] == 30)
-            for (i = 0; i < 3; i++) {
-                float v = rk_get_param(s, 22 + i) * 127.0f;
-                v = v < -127.0f ? -127.0f : v > 127.0f ? 127.0f : v;
-                u->clx[i] = (int8_t)(v < 0.0f ? v - 0.5f : v + 0.5f);
-            }
-    for (s = 0; s < 6; s++)                   /* (update 42) CLOUDS' RENDER (its parameter 25: the page's 0 ECO, 1 LIGHT, 2 NORMAL, 3 HIGH; saved as 0 ECO, 1 HIGH, 2 NORMAL, 3 LIGHT, update 45: a 2.44 save's HIGH and NORMAL are still those, and the 0 it kept for LIGHT is ECO now) */
-        if (rc_patch.mod[s] == 30) {
-            int r = (int)(rk_get_param(s, 25) + 0.5f);
-            u->pad2 = (uint8_t)(r == 1 ? 3 : r == 3 ? 1 : r < 0 ? 0 : r > 3 ? 1 : r);
-        }
+    /* (2.48: Clouds is gone: its grain controls clx[] and RENDER pad2 are written as 0, and ignored when a slot is loaded) */
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         u->amp[i] = q_param(&UI_AMP.p[i], rk_get_param(RS_AMP, i));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)
@@ -237,26 +226,20 @@ static void apply(const upatch_t *u)
                 rk_set_param(RS_GLO, FLT_P0 + i, dq_param(&UI_FLT.p[i], u->p[1][i]));
     }
     for (s = 0; s < 6; s++) {
-        const ui_mod_t *m = ui_mod(u->mod[s]);
+        int id = u->mod[s] == 30 ? 0 : u->mod[s];   /* 2.48: a slot saved with Clouds (module 30) loads with that effect slot empty */
+        const ui_mod_t *m = ui_mod(id);
         if (s == 1 && u->mod[1] == 12) {      /* (no shaper: module 12 is the always-on filter now) */
             if (rc_patch.mod[1] != 0) { rk_set_module(1, 0); rc_patch.mod[1] = 0; rc_meta(1, 0); }
             continue;
         }
-        if (rc_patch.mod[s] != (int8_t)u->mod[s]) {
-            rk_set_module(s, u->mod[s]);
-            rc_patch.mod[s] = (int8_t)u->mod[s];
-            rc_meta(s, u->mod[s]);
+        if (rc_patch.mod[s] != (int8_t)id) {
+            rk_set_module(s, id);
+            rc_patch.mod[s] = (int8_t)id;
+            rc_meta(s, id);
         }
         for (i = 0; m && i < m->nparams && i < 16; i++)
             rk_set_param(s, i, dq_param(&m->p[i], u->p[s][i]));
     }
-    for (s = 0; s < 6; s++)                   /* CLOUDS' grain controls: as saved, or (older slots) neutral */
-        if (rc_patch.mod[s] == 30)
-            for (i = 0; i < 3; i++)
-                rk_set_param(s, 22 + i, u->pad & 8 ? (float)u->clx[i] / 127.0f : 0.0f);
-    for (s = 0; s < 6; s++)                   /* (update 42) RENDER: as saved, the codes of the save (above) back to the page's (older saves hold 0: ECO now, update 45; a code over 3 is ECO) */
-        if (rc_patch.mod[s] == 30)
-            rk_set_param(s, 25, u->pad2 > 3 ? 0.0f : (float)(u->pad2 == 1 ? 3 : u->pad2 == 3 ? 1 : u->pad2));
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         rc_set(RS_AMP, i, dq_param(&UI_AMP.p[i], u->amp[i]));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)

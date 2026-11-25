@@ -109,6 +109,8 @@ static void gate_checks(int *fails)
             }
             rk_note_on(55.0f, 0.8f);
             for (j = 0; j < 280; j++) rk_render(48);   /* ~0.3 s: the LFO well into its cycle */
+            if (pass < 2)   /* (2.48) the LFO runs free from the engine's clock, so where it is depends on what ran before: wait for the saw to be well down its fall (cutoff 0.6 or less), a third of a cycle from the wrap */
+                for (j = 0; j < 600 && rk_eff_param(RS_GLO, FLT_P0 + 1) > 0.6f; j++) rk_render(48);
             before = rk_eff_param(RS_GLO, FLT_P0 + 1);
             for (j = 0; j < 4; j++) rk_render(48);
             drift_a = rk_eff_param(RS_GLO, FLT_P0 + 1);

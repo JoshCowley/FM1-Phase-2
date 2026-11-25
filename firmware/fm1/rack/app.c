@@ -66,13 +66,13 @@ static const char *module_name(int id)
     switch (id) {
     case 1: return "PLAITS";
     case 2: return "BRAIDS";
+    case 5: return "WAVETABLE";
     case 10: return "RINGS";
     case 12: return "FILTER";
     case 20: return "PEAKS";
     case 21: return "TIDES";
     case 23: return "GRIDS";
     case 24: return "FUNC";
-    case 30: return "CLOUDS";
     case 31: return "DELAY";
     case 32: return "REVERB";
     case 33: return "CHORUS";
@@ -178,16 +178,10 @@ void app_panic(void)
  * (3 Nov 2026, the lighter engine) measured VA VCF at about 6 % plus 15 % per voice on one core (4 voices 66 %,
  * 6 voices 95 %) and about 7 % per voice on two (6 voices 52 %): so the preset's own voices (up to 6) on two cores,
  * 4 on one. The shedding takes off what doesn't fit (PD STRINGS: 104 % with 6 on two cores) */
-/* update 8: with Clouds in a slot a poly preset starts with 3 voices on one core (each Braids voice is about 5 points of the core; the
- * 14 Nov run had Clouds with the reverb at 95 % with 4); SELECT asks for more. RACK_CLOUDS_VOICES (engine/rack.cc) is 3 to match. */
-/* update 9 (RACK_FX_CORE2): on two cores a patch with Clouds runs Clouds on the second core and every voice on the first (rk_fx_core2_active():
- * the engine decided so at the layout), so it starts with 4 voices (about 6 points of the core each, plus the delay or reverb: about 51 % for
- * 4 voices with both, the overseer's arithmetic from update 8's figures; not measured); SELECT asks for up to 6. One core: still 3. */
+/* a poly preset starts with 6 voices when the second core runs, 4 on one core; SELECT asks for more (2.48: Clouds, which started with 3 or 4, is gone) */
 static int start_voices(void)
 {
-    if (plat_cpu2_on())
-        return rk_fx_core2_active() ? 4 : 6;
-    return rc_patch.mod[RS_FX1] == 30 || rc_patch.mod[RS_FX2] == 30 ? 3 : 4;
+    return plat_cpu2_on() ? 6 : 4;
 }
 #define START_VOICES start_voices()
 static void load_preset(int k)
@@ -526,13 +520,13 @@ static int module_icon(int id)
     switch (id) {
     case 1: return IC_PLAITS;
     case 2: return IC_BRAIDS;
+    case 5: return IC_WAVE;
     case 10: return IC_RINGS;
     case 12: return IC_FILTER;
     case 20: return IC_PEAKS;
     case 21: return IC_TIDES;
     case 23: return IC_GRIDS;
     case 24: return IC_FUNC;
-    case 30: return IC_CLOUDS;
     case 31: return IC_DELAY;
     case 32: return IC_REVERB;
     case 33: return IC_CHORUS;
@@ -612,7 +606,7 @@ static void draw_footer(void)                 /* (the status strip on top; the m
 static void draw_home(void)                   /* (update 13: the morphing picture, the macros under it, the tabs between) */
 {
     status_strip();
-    clouds_screen(PG_HOME, 0, 0);
+    pic_screen(PG_HOME, 0, 0);
     home_strip(1);
 }
 
@@ -666,13 +660,13 @@ static void draw_well_only(void)
     if (sv.open || mn.pick || sp.layer || mn.page == PG_RACK || mn.page == PG_MATRIX)
         return;
     if (mn.page == PG_HOME) {                 /* (update 13: the picture and the macros under it; the tabs when they change) */
-        clouds_screen(PG_HOME, 0, 0);
+        pic_screen(PG_HOME, 0, 0);
         home_strip(0);
     } else if (is_seq_page(mn.page)) {
         seq_area();
     } else {
         if (pic_scene(mn.page) >= 0) {
-            clouds_screen(mn.page, page_mod(mn.page), 0);
+            pic_screen(mn.page, page_mod(mn.page), 0);
             draw_toast();
             return;
         }
@@ -1000,7 +994,7 @@ void app_frame(void)
 void app_init(void)
 {
     int n, i;
-    if (plat_cpu2_set(1) == 0) {              /* the second core (now: the one time it may start): half the voices, or Clouds (update 9) */
+    if (plat_cpu2_set(1) == 0) {              /* the second core (now: the one time it may start): half the voices */
         rk_set_worker(plat_cpu2_run, plat_cpu2_wait);
         rk_set_worker_ex(plat_cpu2_sync, plat_cpu2_on);
         rk_set_ticks(plat_ticks24);               /* update 10: a clock for the engine to see which core is the slow one (the overload guard) */

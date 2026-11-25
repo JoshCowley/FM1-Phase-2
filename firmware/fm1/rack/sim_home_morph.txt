@@ -1,4 +1,4 @@
-# FM1 Phase 2 update 13: HOME through preset changes (Clouds patch, a non-Clouds patch and back): the picture morphed for about half a second until update 40 (the stage tiles now change at once; the run is kept as a HOME-through-presets check).
+# FM1 Phase 2 update 13: HOME through preset changes (an effects-heavy patch, a plain patch and back; 2.48: Clouds is gone): the picture morphed for about half a second until update 40 (the stage tiles now change at once; the run is kept as a HOME-through-presets check).
 # Exit 0 = it ran; the shots are the pictures to look at.
 wait 500
 turn PRESET 2
@@ -7,7 +7,7 @@ key w0 down 100
 key w4 down 100
 key w7 down 90
 wait 700
-shot mo_clouds.png
+shot mo_fx.png
 turn PRESET 87
 wait 125
 shot mo_a0.png

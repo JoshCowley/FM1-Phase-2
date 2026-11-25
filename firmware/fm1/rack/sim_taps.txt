@@ -12848,7 +12848,7 @@ wait 300
 expect gates_on 0
 wait 3500
 expect voices_on 0
-# the read-out: OCT- and OCT+ held together, off the CLOUDS pages
+# the read-out: OCT- and OCT+ held together, off the effect pages
 key w5 down 100
 wait 300
 press OCT-

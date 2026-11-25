@@ -2,13 +2,6 @@ braids/analog_oscillator.cc
 braids/digital_oscillator.cc
 braids/macro_oscillator.cc
 braids/resources.cc
-clouds/dsp/correlator.cc
-clouds/dsp/granular_processor.cc
-clouds/dsp/mu_law.cc
-clouds/dsp/pvoc/frame_transformation.cc
-clouds/dsp/pvoc/phase_vocoder.cc
-clouds/dsp/pvoc/stft.cc
-clouds/resources.cc
 elements/dsp/exciter.cc
 elements/dsp/multistage_envelope.cc
 elements/dsp/ominous_voice.cc

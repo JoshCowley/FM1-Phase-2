@@ -321,9 +321,9 @@ static void pic_dgen(void)                     /* DRUM GEN: the lane's tabs, the
         dr_pop_list("DRUM GEN", DG_N, dp.ga, DG_NAME, 0);
 }
 static const char *const DR_OUTN[4] = {"SOUND", "MIDI", "ALSO", "OFF"};
-static const char *const DR_BUSYN[3] = {"NONE", "CLOUD", "VOICES"};
-static const uint8_t DR_BUSYV[3] = {1, 2, 0};   /* the list's order (CLOUD, VOICES, NONE) in the engine's numbers */
-static const char *const DR_BUSYL[3] = {"CLOUD", "VOICES", "NONE"};
+static const char *const DR_BUSYN[3] = {"NONE", "REVERB", "VOICES"};
+static const uint8_t DR_BUSYV[3] = {1, 2, 0};   /* the list's order (REVERB, VOICES, NONE) in the engine's numbers */
+static const char *const DR_BUSYL[3] = {"REVERB", "VOICES", "NONE"};
 static const char *const DR_GMN[47] = {"ACOUSTIC BASS DRUM", "BASS DRUM 1", "SIDE STICK", "ACOUSTIC SNARE", "HAND CLAP", "ELECTRIC SNARE", "LOW FLOOR TOM", "CLOSED HI-HAT",
     "HIGH FLOOR TOM", "PEDAL HI-HAT", "LOW TOM", "OPEN HI-HAT", "LOW-MID TOM", "HI-MID TOM", "CRASH CYMBAL 1", "HIGH TOM", "RIDE CYMBAL 1", "CHINESE CYMBAL",
     "RIDE BELL", "TAMBOURINE", "SPLASH CYMBAL", "COWBELL", "CRASH CYMBAL 2", "VIBRASLAP", "RIDE CYMBAL 2", "HI BONGO", "LOW BONGO", "MUTE HI CONGA",
@@ -412,10 +412,10 @@ static void pic_dkit(void)                     /* DRUM KIT: the patterns A-H, th
     cv_text(10, 66, &FONT_XS, "KICK, SNARE, 2 HATS, CLAP, PERC", K_DIM);
     cv_text(220 - text_w(&FONT_XS, "(ESTIMATE: ALL FOUR VOICES AT ONCE)"), 66, &FONT_XS, "(ESTIMATE: ALL FOUR VOICES AT ONCE)", K_DIM);
     cv_text(10, 82, &FONT_XS, "DRUMS ON THE SECOND CORE", K_DIM);
-    t[0] = 0; cat(t, "IF BUSY: "); cat(t, dr_busy == 1 ? "CLOUDS EASES" : dr_busy == 2 ? "A SYNTH VOICE SHEDS" : "NOTHING GIVES");
+    t[0] = 0; cat(t, "IF BUSY: "); cat(t, dr_busy == 1 ? "THE REVERB EASES" : dr_busy == 2 ? "A DRUM VOICE DROPS" : "NOTHING GIVES");
     cv_text(10, 98, &FONT_XS, t, K_C_DRUMS);
     if (rk_drum_status(2) == 1)
-        cv_text(10, 112, &FONT_XS, "CLOUDS HELD BACK NOW (DENSITY 0.9)", K_WARN);
+        cv_text(10, 112, &FONT_XS, dr_busy == 1 ? "THE REVERB IS EASED NOW" : "A DRUM VOICE IS DROPPED NOW", K_WARN);
     t[0] = 0; cat(t, "STYLE STARTS AND STOPS THE DRUMS: "); cat(t, dr_style ? "ON" : "OFF");
     cv_text(10, 130, &FONT_XS, t, K_DIM);
     if (dp.pop == DPOP_KIT)

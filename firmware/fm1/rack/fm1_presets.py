@@ -21,8 +21,8 @@ TESTS = HERE.parent.parent / "tests"
 OUT = TESTS / "presets-fm1-calls.json"
 MT = TESTS / "presets-macrotest-calls.json"
 
-MID = {"PLAITS": 1, "BRAIDS": 2, "ELEMENTS": 3, "RINGS": 10, "WARPS": 11, "FILTER": 12, "PEAKS": 20, "TIDES": 21,
-       "MARBLES": 22, "GRIDS": 23, "FUNC": 24, "CLOUDS": 30, "DELAY": 31, "REVERB": 32, "CHORUS": 33}
+MID = {"PLAITS": 1, "BRAIDS": 2, "WAVE": 5, "ELEMENTS": 3, "RINGS": 10, "WARPS": 11, "FILTER": 12, "PEAKS": 20, "TIDES": 21,
+       "MARBLES": 22, "GRIDS": 23, "FUNC": 24, "DELAY": 31, "REVERB": 32, "CHORUS": 33}
 SLOTS = [("SRC", "SRC"), ("SHP", "SHP"), ("MODA", "MOD A"), ("MODB", "MOD B"), ("FX1", "FX 1"), ("FX2", "FX 2")]
 BUILT_SRC = ["—", "M1", "M2", "M3", "M4", "VELO", "KEY TRK", "RANDOM", "AMP ENV"]
 EXTRA_SRC = ["LFO 1", "LFO 2", "LFO 3", "MOD ENV", "SEQ 1", "SEQ 2", "SEQ 3", "SEQ 4", "WHEEL", "PRESS"]
@@ -36,8 +36,8 @@ def defs():
     from func_def import FUNC
     d = make_ui.load()
     d["MODULES"]["FUNC"] = FUNC
-    from clouds_def import lite_page      # update 11: the Lite firmware's CLOUDS (MODE: GRANULR LOOPDLY SPECTRL; DENSITY 0.7), so a preset's MODE index is the engine's
-    d["MODULES"]["CLOUDS"] = lite_page(d["MODULES"]["CLOUDS"])
+    from wave_def import WAVE
+    d["MODULES"]["WAVE"] = WAVE
     return d
 
 

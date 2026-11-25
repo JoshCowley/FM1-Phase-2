@@ -31,9 +31,6 @@ void rk_set_vintage(float v) { set_vintage(v); }
 void rk_set_ext_slew(int i, float s) { set_ext_slew(i, s); }
 void rk_set_tune(int note, float semis) { set_tune(note, semis); }
 void rk_set_voices(int n) { set_voices(n); }
-void rk_clouds_mask(unsigned m) { set_clouds_mask(m); }
-unsigned rk_clouds_level_mask(int lvl) { return clouds_level_mask(lvl); }
-void rk_clouds_opts(int k32, int skip_rev, int grains) { set_clouds_opts(k32, skip_rev, grains); }
 void rk_note_on(float note, float vel) { note_on(note, vel); }
 void rk_all_off(void) { all_off(); }
 void rk_render(int n) { render(n); }
@@ -47,9 +44,6 @@ void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void)) 
 uint32_t rk_worker_blocks(void) { return worker_blocks(); }
 void rk_set_worker_ex(void (*sync)(void), int (*on)(void)) { set_worker_ex(sync, on); }
 void rk_set_ticks(uint32_t (*ticks)(void)) { set_ticks(ticks); }
-void rk_fx_core2(int on) { set_fx_core2(on); }
-int rk_fx_core2_active(void) { return fx_core2_active(); }
-void rk_fx_core2_voices(int on) { set_fx_core2_voices(on); }
 int rk_shed_helps(void) { return shed_helps(); }
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl) { core_stats(job, wait, inl); }
 void rk_core_stats_reset(void) { core_stats_reset(); }

@@ -68,10 +68,8 @@ static dt_t dt_run(int preset, int nv, int drums)
         hc2_mode = HC2_DEFER; hc2_giveup_pct = hc2_norun_pct = 0;
         rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on);
         rk_set_ticks(dt_clk);
-        if (preset == -2 || preset == -3) {   /* Clouds in FX 1 and the reverb in FX 2, GRANULR, DENSITY 0.8 (-2) or 1.0 (-3) */
-            int s;
-            cl_patch(30, 32, 0); s = cl_clouds_slot();
-            cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, preset == -2 ? 0.8f : 1.0f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 0.8f);
+        if (preset == -2 || preset == -3) {   /* the reverb in FX 1 and the chorus in FX 2 (the heaviest effect pair; both cases the same since 2.48 has no Clouds) */
+            cl_patch(32, 33, 0);
         } else if (preset == -4) { rk_init(); rk_fm1_fit(); }   /* the engine's own defaults: the same patch in every release */
         else if (preset < 0) cl_patch(0, 0, 0); else rc_load(preset);
         rk_set_voices(nv);
@@ -147,7 +145,7 @@ static void dt_levels(int preset, int notes, int drums, const char *what)
     double pk = 0, dc = 0, rms = 0;
     rk_seed(0x21u);
     hc2_mode = HC2_DEFER; rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on);
-    if (preset == -2) { int s; cl_patch(30, 32, 0); s = cl_clouds_slot(); cl_set(s, P_DENS, 0.8f); cl_set(s, P_BLEND, 0.5f); } else if (preset < 0) cl_patch(0, 0, 0); else rc_load(preset);
+    if (preset == -2) cl_patch(32, 33, 0); else if (preset < 0) cl_patch(0, 0, 0); else rc_load(preset);
     rk_set_voices(4);
     dr_reset_state(); rk_drum_off(); rk_drum_run(drums);
     for (i = 0; i < notes; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.9f);
@@ -229,7 +227,7 @@ static void dt_checks(int *fails)
             if (b.c1 > a.c1 * 1.04 + 20.0 || b.c2 > a.c2 * 1.04 + 20.0) { printf("14a %s: drum_run(1), no hit: first core %.1f vs %.1f, second core %.1f vs %.1f points   FAIL\n", p < 0 ? "INIT" : "ATMOSPHERE", dt_pts(b.c1, k), dt_pts(a.c1, k), dt_pts(b.c2, k), dt_pts(a.c2, k)); bad14a++; }
         }
         rk_seed(0x21u); rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on); hc2_mode = HC2_DEFER;
-        cl_patch(30, 0, 0); rk_set_voices(4); for (i = 0; i < 4; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.8f);
+        cl_patch(32, 0, 0); rk_set_voices(4); for (i = 0; i < 4; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.8f);
         rk_drum_off(); rk_drum_run(1);
         rk_core_stats(&j0, &w0, &i0);
         n3 = rk_drum_status(3); n4 = rk_drum_status(4);   /* (cumulative counters: the change over the run is what counts) */

@@ -48,9 +48,13 @@ void rk_set_vintage(float v);
 void rk_set_ext_slew(int i, float s);
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
-unsigned rk_clouds_level_mask(int lvl);   /* update 44: RENDER's page 0 ECO, 1 LIGHT, 2 NORMAL, 3 HIGH as a mask (update 45) */
-void rk_clouds_mask(unsigned m);   /* update 42: the Clouds quality bits (rack_cl_q.h); ~0u = the page's RENDER */
-void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (this benchmark's comparison cases only) */
+/* 2.48: Clouds and the Clouds-on-the-second-core arrangement are gone from the engine. These stand in so the older Clouds cases (kept in this file, never built:
+ * the firmware's bench runs the bank and WAVE cases below) still compile; they do nothing. */
+static unsigned rk_clouds_level_mask(int lvl) { (void)lvl; return 0u; }
+static void rk_clouds_mask(unsigned m) { (void)m; }
+static void rk_clouds_opts(int k32, int skip_rev, int grains) { (void)k32; (void)skip_rev; (void)grains; }
+static void rk_fx_core2(int on) { (void)on; }
+static void rk_fx_core2_voices(int on) { (void)on; }
 void rk_note_on(float note, float vel);
 void rk_all_off(void);
 void rk_render(int n);
@@ -63,9 +67,6 @@ void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void));
 uint32_t rk_worker_blocks(void);
 void rk_set_worker_ex(void (*sync)(void), int (*on)(void));   /* update 9: the platform's barrier and "taking jobs" calls */
 void rk_set_ticks(uint32_t (*ticks)(void));
-void rk_fx_core2(int on);                  /* 0: Clouds on the first core, the voices split (update 8's arrangement); the benchmark's comparison cases */
-void rk_fx_core2_voices(int on);           /* update 10: 0 keeps the voices above the fourth on the first core (update 9's arrangement); the comparison cases */
-int rk_fx_core2_active(void);              /* 1: Clouds runs on the second core in this patch */
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void rk_core_stats_reset(void);
 void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);   /* FM1 Phase 2 step 1: the drum voices */
@@ -127,7 +128,7 @@ enum { G_CORE, G_BRAIDS, G_RINGS, G_SHP, G_MOD, G_FX, G_VOICES, G_CLOUDS, G_PRES
        G_MODSUM,
        G_CORES2, NGROUP };
 static const char *const GROUP[NGROUP] = {"CORE", "BRAIDS", "RINGS", "FILTER", "MOD", "FX", "VOICES",
-                                           "CLOUDS", "PRESETS",
+                                           "WAVE", "PRESETS",
 #ifdef RACK_WITH_GRAIN
                                            "GRAIN",
 #endif
@@ -350,37 +351,83 @@ static void bc_qpairs(void)
     }
 }
 
+/* 2.48: every factory preset on two cores, as the engine is: six voices (NAME x6), four (NAME x4), a mono preset one note (NAME x1): the names of the older runs' engine rows,
+ * so a CSV compares with fm1-bench-q45 and later row for row */
+static char bank_nm[2][NPRESETS][24], bank_nm1[2][NPRESETS][28];
+static void bc_bank(void)
+{
+    int i, nv;
+    for (i = P_PLAYED; i < NPRESETS; i++)
+        for (nv = 0; nv < 2; nv++) {
+            const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6";
+            char *d = bank_nm[nv][i];
+            if (nv && PRESETS[i].mode) continue;
+            while (*src) *d++ = *src++;
+            while (*suf) *d++ = *suf++;
+            *d = 0;
+            bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, bank_nm[nv][i]);
+        }
+    /* the one-core twins (the PRESETS group, NAME x6 1C and so on): bench_host checks each two-core case against its twin, and the pair shows what the second core buys */
+    for (i = P_PLAYED; i < NPRESETS; i++)
+        for (nv = 0; nv < 2; nv++) {
+            const char *src = bank_nm[nv][i];
+            char *d = bank_nm1[nv][i];
+            if (nv && PRESETS[i].mode) continue;
+            while (*src) *d++ = *src++;
+            *d++ = ' '; *d++ = '1'; *d++ = 'C'; *d = 0;
+            bc_add(G_PRESET, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, bank_nm1[nv][i]);
+        }
+}
+
+/* 2.48: the six wavetable presets and TIDE PAD (re-voiced on the reverb and chorus), each: on one core (the WAVE group, NAME 1C: four notes, a mono preset one), on two cores with
+ * the knobs at rest (NAME 2C still), with the four knobs travelling (NAME 2C moving: the scan, the matrix and the knob layer change in every block), with the four at the top
+ * (NAME 2C K1: SCAN, GRIT and the shuffled bank at their most) and, for the polyphonic ones, with the CHEAP drum kit playing (NAME 2C +CHEAP: the kit's three voices struck every step, and its one-core twin NAME 1C +CHEAP) */
+static const char *const WV_FOCUS[7] = {"WAVE PAD", "WAVE KEYS", "WAVE LEAD", "WAVE BASS", "WAVE DRONE", "WAVE TEXTURE", "TIDE PAD"};
+static char wv_nm[7][6][28];
+static int bench_preset_index(const char *name)
+{
+    int i;
+    for (i = P_PLAYED; i < NPRESETS; i++) {
+        const char *a = PRESETS[i].name, *b = name;
+        while (*a && *a == *b) { a++; b++; }
+        if (!*a && !*b) return i;
+    }
+    return -1;
+}
+static void bc_wave(void)
+{
+    static const char *const SFX[6] = {" 1C", " 2C still", " 2C moving", " 2C K1", " 2C +CHEAP", " 1C +CHEAP"};
+    int w, t, k;
+    for (w = 0; w < 7; w++) {
+        int i = bench_preset_index(WV_FOCUS[w]);
+        if (i < 0) continue;
+        for (t = 0; t < 6; t++) {
+            char *d = wv_nm[w][t];
+            const char *s2 = WV_FOCUS[w];
+            if (t >= 4 && PRESETS[i].mode) continue;   /* a mono preset has no kit case */
+            while (*s2) *d++ = *s2++;
+            for (s2 = SFX[t]; *s2; ) *d++ = *s2++;
+            *d = 0;
+            k = bc_add(t == 0 || t == 5 ? G_CLOUDS : G_CORES2, i, PRESETS[i].mode ? 1 : 4, wv_nm[w][t]);
+            if (t == 2) bcases[k].mov = 1;
+            if (t == 3) bcases[k].kmax = 1;
+            if (t >= 4) { bcases[k].kit = 1; bcases[k].dv = 3; }   /* three voices: the engine lets at most three drum voices sound at once (rack_host 12i) */
+        }
+    }
+}
+
 static void bench_cases(void)
 {
     int i, k, base;
     int r4s = -1, d7s = -1, d9s = -1, d10s = -1, g10c = -1, g10c48 = -1;      /* the CLOUDS group's BRAIDS x4, GRAN D0.7, GRAN 16ST (D0.9), GRAN D1.0: the DRUMS cases are measured against them */
     bncases = 0;
-#ifdef BENCH_AB42
-    {
-        static const char *const QN[18] = {"GRAN D0.7 HIGH", "GRAN D0.7 NORMAL", "GRAN D0.7 LITE", "GRAN D1.0 HIGH", "GRAN D1.0 NORMAL", "GRAN D1.0 LITE",
-                                           "LOOP D0.7 HIGH", "LOOP D0.7 NORMAL", "LOOP D0.7 LITE", "LOOP D1.0 HIGH", "LOOP D1.0 NORMAL", "LOOP D1.0 LITE",
-                                           "SPEC D0.7 HIGH", "SPEC D0.7 NORMAL", "SPEC D0.7 LITE", "SPEC D1.0 HIGH", "SPEC D1.0 NORMAL", "SPEC D1.0 LITE"};
-        int r4 = bc_cl(G_CLOUDS, 4, CL_REF, "BRAIDS x4", -1);
-        for (i = 0; i < 18; i++) bc_cl(G_CLOUDS, 4, 37 + i, QN[i], r4);
-        {   /* update 44: LIGHT, the new default (rows 55 to 63; own = minus BRAIDS x4), and FREEZE at each quality */
-            static const char *const LN[9] = {"GRAN D0.7 LIGHT", "GRAN D1.0 LIGHT", "LOOP D0.7 LIGHT", "LOOP D1.0 LIGHT", "SPEC D0.7 LIGHT", "SPEC D1.0 LIGHT",
-                                              "GRAN FRZ LIGHT", "GRAN FRZ NORMAL", "GRAN FRZ HIGH"};
-            for (i = 0; i < 9; i++) bc_cl(G_CLOUDS, 4, 55 + i, LN[i], r4);
-        }
-        {   /* update 45: ECO, the new default (rows 67 to 73; own = minus BRAIDS x4) */
-            static const char *const EN[7] = {"GRAN D0.7 ECO", "GRAN D1.0 ECO", "LOOP D0.7 ECO", "LOOP D1.0 ECO", "SPEC D0.7 ECO", "SPEC D1.0 ECO", "GRAN FRZ ECO"};
-            for (i = 0; i < 7; i++) bc_cl(G_CLOUDS, 4, 67 + i, EN[i], r4);
-        }
-        {   /* update 44: Clouds' grain controls moving (WINDOW, SPEED, JITTER), GRANULR D1.0 at LIGHT, NORMAL, HIGH (rows 56, 41, 40) */
-            static const char *const MN[3] = {"GRAN D1.0 MOVING LIGHT", "GRAN D1.0 MOVING NORMAL", "GRAN D1.0 MOVING HIGH"};
-            static const uint8_t MR[3] = {56, 41, 40};
-            for (i = 0; i < 3; i++) bcases[bc_cl(G_CLOUDS, 4, MR[i], MN[i], r4)].mov = 1;
-        }
-        bcases[bc_cl(G_CLOUDS, 4, 68, "GRAN D1.0 MOVING ECO", r4)].mov = 1;   /* update 45 */
-        bc_qpairs();
+    {   /* 2.48 (25 Nov 2026): the bank on two cores, and the wavetable presets and TIDE PAD on their own (the CLOUDS group is gone with Clouds: its enum slot is the WAVE group's).
+         * This is the whole list, on the device and on a computer (BENCH_FULL): the older module cases below it, written for 2.47 and before (the Clouds ones among them), are no longer
+         * generated; they are kept in this file as 2.47 had them */
+        bc_bank();
+        bc_wave();
         return;
     }
-#endif
     /* the engine with no source: envelopes, matrix, LFOs, master, for one voice */
     k = bc_add(G_CORE, P_INIT, 1, "NO SOURCE");
     bc_change(k, 0, 1, S_SRC, 0, 0);

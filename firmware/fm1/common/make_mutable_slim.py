@@ -7,7 +7,7 @@ build's include path puts ahead of the Mutable checkout. The MIT notice stays at
 both leave every sample the firmware makes exactly as it was:
 
 1. Tables that Mutable declares without `const`, so they sit in the FM-1's RAM (static RAM is 98,304 B and was nearly full) although nothing
-   writes them: Braids' three render-function tables and its waveform table, Clouds' mu-law table, Peaks' LFO function table and look-up table
+   writes them: Braids' three render-function tables and its waveform table, Peaks' LFO function table and look-up table
    table, Rings' model gains. Declared const here (header and definition), they go to flash: about 1.4 KB of RAM.
 2. Braids' DigitalOscillator (RACK_BRAIDS_TRIM, set by the firmware's build and the host build): the 14 shapes the firmware has withdrawn
    (engine/rack.cc BR_KEPT: FBFM PLUK BOWD BLOW FLUT and the nine drum shapes), and the shape past the end of the list (QuestionMark) never reach it, so their render functions are not compiled and
@@ -27,7 +27,6 @@ HEADERS = {
                                     ("  // void RenderYourAlgo(const uint8_t*, int16_t*, size_t);",
                                      "  void RenderNone(const uint8_t*, int16_t*, size_t);   // (2.42: where a withdrawn shape's function was)")],
     "braids/resources.h": [("extern const int16_t* waveform_table[];", "extern const int16_t* const waveform_table[];")],
-    "clouds/dsp/mu_law.h": [("extern int16_t lut_ulaw[256];", "extern const int16_t lut_ulaw[256];")],
     "peaks/modulations/lfo.h": [("  static ComputeSampleFn compute_sample_fn_table_[];", "  static const ComputeSampleFn compute_sample_fn_table_[];")],
     "peaks/resources.h": [("extern const uint16_t* lookup_table_table[];", "extern const uint16_t* const lookup_table_table[];")],
     "rings/dsp/part.h": [("  static float model_gains_[RESONATOR_MODEL_LAST];", "  static const float model_gains_[RESONATOR_MODEL_LAST];"),
@@ -46,7 +45,6 @@ SOURCES = {
     "braids/analog_oscillator.cc": [("\nAnalogOscillator::RenderFn AnalogOscillator::fn_table_[] = {", "\nconst AnalogOscillator::RenderFn AnalogOscillator::fn_table_[] = {")],
     "braids/macro_oscillator.cc": [("\nMacroOscillator::RenderFn MacroOscillator::fn_table_[] = {", "\nconst MacroOscillator::RenderFn MacroOscillator::fn_table_[] = {")],
     "braids/resources.cc": [("\nconst int16_t* waveform_table[] = {", "\nconst int16_t* const waveform_table[] = {")],
-    "clouds/dsp/mu_law.cc": [("\nint16_t lut_ulaw[256] = {", "\nconst int16_t lut_ulaw[256] = {")],
     "peaks/modulations/lfo.cc": [("\nLfo::ComputeSampleFn Lfo::compute_sample_fn_table_[] = {", "\nconst Lfo::ComputeSampleFn Lfo::compute_sample_fn_table_[] = {")],
     "rings/dsp/string.cc": RINGS_STRING,
     "peaks/resources.cc": [("\nconst uint16_t* lookup_table_table[] = {", "\nconst uint16_t* const lookup_table_table[] = {"),

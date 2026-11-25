@@ -9,7 +9,7 @@ import os
 
 HERE = Path(__file__).resolve().parent
 ENG = HERE.parent.parent.parent / "engine"
-LITE_OUT = ("elements/", "warps/", "marbles/", "plaits/")   # FM1 Phase 2: no Plaits (fm1.toml RACK_NO_PLAITS); Clouds is in (step 5, RACK_CLOUDS)
+LITE_OUT = ("elements/", "warps/", "marbles/", "plaits/")   # FM1 Phase 2: no Plaits (fm1.toml RACK_NO_PLAITS); no Clouds since 2.48; the bench's own rt.cc and rk.cc
 
 units = HERE / "units"
 units.mkdir(exist_ok=True)
@@ -39,95 +39,7 @@ for _k, _v in make_mutable_slim.files(EUR).items():
         want[_k] = _v
     else:
         hdrs[_k] = _v
-# FM1 Phase 2 update 8: Clouds' granular_processor.cc as a changed copy (the Mutable source itself is left as it is). Two small changes,
-# each behind its own flag of the build (with neither flag the copy is the original, byte for byte after its first line):
-#   RACK_CLOUDS_MAX_GRAINS=n   a ceiling on the grains Clouds' player may run at once (its own count: 32 stereo 16-bit, 45 stereo
-#                              8-bit, 40 mono 16-bit, 57 mono 8-bit; the knob's range is unchanged), read when its buffers are set up
-#   RACK_CLOUDS_SKIP_REVERB    Clouds' internal reverb is not run while its amount is exactly 0 and has been for RV_HOLD blocks (until
-#                              then it runs, at amount 0, which changes nothing); when the amount comes back its memory is cleared and
-#                              the amount rises over RV_RAMP blocks (no old tail, no step)
-# rack_cl_grain_cap and rack_cl_skip_reverb are the same two as run-time values, which only the benchmark changes (engine set_clouds_opts).
-import os as _os
-_eur = Path(_os.environ["EURORACK"]) if _os.environ.get("EURORACK") else HERE.parent.parent.parent.parent / "eurorack"
-gp = (_eur / "clouds" / "dsp" / "granular_processor.cc").read_text()
-def _sub(text, old, new):
-    assert text.count(old) == 1, "make_units: Clouds' granular_processor.cc changed: " + old[:40]
-    return text.replace(old, new)
-gp = _sub(gp, "void GranularProcessor::Init(", """#ifdef RACK_CLOUDS_MAX_GRAINS
-int rack_cl_grain_cap = RACK_CLOUDS_MAX_GRAINS;
-#endif
-#ifdef RACK_CLOUDS_SKIP_REVERB
-int rack_cl_skip_reverb = 1;
-static uint16_t* rv_buf_;                      // the reverb's memory (Prepare keeps it): cleared when the reverb comes back
-static int rv_idle_ = 0, rv_ramp_ = 1 << 20;   // blocks at amount 0; blocks since it came back (large: not ramping)
-#define RV_HOLD 256
-#define RV_RAMP 24
-#endif
-void GranularProcessor::Init(""")
-gp = _sub(gp, "  reset_buffers_ = true;\n  dry_wet_ = 0.0f;\n}", "  reset_buffers_ = true;\n  dry_wet_ = 0.0f;\n#ifdef RACK_CLOUDS_SKIP_REVERB\n  rv_idle_ = 0; rv_ramp_ = 1 << 20;\n#endif\n}")
-gp = _sub(gp, "    reverb_.Init(allocator.Allocate<uint16_t>(16384));", """#ifdef RACK_CLOUDS_SKIP_REVERB
-    reverb_.set_half(half);   // update 44: LIGHT's tank is half the size
-    rv_buf_ = allocator.Allocate<uint16_t>(half ? 8192 : 16384);
-    reverb_.Init(rv_buf_);
-    rv_idle_ = 0; rv_ramp_ = 1 << 20;
-#else
-    reverb_.set_half(half);
-    reverb_.Init(allocator.Allocate<uint16_t>(half ? 8192 : 16384));
-#endif""")
-gp = _sub(gp, "      player_.Init(num_channels_, num_grains);", "#ifdef RACK_CLOUDS_MAX_GRAINS\n      if (rack_cl_grain_cap > 0 && num_grains > rack_cl_grain_cap) num_grains = rack_cl_grain_cap;\n#endif\n      player_.Init(num_channels_, num_grains);")
-gp = _sub(gp, "  reverb_.set_amount(reverb_amount * 0.54f);", """#ifdef RACK_CLOUDS_SKIP_REVERB
-  bool rv_skip = false;
-  if (rack_cl_skip_reverb && reverb_amount <= 0.0f) {
-    if (rv_idle_ < RV_HOLD) rv_idle_++;
-    rv_skip = rv_idle_ >= RV_HOLD;
-  } else {
-    if (rv_idle_ >= RV_HOLD) { reverb_.Init(rv_buf_); rv_ramp_ = 0; }   // it was skipped: empty memory, and in gently
-    rv_idle_ = 0;
-    if (rv_ramp_ < RV_RAMP) { rv_ramp_++; reverb_amount *= (float)rv_ramp_ / (float)RV_RAMP; }
-  }
-#endif
-  reverb_.set_amount(reverb_amount * 0.54f);""")
-gp = _sub(gp, "  reverb_.Process(out_, size);", "#ifdef RACK_CLOUDS_SKIP_REVERB\n  if (!rv_skip)\n#endif\n  reverb_.Process(out_, size);")
-import sys as _sys; _sys.path.insert(0, str(HERE.parent / "rack")); import clouds_q_patch
-gp = clouds_q_patch.apply(gp, _sub)   # update 42 (RENDER): the CLQ_* changes (shared with bench/make_units.py)
-# RACK_CLOUDS_NO_STRETCH (the Lite firmware: STRETCH is not offered, the engine never selects it, see rack.cc): the WSOLA player and its
-# correlator are not linked (about 3 KB of flash). The correlator's memory is still allocated: the pitch shifter uses it, so the arena's layout is as before.
-gp = _sub(gp, "    case PLAYBACK_MODE_STRETCH:\n      if (resolution() == 8) {\n        ws_player_.Play(buffer_8_, parameters_, &output[0].l, size);\n      } else {\n        ws_player_.Play(buffer_16_, parameters_, &output[0].l, size);\n      }\n      break;\n",
-          "#ifndef RACK_CLOUDS_NO_STRETCH\n    case PLAYBACK_MODE_STRETCH:\n      if (resolution() == 8) {\n        ws_player_.Play(buffer_8_, parameters_, &output[0].l, size);\n      } else {\n        ws_player_.Play(buffer_16_, parameters_, &output[0].l, size);\n      }\n      break;\n#endif\n")
-gp = _sub(gp, "    correlator_.Init(\n        &correlator_data[0],\n        &correlator_data[correlator_block_size]);\n",
-          "#ifndef RACK_CLOUDS_NO_STRETCH\n    correlator_.Init(\n        &correlator_data[0],\n        &correlator_data[correlator_block_size]);\n#endif\n")
-gp = _sub(gp, "      ws_player_.Init(&correlator_, num_channels_);\n", "#ifndef RACK_CLOUDS_NO_STRETCH\n      ws_player_.Init(&correlator_, num_channels_);\n#endif\n")
-gp = _sub(gp, "  } else if (playback_mode_ == PLAYBACK_MODE_STRETCH) {\n    if (resolution() == 8) {\n      ws_player_.LoadCorrelator(buffer_8_);\n    } else {\n      ws_player_.LoadCorrelator(buffer_16_);\n    }\n    correlator_.EvaluateSomeCandidates();\n  }\n",
-          "#ifndef RACK_CLOUDS_NO_STRETCH\n  } else if (playback_mode_ == PLAYBACK_MODE_STRETCH) {\n    if (resolution() == 8) {\n      ws_player_.LoadCorrelator(buffer_8_);\n    } else {\n      ws_player_.LoadCorrelator(buffer_16_);\n    }\n    correlator_.EvaluateSomeCandidates();\n#endif\n  }\n")
-want["mi_clouds_dsp_granular_processor.cc"] = ("// Generated by make_units.py: eurorack's clouds/dsp/granular_processor.cc with the update 8 changes (flags RACK_CLOUDS_MAX_GRAINS, RACK_CLOUDS_SKIP_REVERB, RACK_CLOUDS_NO_STRETCH)\n" + gp)
-
-# RACK_CLOUDS_NO_STRETCH: the correlator's code goes too (the unit is an empty file; the class itself is only declared by the header).
-want["mi_clouds_dsp_correlator.cc"] = '#ifndef RACK_CLOUDS_NO_STRETCH\n#include "clouds/dsp/correlator.cc"\n#endif\n'
-# RACK_CLOUDS_SHARE_SINE (22 Nov 2026): Clouds' lut_sin (1281 floats: the mono pan gains, the spectral mode's polar to rectangular) is every
-# 4th entry of Rings' lut_sine (5121 floats), the same bits (checked), so it is not stored twice (5.1 KB of flash). The readers (the shim's
-# granular_sample_player.h and the unit below) read rings::lut_sine at stride 4.
-cr = (_eur / "clouds" / "resources.cc").read_text()
-_a = cr.index("const float lut_sin[] = {")
-_b = cr.index("\n};\n", _a) + 4
-cr = cr[:_a] + "#ifndef RACK_CLOUDS_SHARE_SINE\n" + cr[_a:_b] + "#endif\n" + cr[_b:]
-cr = _sub(cr, "  lut_sin,\n  lut_window,", "#ifndef RACK_CLOUDS_SHARE_SINE\n  lut_sin,\n#else\n  0,\n#endif\n  lut_window,")
-want["mi_clouds_resources.cc"] = "// Generated by make_units.py: eurorack's clouds/resources.cc without lut_sin when RACK_CLOUDS_SHARE_SINE is set\n" + cr
-# update 44 (CLQ_16K, LIGHT): the phase vocoder's overlap 2, not 4 (a frame every half a window: half the transforms; the same window, 128 ms) while Clouds runs at 16 kHz
-_pv = (_eur / "clouds" / "dsp" / "pvoc" / "phase_vocoder.cc").read_text()
-_pv = _sub(_pv, "  size_t hop_ratio = 4;", "  size_t hop_ratio = (rack_cl_q & CLQ_16K) ? 2 : 4;   // (update 44)")
-_pv = _sub(_pv, "namespace clouds {\n", "namespace clouds {\nextern unsigned rack_cl_q;\n")
-_pv = _sub(_pv, "#include \"clouds/dsp/pvoc/phase_vocoder.h\"", "#include \"clouds/dsp/pvoc/phase_vocoder.h\"\n#include \"clouds/dsp/rack_cl_q.h\"")
-want["mi_clouds_dsp_pvoc_phase_vocoder.cc"] = "// Generated by make_units.py: clouds/dsp/pvoc/phase_vocoder.cc with the overlap 2 while CLQ_16K (update 44)\n" + _pv
-want["mi_clouds_dsp_pvoc_frame_transformation.cc"] = """// Generated by make_units.py: clouds/dsp/pvoc/frame_transformation.cc reading Rings' lut_sine at stride 4 for clouds::lut_sin (RACK_CLOUDS_SHARE_SINE)
-#ifdef RACK_CLOUDS_SHARE_SINE
-#include "clouds/resources.h"
-#include "rings/resources.h"
-namespace clouds { struct RackSin4 { float operator[](int i) const { return rings::lut_sine[i * 4]; } }; static const RackSin4 rack_sin4 = {}; }
-#define lut_sin rack_sin4
-#endif
-#include "clouds/dsp/pvoc/frame_transformation.cc"
-"""
-
+# (2.48: Clouds is gone: its granular_processor, correlator, resources and phase-vocoder units, and their changed copies, are not made; the reverb is its fx_engine.h and the engine's own reverb.h)
 
 # FM1 Phase 2 step 1 (drums): Braids' digital oscillator as a changed copy that knows only the drum models (common/make_drum_osc.py): the header
 # units/rack_drum_osc.h (the engine includes it; fm1.toml puts units/ on the include path) and the unit mi_braids_drum_oscillator.cc
@@ -138,6 +50,12 @@ _eur2 = Path(os.environ["EURORACK"]) if os.environ.get("EURORACK") else HERE.par
 _d = make_drum_osc.make(_eur2)
 (units / "rack_drum_osc.h").write_text(_d["rack_drum_osc.h"])
 want["mi_braids_drum_oscillator.cc"] = _d["mi_braids_drum_oscillator.cc"]
+
+# 2.48: Plaits' wavetable engine as the WAVE source (common/make_wave_osc.py): the header units/rack_wave_osc.h (the engine includes it) and the data unit
+import make_wave_osc
+_w = make_wave_osc.make(_eur2)
+(units / "rack_wave_osc.h").write_text(_w["rack_wave_osc.h"])
+want["mi_plaits_wave_data.cc"] = _w["mi_plaits_wave_data.cc"]
 
 # (MODFM1 ran Plaits' MODAL on 16 of its 24 modes here; FM1 Phase 2 has no Plaits, 14 Nov 2026)
 for f in units.glob("*.cc"):

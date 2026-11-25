@@ -9,13 +9,13 @@ key w0 down 100
 key w4 down 100
 key w7 down 90
 wait 3500
-shot pg_home_clouds_1.png
+shot pg_home_first_1.png
 wait 400
-shot pg_home_clouds_2.png
+shot pg_home_first_2.png
 press OCT-
 press OCT+
 wait 700
-shot pg_home_clouds_debug.png
+shot pg_home_first_debug.png
 release OCT-
 release OCT+
 wait 200
@@ -214,9 +214,9 @@ key w0 down 100
 key w4 down 100
 key w7 down 90
 wait 3500
-shot pg_clouds_1.png
+shot pg_fx_page_1.png
 wait 400
-shot pg_clouds_2.png
+shot pg_fx_page_2.png
 key w0 up
 key w4 up
 key w7 up

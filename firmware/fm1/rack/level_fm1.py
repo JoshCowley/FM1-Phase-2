@@ -54,9 +54,8 @@ def main():
             if not (lv[n] == 1.0 and d > 0):          # at full level already: as loud as it goes
                 worst = max(worst, abs(d))
         if bank:
-            from presets_granular import granular
             from presets_batch2 import batch2
-            mine = {q["name"] for q in granular()} | {q["name"] for q in batch2()}
+            mine = {q["name"] for q in batch2()}
             b2 = {q["name"] for q in batch2()}
             old = json.loads(LEVELS.read_text()) if LEVELS.exists() else {}
             lv = {n: (v if n in mine or n not in old else old[n]) for n, v in lv.items()}

@@ -5,10 +5,36 @@
  *   12b  what a drum voice weighs: the copy against the stock class, the drums' share of the arena
  *   12c  a hit on each model sounds (not NaN, not silent), arrives one block (48 frames) after the hit, dies away on its own; four at once
  *   12d  the same hits on one core, on two cores (the job run at once, run when waited for, on a real thread, a worker that fails): identical sample
- *        for sample with no Clouds; with Clouds in FX 1 (the drums in Clouds' job) the same between the two-core ways, no NaN
- *   12e  the guard: IF BUSY = CLOUD holds Clouds' DENSITY at 0.9 while the drums run, only then (NONE and VOICES leave it; DENSITY 0.7 is not raised)
+ *        for sample with no effect; with the reverb in FX 1 the same sound between the two-core ways, no NaN
+ *   12e  the guard (2.48): IF BUSY = NONE, REVERB or VOICES: with no slowness measured every mode renders the same sound and nothing is eased or dropped
  *   12f  nothing when no drum sounds: no block rendered, nothing added to the output (a preset's output with and without the drums' calls is the same)
  * Every 12d case is played by a fresh process (rack_host --drum ...), as 7's are: the engine keeps some state across init(). */
+
+#include "ui_defs.h"
+#include <unistd.h>
+enum { FM_A, FM_B, FM_T, FM_D };    /* the core arrangement: one core; two cores, a job run when handed over; two cores, a real thread; two cores, a job run when waited for */
+
+/* a module into a slot at its page's default values, as the picker loads one (0: empty) */
+static void cl_swap(int slot, int id)
+{
+    float v[32] = {0};
+    int i, n = 0;
+    for (i = 0; i < UI_NMODS; i++)
+        if (UI_MODS[i].id == id) {
+            for (n = 0; n < UI_MODS[i].nparams && n < 32; n++)
+                v[n] = UI_MODS[i].p[n].def;
+            break;
+        }
+    rc_swap(slot, id, v, n);
+}
+static void cl_patch(int fx1, int fx2, int shp)
+{
+    rk_seed(0x21u);
+    rc_load(0);                               /* INIT: a Braids tone, sustained */
+    cl_swap(RS_SHP, shp);
+    cl_swap(RS_FX1, fx1);
+    cl_swap(RS_FX2, fx2);
+}
 
 void rk_drum_hit(int voice, int model, float note, float p1, float p2, float decay, float level, float pan, float send);
 void rk_drum_run(int on);
@@ -21,7 +47,7 @@ int rk_drum_sizes(int what);
 static const char *const DC_MODEL[9] = {"KICK", "SNARE", "CYMBAL", "STRUCK DRUM", "STRUCK BELL", "FILTERED NOISE", "CLOCKED NOISE", "PARTICLE NOISE", "TWIN PEAKS"};
 #define DC_BLOCKS 1500
 #define DC_BLK 48
-enum { DS_PLAIN, DS_CLOUDS, DS_CLOUDS_NOTES, DS_N };   /* the scenarios: INIT with no note held; Clouds in FX 1; Clouds and four notes held */
+enum { DS_PLAIN, DS_REVERB, DS_REVERB_NOTES, DS_N };   /* the scenarios: INIT with no note held; the reverb in FX 1; the reverb and four notes held */
 
 /* the pattern both the children and 12c play: a kick every 125 blocks, a snare on the off beats, a hat in between, a perc now and then */
 static void dc_hits(int b)
@@ -38,14 +64,9 @@ static void dc_play(int scen, int arr, int giveup, int norun, float *buf)
     hc2_giveup_pct = giveup; hc2_norun_pct = norun; hc2_mode = arr == FM_T ? HC2_THREAD : arr == FM_D ? HC2_DEFER : HC2_NOW;
     if (arr == FM_A) rk_set_worker(0, 0);
     else { rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on); }
-    cl_patch(scen == DS_PLAIN ? 0 : 30, 0, 0);
-    if (scen != DS_PLAIN) {
-        int s = cl_clouds_slot();
-        cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 0.8f);
-        cl_set(s, P_SPREAD, 0.5f); cl_set(s, P_FB, 0.3f); cl_set(s, P_REV, 0.3f);
-    }
+    cl_patch(scen == DS_PLAIN ? 0 : 32, 0, 0);
     rk_set_voices(4);
-    if (scen == DS_CLOUDS_NOTES)
+    if (scen == DS_REVERB_NOTES)
         for (i = 0; i < 4; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.8f);
     else
         rk_all_off();
@@ -153,7 +174,7 @@ static void drum_checks(const char *self, int *fails)
     }
     /* 12d */
     {
-        static const char *const SC[DS_N] = {"plain", "Clouds", "Clouds+notes"};
+        static const char *const SC[DS_N] = {"plain", "reverb", "reverb+notes"};
         static const char *const AR[4] = {"one core", "two cores NOW", "thread", "two cores DEFER"};
         int ok = 1;
         for (s = 0; s < DS_N; s++) {
@@ -165,7 +186,7 @@ static void drum_checks(const char *self, int *fails)
             printf("12d %-13s one core: rms %.4f peak %.3f NaN %d; two cores NOW against it: %d of %d samples differ (largest %.3g)\n", SC[s], r0, pk, bd, nd, 2 * DC_BLK * DC_BLOCKS, dd);
             if (bd || !(pk > 0.05f)) { bad12++; ok = 0; }
             if (s == DS_PLAIN && nd != 0) { bad12++; ok = 0; printf("12d plain: two cores must equal one core sample for sample\n"); }
-            if (s != DS_PLAIN) {   /* Clouds: the second core's job holds the drums; the first core's output is a block later or the same: rms within 7 % (update 59: 6.2 % with the grain ceiling at 24, fewer and louder grains) */
+            if (s != DS_PLAIN) {   /* with the reverb: the second core's job holds the drums; the first core's output is a block later or the same: rms within 7 %  */
                 double r1 = dc_rms(B, &bd, &pk);
                 if (bd || fabs(r1 - r0) > 0.07 * r0) { bad12++; ok = 0; printf("12d %s: rms %.4f against %.4f\n", SC[s], r1, r0); }
             }
@@ -175,8 +196,8 @@ static void drum_checks(const char *self, int *fails)
             if (dc_played(self, s, FM_D, 0, 0, C)) { printf("12d %s: no play (defer)\n", SC[s]); bad12++; continue; }
             dc_diff(B, C, &nd2);
             printf("12d %-13s %s: failing worker against working: %d samples differ (%.3g); %s: %d samples differ\n", SC[s], AR[1], nd, dd, AR[3], nd2);
-            if (s != DS_CLOUDS_NOTES && (nd != 0 || nd2 != 0)) { bad12++; ok = 0; }
-            if (s == DS_CLOUDS_NOTES) {   /* the voices' drift and Clouds' grains draw their random numbers in another order: the same sound, rms within 6 % (7c, 7d) */
+            if (s != DS_REVERB_NOTES && (nd != 0 || nd2 != 0)) { bad12++; ok = 0; }
+            if (s == DS_REVERB_NOTES) {   /* the voices' drift draws its random numbers in another order: the same sound, rms within 6 % (7c, 7d) */
                 double r2 = dc_rms(C, &bd, &pk), r3 = dc_rms(B, &bd, &pk);
                 (void)r2; (void)r3;
             }
@@ -184,34 +205,39 @@ static void drum_checks(const char *self, int *fails)
             dc_rms(C, &bd, &pk);
             dd = dc_diff(B, C, &nd);
             printf("12d %-13s %s: %d samples differ from NOW (%.3g), NaN %d\n", SC[s], AR[2], nd, dd, bd);
-            if (bd || (s != DS_CLOUDS_NOTES && nd != 0)) { bad12++; ok = 0; }
-            if (s == DS_CLOUDS_NOTES && fabs(dc_rms(C, &bd, &pk) - dc_rms(B, &bd, &pk)) > 0.06 * dc_rms(B, &bd, &pk)) { bad12++; ok = 0; printf("12d %s: thread rms differs by more than 6 %%\n", SC[s]); }
+            if (bd || (s != DS_REVERB_NOTES && nd != 0)) { bad12++; ok = 0; }
+            if (s == DS_REVERB_NOTES && fabs(dc_rms(C, &bd, &pk) - dc_rms(B, &bd, &pk)) > 0.06 * dc_rms(B, &bd, &pk)) { bad12++; ok = 0; printf("12d %s: thread rms differs by more than 6 %%\n", SC[s]); }
         }
-        printf("12d the drums on one core, two cores, a real second thread and a failing worker: %s\n", ok ? "the plain patch identical in every way, with Clouds the same sound, no NaN" : "NOT as expected");
+        printf("12d the drums on one core, two cores, a real second thread and a failing worker: %s\n", ok ? "the plain patch identical in every way, with the reverb the same sound, no NaN" : "NOT as expected");
     }
-    /* 12e */
+    /* 12e (2.48): IF BUSY = NONE, REVERB, VOICES. No slowness is measured here (no clock), so each mode renders the same sound as NONE, and nothing is flagged */
     {
-        static const float DENS[3] = {1.0f, 0.7f, 1.0f};
-        int bad = 0, md, d, g[16], gi = 0;
-        for (md = 0; md < 3; md++) {            /* NONE, CLOUD, VOICES */
-            for (d = 0; d < 2; d++) {
-                int want, got, run;
-                int mode = md == 0 ? 0 : md == 1 ? 1 : 2;
-                for (run = 0; run < 2; run++) {
-                    cl_patch(30, 0, 0);
-                    cl_set(cl_clouds_slot(), P_DENS, d == 0 ? 1.0f : DENS[1]);
-                    rk_drum_busy(mode);
-                    rk_drum_run(run);
-                    rk_set_worker(0, 0);
-                    for (i = 0; i < 20; i++) rk_render(DC_BLK);
-                    got = rk_drum_status(6);
-                    want = d == 0 ? ((run && mode == 1) ? 900 : 1000) : 700;
-                    g[gi++ & 15] = got;
-                    if (got != want) { bad++; printf("12e mode %d DENSITY %.1f drums %s: Clouds was given %d, want %d\n", mode, d == 0 ? 1.0 : 0.7, run ? "running" : "stopped", got, want); }
+        int bad = 0, md, run, nd, bd; float pk;
+        for (run = 0; run < 2; run++) {
+            for (md = 0; md < 3; md++) {
+                cl_patch(32, 0, 0);
+                rk_drum_busy(md);
+                rk_drum_run(1);
+                rk_set_worker(0, 0);
+                rk_set_voices(4);
+                if (run) for (i = 0; i < 4; i++) rk_note_on(48.0f + 4.0f * (float)i, 0.8f);
+                for (i = 0; i < DC_BLOCKS; i++) {
+                    dc_hits(i);
+                    rk_render(DC_BLK);
+                    memcpy((md == 0 ? A : B) + 2 * DC_BLK * i, rk_out_l(), DC_BLK * sizeof(float));
+                    memcpy((md == 0 ? A : B) + 2 * DC_BLK * i + DC_BLK, rk_out_r(), DC_BLK * sizeof(float));
                 }
+                if (rk_drum_status(2) != 0) { bad++; printf("12e mode %d: flagged slow with no clock\n", md); }
+                if (md) {   /* the same sound (rms within 3 %), no NaN: the noise sources and the voices' drift keep their state from one render to the next, so the samples themselves are not compared */
+                    double ra = dc_rms(A, &bd, &pk), rb;
+                    dc_diff(A, B, &nd);
+                    rb = dc_rms(B, &bd, &pk);
+                    if (bd || fabs(rb - ra) > 0.03 * ra) { bad++; printf("12e mode %d (%s): %d samples differ from NONE (rms %.4f against %.4f), NaN %d\n", md, run ? "notes held" : "drums only", nd, rb, ra, bd); }
+                }
+                rk_all_off();
             }
         }
-        printf("12e IF BUSY: with the drums running, CLOUD holds Clouds' DENSITY at 0.9 (1.0 becomes 0.9, 0.7 stays 0.7); NONE, VOICES and a stopped pattern leave it: %d wrong\n", bad);
+        printf("12e IF BUSY: with no slowness measured NONE, REVERB and VOICES render the same sound, nothing flagged: %d wrong\n", bad);
         rk_drum_run(0); rk_drum_busy(1);
         if (bad) bad12++;
     }
@@ -219,13 +245,13 @@ static void drum_checks(const char *self, int *fails)
     {
         int j0, i0, j1, i1, nd, nd2;
         for (s = 0; s < 2; s++) {
-            cl_patch(s ? 30 : 0, 0, 0);
+            cl_patch(s ? 32 : 0, 0, 0);
             rk_seed(0x21u); rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on); hc2_mode = HC2_NOW;
             rk_set_voices(4); rk_note_on(48.0f, 0.8f); rk_note_on(55.0f, 0.8f);
             j0 = rk_drum_status(3); i0 = rk_drum_status(4);
             for (i = 0; i < 300; i++) { rk_render(DC_BLK); memcpy(A + (size_t)i * DC_BLK, rk_out_l(), DC_BLK * sizeof(float)); }
             j1 = rk_drum_status(3); i1 = rk_drum_status(4);
-            printf("12f %s, notes held, no drum struck: blocks rendered by the drums %d (second core) + %d (first core) in 300 blocks\n", s ? "Clouds" : "plain ", j1 - j0, i1 - i0);
+            printf("12f %s, notes held, no drum struck: blocks rendered by the drums %d (second core) + %d (first core) in 300 blocks\n", s ? "reverb" : "plain ", j1 - j0, i1 - i0);
             if (j1 != j0 || i1 != i0) { bad12++; }
             rk_all_off();
         }

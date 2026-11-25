@@ -40,9 +40,6 @@ void rk_set_ext(int i, float v);
 void rk_pump_set(float depth, float release_s, float shape, int target);   /* update 41 step 5 */
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
-void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (the host checks and the benchmark) */
-void rk_clouds_mask(unsigned m);   /* update 42: the Clouds quality bits (shim/clouds/dsp/rack_cl_q.h); ~0u = the page's RENDER */
-unsigned rk_clouds_level_mask(int lvl);   /* update 44: RENDER's page 0 ECO, 1 LIGHT, 2 NORMAL, 3 HIGH as a mask (update 45) */
 void rk_set_bend(float semis);
 void rk_note_on(float note, float vel);
 void rk_note_off(float note);
@@ -62,8 +59,6 @@ void rk_set_worker(int (*run)(void (*)(uint32_t), uint32_t), int (*wait)(void));
 uint32_t rk_worker_blocks(void);
 void rk_set_worker_ex(void (*sync)(void), int (*on)(void));   /* update 9: the platform's barrier and "taking jobs" calls */
 void rk_set_ticks(uint32_t (*ticks)(void));
-void rk_fx_core2(int on);                  /* 0: Clouds on the first core, the voices split (update 8's arrangement); the benchmark's comparison cases */
-int rk_fx_core2_active(void);
 int rk_shed_helps(void);                   /* update 10: 1 when one voice fewer relieves the core that is overloaded (rack.cc shed_helps) */              /* 1: Clouds runs on the second core in this patch */
 void rk_core_stats(uint32_t *job, uint32_t *wait, uint32_t *inl);
 void rk_core_stats_reset(void);
@@ -326,9 +321,7 @@ static void rc_overload(void)
     }
     if (!rc_guard || rc_shed_wait)
         return;
-    /* update 10: with Clouds on the second core the block takes as long as the slower core; a voice is shed only if that voice is on the core that is
-     * the slow one (the top voice is the one that goes: from the fifth up it is the second core's, otherwise the first's). Otherwise nothing is
-     * shed (rc_shed_skipped counts those calls) and the overload goes on until the patch changes */
+    /* update 10: (since 2.48 shed_helps is always 1: Clouds' job on the second core, which could make a shed useless, is gone) */
     if (!rk_shed_helps()) {
         rc_shed_skipped++;
         return;

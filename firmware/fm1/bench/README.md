@@ -1,5 +1,8 @@
 # FM1 Bench: timing FM1 Rack on a real FM-1
 
+**2.48 (25 Nov 2026): Clouds is gone from the engine, and the bench has a new, smaller list.** The firmware (and bench_host, on a computer) now generates `bc_bank` and `bc_wave` only: every factory preset on two cores (`NAME x6`, `NAME x4`, a mono preset `NAME x1`) with its one-core twin (`NAME x6 1C`), and, for the six wavetable presets (WAVE PAD, WAVE KEYS, WAVE LEAD, WAVE BASS, WAVE DRONE, WAVE TEXTURE) and TIDE PAD, `NAME 1C` (group WAVE), `NAME 2C still`, `NAME 2C moving`, `NAME 2C K1` and, for the polyphonic ones, `NAME 2C +CHEAP` with `NAME 1C +CHEAP` (the CHEAP kit's three voices struck every step). The older cases below (the module cases, DRUMS, MODSUM and the Clouds group), written for 2.47 and before, are still in `bench.c` but are not generated; the Clouds calls in them are no-op stand-ins. The engine flags are those of the firmware (`-DRACK_WAVE`, no Clouds). Not run on an FM-1 yet. The text below is the history up to 2.47.
+
+
 **Status: builds and passes fm1-base's own checks, has not yet run on an FM-1.** This is a test firmware, not FM1
 Rack: it plays no sound and saves nothing. It answers two questions on the board itself:
 

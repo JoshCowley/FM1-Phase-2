@@ -29,6 +29,10 @@
 #include "rack_drum_osc.h"   // FM1 Phase 2 step 1: Braids' drum models without the delay lines (make_drum_osc.py writes it)
 #define HAVE_DRUMS 1
 #endif
+#if defined(RACK_WAVE) && defined(RACK_FM1)
+#include "rack_wave_osc.h"   // FM1 Phase 2 2.48: Plaits' wavetable engine as the WAVE source (make_wave_osc.py writes it, and the wave data unit)
+#define HAVE_WAVE 1
+#endif
 #ifdef RACK_WITH_GRAIN
 #include "grain.h"   // GRAIN (FM1 Phase 2): the Bento-style granular source. SHELVED: only with -DRACK_WITH_GRAIN (off by default)
 #endif
@@ -36,16 +40,7 @@
 #ifndef RACK_LITE
 #include "elements/dsp/part.h"
 #endif
-// CLOUDS (Mutable's texture processor, MIT): in every full build, and in the Lite firmware build only with -DRACK_CLOUDS
-// (FM1 Phase 2 step 5). RACK_FM1 + RACK_CLOUDS also trims its buffers to fit the arena (CL_SMALL below)
-#if !defined(RACK_LITE) || defined(RACK_CLOUDS)
-#define HAVE_CLOUDS 1
-#endif
-#ifdef HAVE_CLOUDS
-#include "clouds/dsp/granular_processor.h"
-#else
-#include "clouds/dsp/frame.h"   // the reverb's frame type
-#endif
+#include "clouds/dsp/frame.h"   // the reverb's frame type (the reverb is Clouds' diffusion network, MIT; Clouds itself was removed in 2.48)
 #include "clouds/dsp/fx/reverb.h"
 #include "peaks/modulations/lfo.h"
 #include "peaks/modulations/multistage_envelope.h"
@@ -113,10 +108,13 @@ static const bool FLT_ALWAYS = false;
 #endif
 static const float FLT_SWEEP_SEMIS = 60.0f, FLT_WET_STEP = 0.05f, FLT_TOP_SEMIS = 78.0f;
 enum Slot { S_SRC, S_SHP, S_MODA, S_MODB, S_FX1, S_FX2, S_AMP, S_GLO, S_LFO, NSLOT };
-enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4,
+enum ModId { M_NONE = 0, M_PLAITS = 1, M_BRAIDS = 2, M_ELEMENTS = 3, M_GRAIN = 4, M_WAVE = 5 /* 2.48: Plaits' wavetable engine (Lite firmware only) */,
              M_RINGS = 10, M_WARPS = 11, M_FILTER = 12,
              M_PEAKS = 20, M_TIDES = 21, M_MARBLES = 22, M_GRIDS = 23, M_FUNC = 24,
-             M_CLOUDS = 30, M_DELAY = 31, M_REVERB = 32, M_CHORUS = 33 };
+             M_CLOUDS = 30 /* removed in 2.48: an old save that holds it loads that FX slot empty */, M_DELAY = 31, M_REVERB = 32, M_CHORUS = 33 };
+#ifdef HAVE_WAVE
+static const float WAVE_GAIN = 0.7f;   // the wavetable source's level against Braids' at the same LEVEL (measured: make_wave_osc.py / wave_level.py)
+#endif
 enum Src { SR_NONE, SR_M1, SR_M2, SR_M3, SR_M4, SR_VELO, SR_KEY, SR_RAND, SR_ENV,
            SR_MA0, SR_MA1, SR_MB0, SR_MB1, SR_LFO1, SR_LFO2, SR_LFO3, SR_MENV,
            SR_SEQ1, SR_SEQ2, SR_SEQ3, SR_SEQ4, SR_WHEEL, SR_PRESS, SR_GATE1, SR_GATE2, SR_PUMP, NSRC };
@@ -290,6 +288,9 @@ static VoiceState vs_[MAXV];
 static plaits::Voice* plaits_; static char (*plaits_buf_)[16384];
 #endif
 static braids::MacroOscillator* braids_;
+#ifdef HAVE_WAVE
+static rackwave::Osc* wave_;   // the WAVE source: one per voice, carved from the arena
+#endif
 static rings::Part* rings_; static uint16_t (*rings_rev_)[32768];
 #ifdef RACK_WITH_GRAIN
 static uint8_t* grain_buf_; static grain::Voice* grain_v_;
@@ -322,7 +323,7 @@ static Svf svf_[MAXV], svf2_[MAXV];
 // not decay by themselves) and the mix. Everything (voices, mix buffers) is in the arena, carved when the patch is laid out; nothing is
 // static but a pointer and a few flags, and with no voice sounding the whole thing costs one comparison a block.
 // The mix: each hit's level is split by SEND into a wet part, added to the signal before the effects, and a dry part, added after them.
-// Rendered by whichever core has the job (the second core's: Clouds' job, or the voices' job; the first when neither is out) into
+// Rendered by whichever core has the job (the second core's: the voices' job; the first when it is not out) into
 // out[w]; the first core adds out[r], the block before's, so the drums arrive one block (1 ms) after the hit whichever core renders them.
 #define DR_N 4
 enum { DM_KICK, DM_SNARE, DM_CYMBAL, DM_STRUCK_DRUM, DM_STRUCK_BELL, DM_FILTERED_NOISE, DM_CLOCKED_NOISE, DM_PARTICLE_NOISE, DM_TWIN_PEAKS, DM_N };
@@ -355,10 +356,8 @@ static DrumBus* drum_ = nullptr;
 static uint8_t drum_w_ = 0, drum_r_ = 1;            // the buffer this block's render writes; the one the block before wrote (read now)
 static uint8_t drum_ok_[2] = {0, 0};                // out[i] holds a rendered block
 static uint8_t drum_pending_ = 0, drum_in_job_ = 0; // a voice sounds this block; the job (not the first core) renders it
-static uint8_t drum_run_ = 0, drum_busy_ = 1;       // the firmware's pattern is playing; IF BUSY: 0 NONE, 1 CLOUD (Clouds eases), 2 VOICES (the overload guard's)
+static uint8_t drum_run_ = 0, drum_busy_ = 1;       // the firmware's pattern is playing; IF BUSY: 0 NONE, 1 REVERB (the reverb eases to its leanest tank while the second core is slow: 2.48; was CLOUD, Clouds' density), 2 VOICES (a drum voice drops while it is slow, and the overload guard's synth voice shed)
 static uint32_t drum_blk_job_ = 0, drum_blk_inl_ = 0;
-static float drum_dens_seen_ = 0.0f;                // the DENSITY the last Clouds block was given (the host check reads it)
-#define DRUM_CLOUDS_CEIL 0.9f   // IF BUSY = CLOUD: Clouds' DENSITY is held at this while the drums run
 // What each model costs the second core, in synth voices (the 13 Nov bench, points of a core over 5.8 a Braids voice: KICK 6.1, SNARE 7.8, CYMBAL 8.0, STRUCK
 // DRUM 6.0, STRUCK BELL 6.5, FILTERED NOISE 4.9, CLOCKED NOISE 3.2, PARTICLE 4.0, TWIN PEAKS 3.6). The first core takes that many more voices while they sound
 static const float DM_COST[DM_N] = {1.05f, 1.34f, 1.38f, 1.03f, 1.12f, 0.84f, 0.55f, 0.69f, 0.62f};
@@ -392,51 +391,8 @@ static int last_voice_ = 0;
 static uint32_t age_counter_ = 0;
 
 // ------------------------------------------------------------------ shared
-#ifdef HAVE_CLOUDS
 #ifdef RACK_FM1
-// the processor object itself (about 9 KB, 64 grains and its block arrays) lives in the arena with its buffers: fm1-base's
-// static RAM has about 7 KB to spare (90.9 of 98.3 KB with USB audio), so 9 KB of .bss would not fit
-static clouds::GranularProcessor* clouds_;
-#else
-static clouds::GranularProcessor clouds_storage_;
-static clouds::GranularProcessor* const clouds_ = &clouds_storage_;
-#endif
-#endif
-static int clouds_quality_ = 0;
-#ifdef RACK_GR_STATS
-// the host check's (build_host.sh only): the grains' start positions since the last reset: count, sum, sum of squares, least, greatest
-namespace clouds { static double gr_st[5]; void rack_gr_stat(float s) { gr_st[0] += 1; gr_st[1] += s; gr_st[2] += (double)s * s; if (gr_st[0] == 1 || s < gr_st[3]) gr_st[3] = s; if (gr_st[0] == 1 || s > gr_st[4]) gr_st[4] = s; } }
-EXPORT void grain_stats(double* out, int reset) { for (int i = 0; i < 5; ++i) { out[i] = clouds::gr_st[i]; if (reset) clouds::gr_st[i] = 0; } }
-#endif
-// update 27, the GR-1 style grain controls (engine/shim/clouds/dsp/granular_sample_player.h reads them): CLOUDS' parameters 22-24, WINDOW, SPEED and
-// JITTER, set each block in run_fx. All 0 = Clouds as it was (the player takes its old path and draws no extra random number). ph, pos, lo, hi:
-// the playhead (its phase in the window, 0..1; its place and the window's ends on POSITION's axis), which the screen reads (monitor 162-164)
-namespace clouds { float rack_gr_window = 0.0f, rack_gr_speed = 0.0f, rack_gr_jitter = 0.0f, rack_gr_ph = 0.5f, rack_gr_pos = 0.0f, rack_gr_lo = 0.0f, rack_gr_hi = 0.0f; }
-static float cl_scan_ = 0.0f, cl_tone_l_ = 0.0f, cl_tone_r_ = 0.0f;
-static int cl_grid_ = -1;
-#ifdef RACK_CLOUDS_32K
-// FM1 Phase 2 update 8, RACK_CLOUDS_32K: Clouds runs at 32 kHz, the rate it was designed for. The engine's block (48 frames at
-// 48 kHz) is exactly one block of Clouds' own 32 frames at 32 kHz: the stereo input goes down 3:2 through a polyphase FIR
-// (engine/cl_resample.h), Clouds runs once, its all-wet output goes up 2:3, and the dry/wet mix, the TONE filter and the output
-// stage are done here at 48 kHz, the dry signal delayed to meet the wet (CL_DRYD). Latency of the wet path: (21 + 22) / 96000 s
-// = 0.45 ms (21.5 samples at 48 kHz). Buffers, grain sizes, the loop and the internal reverb last 1.5 x longer in seconds
-// (the same samples at 2/3 the rate): they are as Mutable made them.
-#include "cl_resample.h"
-#include "cl_eco.h"
-#include "clouds/dsp/rack_cl_q.h"
-#define CL_DRYD_MAX 25      // (update 42: the dry line is 21 frames long with the 3:2 resamplers, 25 with the 24 kHz halfbands: cl_dryd_)
-union ClDn { Cl32Down a; Cl16Down b; Cl16DownE e; }; union ClUp { Cl32Up a; Cl16Up b; Cl16UpE e; };   // (update 44: the 16 kHz pair shares the 3:2 pair's memory: one is in use at a time)
-static ClDn cl_dn_[2]; static ClUp cl_up_[2];
-static float cl_dry_[2][CL_DRYD_MAX]; static int cl_dry_at_ = 0, cl_dryd_ = 21;
-static float cl_mixs_ = 0.0f; static bool cl_mix_init_ = false;
-static bool cl_dry_ok_ = true;     // update 45 (ECO): the dry line holds the last block's dry signal (it is left alone while BLEND is full wet)
-static int cl32_on_ = 1;            // runtime: the benchmark switches it per case (the firmware never does)
-#endif
-#if defined(RACK_FM1) && defined(RACK_FX_CORE2) && defined(RACK_CLOUDS_32K)
-#define FXC2 1
-#endif
-#ifdef RACK_FM1
-// The second core's hooks (set_worker, set_worker_ex), declared here: Clouds' job (below) and the voices' job (render_voices) use the same worker
+// The second core's hooks (set_worker, set_worker_ex), declared here: the voices' job (render_voices) and the drums and the reverb's jobs use the worker
 typedef int (*rack_run_fn)(void (*)(uint32_t), uint32_t);
 typedef int (*rack_wait_fn)(void);
 static rack_run_fn par_run_ = 0;
@@ -445,83 +401,10 @@ static void (*par_sync_)(void) = 0;      // plat_cpu2_sync: a barrier between th
 static int (*par_on_)(void) = 0;         // plat_cpu2_on: 1 while the second core takes jobs
 static uint32_t (*ticks_)(void) = 0;     // the benchmark's clock (plat_ticks24); the firmware leaves it out
 static uint32_t st_job_ = 0, st_wait_ = 0;   // ticks: the jobs' own time (summed where they run), the time the first core spent waiting for one
-static uint32_t par_blocks_ = 0;         // blocks in which the second core took a job (voices or Clouds)
-static float par_l_[BLOCK], par_r_[BLOCK];   // the second core's voice mix (render_voices; with Clouds on the second core, update 10, the voices above the fourth too)
+static uint32_t par_blocks_ = 0;         // blocks in which the second core took a job
+static float par_l_[BLOCK], par_r_[BLOCK];   // the second core's voice mix (render_voices)
 #endif
-#ifdef FXC2
-// FM1 Phase 2 update 9, RACK_FX_CORE2: with two cores running and Clouds in a slot, the second core runs Clouds' Prepare and Process
-// (the heavy part, 32 frames at 32 kHz) for the block, while the first core renders ALL the voices and the other effect. One job a
-// block, handed over at the start of the block and joined where the chain reaches Clouds' slot (so no job spans a block).
-// The job in block n works on the signal that reached Clouds' input in block n-1 (staged then, with that block's parameters,
-// its dry copy and its mix settings): the first core finishes block n-1's work at Clouds' slot (cl_front: the input into the
-// staging, 3:2 down), and at block n's slot takes the job's output (cl_post: 2:3 up, the dry/wet mix, TONE, the output stage).
-// So Clouds' slot's output in block n is exactly what it would have been in block n-1 on one core: the whole chain from
-// the slot on is one block (BLOCK frames, 1 ms) late, the dry path included (BLEND mixes the dry staged with the signal it
-// belongs to). The same for Clouds in FX 1 or FX 2, with or without another effect: the voices and what is before Clouds run
-// during the job, what is after it after the join.
-// UPDATE 10: the job holds more. What the first core did around Clouds (the 3:2 resamplers down and up, the dry delay, BLEND, TONE and the output
-// stage, the staging copies) is the job's now: the first core only copies the block that reached Clouds' slot into the staging (cl_front) and copies
-// the job's output to the signal (run_fx); the job works through cl_g_ (IN GAIN, clamp, dry delay), cl_dn_, Clouds, cl_up_, the mix, into cl_po_.
-// Latency is unchanged (one block: the same data goes through the same filters in the same order). With Clouds in FX 1 and a live effect in FX 2
-// the voices above CL_V1 (the fifth and sixth) ride in the job too (cl_voices_ride): rendered into par_l_/par_r_, added to the signal at Clouds' slot.
-static int cl_pipe_ = 0;          // 1: Clouds runs this way (decided where the patch is laid out)
-static int cl_pipe_opt_ = 1;      // run-time switch (the benchmark: 0 runs the update 8 way)
-static int cl_slot_ = -1;         // the slot Clouds is in
-static int cl_primed_ = 0;        // a block is staged for the job
-static int cl_forked_ = 0;        // the job is on the second core (only between the start of a block and Clouds' slot, or its end)
-static int cl_due_ = 0;           // a job belongs to this block (the voices then all stay on the first core)
-static clouds::ShortFrame cl_in32_[32], cl_out32_[32];   // the job's input (first core writes, before the hand-over) and output (the job writes, first core reads after the join)
-static float cl_g_[2][BLOCK];     // the staged block's dry signal (first core only)
-static float cl_po_[2][BLOCK];    // this block's output of Clouds' slot (first core only)
-static float cl_umix_ = 0.0f, cl_utone_ = 0.0f;          // the staged block's BLEND and TONE (first core only)
-static uint32_t cl_inline_ = 0;   // blocks in which Clouds' job was done on the first core (not taken, or given up)
-static float cl_igain_ = 1.0f;    // the staged block's IN GAIN (the job applies it and the clamp)
-static int cl_vjob_ = 0;          // update 10: this block's job also renders the voices from CL_V1 up (decided at the hand-over)
-static int cl_vn_ = 0;            // the voice count the job works with (a snapshot at the hand-over)
-static int cl_voff_opt_ = 1;      // run-time switch (the benchmark): 0 keeps every voice on the first core
-static uint32_t cl_wait_avg_ = 0, cl_blk_avg_ = 0, cl_wait_now_ = 0;   // ticks, smoothed over 16 blocks: the first core's wait at the join, and the whole block
-static void cl_pipe_decide();
-static void cl_join();
-#ifdef HAVE_DRUMS
-static void drums_render();
-// the pump's curve at this block's end (the sources read pump_c_; the gain slides from the last block's to this one's)
-static void pump_step();
-static inline void pump_apply(bool post);
-#endif
-#ifndef RACK_FX_CORE2_V1
-#define RACK_FX_CORE2_V1 4        // the first core keeps this many voices; the ones above go to the second core's job (update 10)
-#endif
-#define CL_V1 RACK_FX_CORE2_V1
-#endif
-#ifdef RACK_CLOUDS_SKIP_REVERB
-namespace clouds { extern int rack_cl_skip_reverb; }
-#endif
-#ifdef RACK_CLOUDS_MAX_GRAINS
-namespace clouds { extern int rack_cl_grain_cap; }
-#endif
-namespace clouds { extern const float lut_xfade_in[]; extern const float lut_xfade_out[]; }
-#if defined(RACK_FM1) && defined(RACK_CLOUDS)
-// FM1 Phase 2 step 5: Clouds' two buffers trimmed from 118,784 + 65,408 B (184,192 B) to 98,304 + 49,152 B (147,456 B).
-// Clouds' Init takes a large and a small buffer. Stereo: each channel's audio is `small` bytes (the large buffer is the two
-// channels' audio laid end to end, large = 2 x small) and the workspace after the first channel, large - small = small.
-// Mono: the whole large buffer is the audio and `small` the workspace. The workspace holds the diffuser (2048 floats,
-// 8192 B), the reverb (16384 x 2 B = 32768 B) and, at one address, the WSOLA correlator (3 x 130 x 4 = 1560 B) or, in
-// LOOPDLY, the pitch shifter (2 x 2047 x 2 = 8188 B): 8192 + 32768 + 8188 = 49,148 B, which `small` must hold. So 49,152 B
-// is the least that runs all three modes; the audio's length is what is cut: stereo 16-bit 24,576 samples (0.51 s at
-// 48 kHz) of stock's 32,704 (0.68 s)
-#ifndef RACK_CLOUDS_SMALL
-#define RACK_CLOUDS_SMALL 49152
-#endif
-static const int CL_SMALL = RACK_CLOUDS_SMALL, CL_LARGE = 2 * RACK_CLOUDS_SMALL, DLEN_MAX = 96000;
-static_assert(RACK_CLOUDS_SMALL >= 49148 && RACK_CLOUDS_SMALL % 16 == 0, "Clouds' workspace needs 49,148 B");
-#define CL_TRIMMED 1
-#else
-static const int CL_LARGE = 118784, CL_SMALL = 65536 - 128, DLEN_MAX = 96000;
-#endif
-// update 44 (LIGHT): Clouds at 16 kHz needs half the buffers: audio 12,288 samples a channel (0.77 s) and a workspace of 24,576 B (clouds_q_patch.py). The arena holds them (fit_cl_full_)
-// unless the patch can reach HIGH or NORMAL (RENDER's list, or a route on it); the layout then keeps the full 98,304 + 49,152 B. cl_large_n_ / cl_small_n_: what the layout gave
-static const int CL_SMALL_L = 24576, CL_LARGE_L = 2 * 24576;
-static int cl_large_n_ = CL_LARGE, cl_small_n_ = CL_SMALL;
+static const int DLEN_MAX = 96000;
 static const size_t COMB_LEN = 8192;   // SAW COMB's delay line, samples (Braids' kCombDelayLength)
 #ifdef RACK_BRAIDS_TRIM
 static_assert(braids::kCombDelayLength == COMB_LEN, "SAW COMB's delay line length");
@@ -533,7 +416,6 @@ static const int DLEN = 48000;   // 1 s
 // 16-bit lines keep 6 dB of headroom (full scale = 2.0): mixes of several voices go past 1.0 before the limiter
 static inline float DG(int16_t v) { return v * (2.0f / 32767.0f); }
 static inline int16_t DS(float x);   // (defined after the quality mask, below)
-static uint8_t* clouds_large_; static uint8_t* clouds_small_;
 static uint16_t* reverb_buf_;
 static dsamp_t *delay_l_, *delay_r_;
 #else
@@ -541,10 +423,6 @@ typedef float dsamp_t;
 static const int DLEN = DLEN_MAX;
 static inline float DG(float v) { return v; }
 static inline float DS(float x) { return x; }
-#ifdef HAVE_CLOUDS
-static uint8_t clouds_large_[CL_LARGE];
-static uint8_t clouds_small_[CL_SMALL];
-#endif
 static uint16_t reverb_buf_[16384];
 static float delay_l_[DLEN_MAX], delay_r_[DLEN_MAX];
 #endif
@@ -829,176 +707,6 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
 #define TANHF tanhf
 #define SIN01(p) sinf((p) * 6.2831853f)
 #define SIN01U(p) SIN01(p)
-#endif
-#ifdef RACK_CLOUDS_32K
-// ---- update 42, RENDER (Josh: "I want to use Clouds on more sounds but it is too heavy"): the Clouds page's NORMAL / HIGH / LITE (NORMAL is the default, 0: a preset or save that says nothing gets it). The CLQ_* bits (shim/clouds/dsp/rack_cl_q.h):
-// HIGH is 2.40's Clouds exactly; NORMAL the changes that cost next to nothing in sound; LITE the bolder ones (24 kHz, fewer grains, a cheaper reverb).
-#ifndef CLQ_NORMAL_MASK
-#define CLQ_NORMAL_MASK (CLQ_FOLD | CLQ_FASTMIX | CLQ_SKIPDIF | CLQ_SKIPFB)   // 15: 2.40's sound to -79 dB (rounding); the resamplers without the index sums and with the symmetric taps added first, no gain lookups, no idle diffuser or feedback
-#endif
-#ifndef CLQ_LITE_MASK
-#define CLQ_LITE_MASK (CLQ_NORMAL_MASK | CLQ_CLRV | CLQ_CAP16 | CLQ_24K)   // 191
-#endif
-static Half24Down cl_hd_[2]; static Half24Up cl_hu_[2];     // the 24 kHz mode's halfbands (the engine's, as Rings and the reverb use)
-static unsigned cl_q_ = CLQ_NORMAL_MASK;   // (update 44: run_fx sets it from the page's RENDER each block, LIGHT by default)
-static int cl_fixed_q_ = 0;                                  // the benchmark's set_clouds_mask: the page's RENDER is not read
-#define CL_LAYOUT_BITS (CLQ_16K | CLQ_E_MONO | CLQ_E_SPEC | CLQ_E_RV)   // what changes how Clouds lays its buffers out (update 45)
-static unsigned cl_p16_ = 0;                                 // CLQ_16K as the processor last laid its buffers out (run_fx; init_fx)
-static int cl_nf_ = 32;                                      // frames in Clouds' block: 32 (at 32 kHz), 24 (CLQ_24K)
-static void cl_reset_rs() {
-  memset(cl_hd_, 0, sizeof cl_hd_); memset(cl_hu_, 0, sizeof cl_hu_);
-  cl_nf_ = (cl_q_ & CLQ_16K) ? 16 : (cl_q_ & CLQ_24K) ? 24 : 32; cl_dryd_ = (cl_q_ & CLQ_16K) ? ((cl_q_ & CLQ_E_RS) ? CL16E_DELAY : CL16_DELAY) : (cl_q_ & CLQ_24K) ? 25 : 21; cl_dry_at_ = 0;
-  clouds::rack_cl_q = cl_q_;
-}
-#ifdef RACK_PROFILE
-#define CL_NOINL __attribute__((noinline))   // (the host profile: callgrind then lists the resamplers and the mix apart)
-#else
-#define CL_NOINL
-#endif
-static CL_NOINL void cl_down(int ch, const float* x, float* y) {
-  if (cl_q_ & CLQ_16K) cl_dn_[ch].b.run(x, y);
-  else if (cl_q_ & CLQ_24K) cl_hd_[ch].run(x, y);
-  else if (cl_q_ & CLQ_FOLD) cl_dn_[ch].a.runf(x, y);
-  else cl_dn_[ch].a.run(x, y);
-}
-static CL_NOINL void cl_up(int ch, const float* y, float* x) {
-  if (cl_q_ & CLQ_16K) cl_up_[ch].b.run(y, x);
-  else if (cl_q_ & CLQ_24K) cl_hu_[ch].run(y, x);
-  else if (cl_q_ & CLQ_FOLD) cl_up_[ch].a.runf(y, x);
-  else cl_up_[ch].a.run(y, x);
-}
-// the wet (w0, w1: 48 kHz, all wet out of Clouds) mixed with the dry (g0, g1, delayed cl_dryd_ frames to meet it): BLEND, TONE, the output stage. o0 / o1 may be w0 / w1
-static CL_NOINL void cl_mixout(const float* w0, const float* w1, const float* g0, const float* g1, float* o0, float* o1, float user_mix, float tone) {
-  if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
-  const float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
-  float c = 0.0f;
-  if (tone != 0.0f) { float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone); c = 1.0f - expf(-6.2831853f * hz / SR); }
-  const float dm = (user_mix - cl_mixs_) / (float)BLOCK;
-  const bool fast = (cl_q_ & CLQ_FASTMIX) != 0;
-  float fi = 0.0f, fo = 0.0f, dfi = 0.0f, dfo = 0.0f;
-  if (fast) {   // the crossfade gains at the block's first and last sample, a straight line between (BLEND moves by a hair in a block)
-    const float m0 = cl_mixs_ + dm;
-    fi = Interpolate(clouds::lut_xfade_in, m0, 16.0f); fo = Interpolate(clouds::lut_xfade_out, m0, 16.0f);
-    dfi = (Interpolate(clouds::lut_xfade_in, user_mix, 16.0f) - fi) / (float)(BLOCK - 1);
-    dfo = (Interpolate(clouds::lut_xfade_out, user_mix, 16.0f) - fo) / (float)(BLOCK - 1);
-  }
-  if (fast && tone == 0.0f && (cl_q_ & CLQ_16K)) {   // update 44 (LIGHT): the same sums with the constants folded in (the gains carry norm and the 0.5), the dry line walked in runs, one division for the pair's limiter
-    const float k = 0.5f * norm;
-    float gi = fi * k, go = fo * 0.5f; const float dgi = dfi * k, dgo = dfo * 0.5f;
-    int n = 0;
-    while (n < BLOCK) {
-      int run = cl_dryd_ - cl_dry_at_; if (run > BLOCK - n) run = BLOCK - n;
-      float* d0 = cl_dry_[0] + cl_dry_at_; float* d1 = cl_dry_[1] + cl_dry_at_;
-      for (int j = 0; j < run; ++j, ++n) {
-        const float xl = d0[j] * go + w0[n] * gi, xr = d1[j] * go + w1[n] * gi;
-        d0[j] = g0[n]; d1[j] = g1[n];
-        const float yl = xl * (27.0f + xl * xl), yr = xr * (27.0f + xr * xr), dl = 27.0f + 9.0f * xl * xl, dr = 27.0f + 9.0f * xr * xr;
-        const float r = 1.0f / (dl * dr);
-        o0[n] = yl * dr * r; o1[n] = yr * dl * r;
-        gi += dgi; go += dgo;
-      }
-      cl_dry_at_ += run; if (cl_dry_at_ == cl_dryd_) cl_dry_at_ = 0;
-    }
-    cl_mixs_ = user_mix;
-    return;
-  }
-  for (int n = 0; n < BLOCK; ++n) {
-    if (fast) { if (n) { fi += dfi; fo += dfo; } }
-    else { cl_mixs_ += dm; fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f); fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f); }
-    float wl = w0[n] * norm, wr = w1[n] * norm;
-    if (tone != 0.0f) {
-      cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
-      if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
-    }
-    float dl = cl_dry_[0][cl_dry_at_], dr = cl_dry_[1][cl_dry_at_];   // the dry signal cl_dryd_ frames late, to meet the wet
-    cl_dry_[0][cl_dry_at_] = g0[n]; cl_dry_[1][cl_dry_at_] = g1[n];
-    if (++cl_dry_at_ == cl_dryd_) cl_dry_at_ = 0;
-    o0[n] = SoftLimit((dl * fo + wl * fi) * 0.5f); o1[n] = SoftLimit((dr * fo + wr * fi) * 0.5f);
-  }
-  cl_mixs_ = user_mix;
-}
-// update 45 (ECO): the output stage with a cubic soft limit (no division: x (1 - x^2 / 6.75) up to 1.5, where it is 1) and, while BLEND sits at full wet, no dry line to keep
-static inline float cl_lim3(float x) { const float y = x * x; return x * (27.0f + y) / (27.0f + 9.0f * y); }   // (LIGHT's own soft limit, so the level is LIGHT's)
-// full wet and settled (BLEND at 1, no TONE): the gains are 1 and 0, so the wet is limited at 16 kHz inside cl_eco_block and goes out as it is, with no dry line to keep
-static bool cl_eco_fullwet(float user_mix, float tone) {
-  if (!(cl_q_ & CLQ_E_MIX) || tone != 0.0f) return false;
-  if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
-  if (user_mix >= 1.0f && cl_mixs_ >= 1.0f) { cl_dry_ok_ = false; return true; }
-  return false;
-}
-// g0 / g1: the dry as it came (not clamped; IN GAIN ig is folded into the dry gain)
-static CL_NOINL void cl_mixout_eco(const float* w0, const float* w1, const float* g0, const float* g1, float ig, float* o0, float* o1, float user_mix, float tone) {
-  if (tone != 0.0f || !(cl_q_ & CLQ_E_MIX)) {   // TONE (rare), or the mix switched off for the bench: the 2.44 output stage, with the dry clamped as it was
-    float c0[BLOCK], c1[BLOCK];
-    for (int n = 0; n < BLOCK; ++n) { c0[n] = clampf(g0[n] * ig, -1.0f, 1.0f); c1[n] = clampf(g1[n] * ig, -1.0f, 1.0f); }
-    if (!cl_dry_ok_) { memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_dry_ok_ = true; }
-    cl_mixout(w0, w1, c0, c1, o0, o1, user_mix, tone);
-    return;
-  }
-  if (!cl_mix_init_) { cl_mixs_ = user_mix; cl_mix_init_ = true; }
-  if (!cl_dry_ok_) { memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_dry_ok_ = true; }
-  const float fi1 = Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f), norm = 2.0f / fi1;
-  const float dm = (user_mix - cl_mixs_) / (float)BLOCK, m0 = cl_mixs_ + dm;
-  const float fi = Interpolate(clouds::lut_xfade_in, m0, 16.0f), fo = Interpolate(clouds::lut_xfade_out, m0, 16.0f);
-  const float dfi = (Interpolate(clouds::lut_xfade_in, user_mix, 16.0f) - fi) / (float)(BLOCK - 1);
-  const float dfo = (Interpolate(clouds::lut_xfade_out, user_mix, 16.0f) - fo) / (float)(BLOCK - 1);
-  const float k = 0.5f * norm;
-  float gi = fi * k, go = fo * 0.5f; const float dgi = dfi * k, dgo = dfo * 0.5f;
-  int n = 0;
-  while (n < BLOCK) {
-    int run = cl_dryd_ - cl_dry_at_; if (run > BLOCK - n) run = BLOCK - n;
-    float* d0 = cl_dry_[0] + cl_dry_at_; float* d1 = cl_dry_[1] + cl_dry_at_;
-    for (int j = 0; j < run; ++j, ++n) {
-      const float xl = d0[j] * go + w0[n] * gi, xr = d1[j] * go + w1[n] * gi;
-      d0[j] = clampf(g0[n] * ig, -1.0f, 1.0f); d1[j] = clampf(g1[n] * ig, -1.0f, 1.0f);   // (the dry clamped as LIGHT's is: a hot dry no longer rides over it)
-      const float yl = xl * (27.0f + xl * xl), yr = xr * (27.0f + xr * xr), dl = 27.0f + 9.0f * xl * xl, dr = 27.0f + 9.0f * xr * xr, rr = 1.0f / (dl * dr);
-      o0[n] = yl * dr * rr; o1[n] = yr * dl * rr;
-      gi += dgi; go += dgo;
-    }
-    cl_dry_at_ += run; if (cl_dry_at_ == cl_dryd_) cl_dry_at_ = 0;
-  }
-  cl_mixs_ = user_mix;
-}
-// update 45 (ECO): the wet of one block from the mix of the two channels (l, r at 48 kHz, IN GAIN ig): down to 16 kHz as one channel, Clouds (CLQ_E_FLT: floats both ways), up to two
-static CL_NOINL void cl_eco_block(const float* l, const float* r, float ig, float* w0, float* w1, bool fullwet) {
-  float d[16], o0[16], o1[16];
-  if (cl_q_ & CLQ_E_RS) cl_dn_[0].e.run(l, r, 0.5f * ig, d);
-  else { float t[BLOCK]; for (int n = 0; n < BLOCK; ++n) t[n] = clampf((l[n] + r[n]) * 0.5f * ig, -1.0f, 1.0f); cl_dn_[0].b.run(t, d); }
-  clouds::Parameters* p = clouds_->mutable_parameters();
-  p->dry_wet = 1.0f;                      // all wet out of Clouds: the mix is made here, at 48 kHz, with the dry signal untouched
-  if (cl_q_ & CLQ_E_FLT) {
-    clouds::ShortFrame none[16];
-    for (int m = 0; m < 16; ++m) clouds::rack_eco_in[m] = d[m];
-    clouds_->Process(none, none, 16);
-    for (int m = 0; m < 16; ++m) { o0[m] = clouds::rack_eco_out[0][m]; o1[m] = clouds::rack_eco_out[1][m]; }
-  } else {
-    clouds::ShortFrame in[16], out[16];
-    for (int m = 0; m < 16; ++m) in[m].l = in[m].r = (int16_t)(clampf(d[m], -1.0f, 1.0f) * 32767.0f);
-    clouds_->Process(in, out, 16);
-    for (int m = 0; m < 16; ++m) { o0[m] = out[m].l / 32768.0f; o1[m] = out[m].r / 32768.0f; }
-  }
-  p->trigger = false; p->gate = false;
-  if (fullwet) for (int m = 0; m < 16; ++m) { o0[m] = cl_lim3(o0[m]); o1[m] = cl_lim3(o1[m]); }
-  if (cl_q_ & CLQ_E_RS) { cl_up_[0].e.run(o0, w0); cl_up_[1].e.run(o1, w1); } else { cl_up_[0].b.run(o0, w0); cl_up_[1].b.run(o1, w1); }
-}
-// RENDER: the page's NORMAL (0), HIGH (1), LITE (2) (the bench: a mask). Never with a job out (run_fx calls it after the join); the resamplers and the dry line start again
-static void cl_set_q(unsigned q) {
-  if (q == cl_q_) return;
-  cl_q_ = q; cl_reset_rs();
-  memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_);
-  cl_mix_init_ = false; cl_dry_ok_ = true;
-}
-// update 45: the page's list is 0 ECO (the default: a preset or save that says nothing has it), 1 LIGHT (2.44's default), 2 NORMAL (2.41's), 3 HIGH (2.40's Clouds exactly); the save
-// keeps its own codes (0 ECO, 1 HIGH, 2 NORMAL, 3 LIGHT: save.c), so a 2.44 save's HIGH and NORMAL are still those and a 0 (LIGHT then) is ECO now
-#ifndef CLQ_LIGHT_MASK
-#define CLQ_LIGHT_MASK (CLQ_NORMAL_MASK | CLQ_16K | CLQ_RVALL | CLQ_SKIPFLT | CLQ_CAP16 | CLQ_DIFLITE)
-#endif
-#ifndef CLQ_ECO_MASK
-#define CLQ_ECO_MASK (CLQ_LIGHT_MASK | CLQ_E_MONO | CLQ_E_RS | CLQ_E_MIX | CLQ_E_FLT | CLQ_E_RV | CLQ_E_GR | CLQ_E_SPEC)
-#endif
-static unsigned cl_level_mask(int lvl) { return lvl <= 0 ? (unsigned)CLQ_ECO_MASK : lvl == 1 ? (unsigned)CLQ_LIGHT_MASK : lvl == 2 ? (unsigned)CLQ_NORMAL_MASK : 0u; }
-static void cl_set_level(int lvl) { cl_set_q(cl_level_mask(lvl)); }
-EXPORT unsigned clouds_level_mask(int lvl) { return cl_level_mask(lvl); }   // (the benchmark and the host checks)
 #endif
 static inline float randf() { return Random::GetFloat(); }
 
@@ -1330,6 +1038,9 @@ static void reset_voice_modules(int slot) {
       if (mod_id_[S_SRC] == M_PLAITS) plaits_[i].Init(&alloc);
 #endif
       if (mod_id_[S_SRC] == M_BRAIDS) braids_[i].Init();
+#ifdef HAVE_WAVE
+      if (mod_id_[S_SRC] == M_WAVE) wave_[i].Init();
+#endif
 #ifdef RACK_WITH_GRAIN
       if (mod_id_[S_SRC] == M_GRAIN) memset(&grain_v_[i], 0, sizeof(grain::Voice));
 #endif
@@ -1353,19 +1064,6 @@ static void reset_voice_modules(int slot) {
 }
 
 static void init_fx(int id) {
-#ifdef HAVE_CLOUDS
-  if (id == M_CLOUDS) {
-    clouds_->Init(clouds_large_, cl_large_n_, clouds_small_, cl_small_n_);
-    clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
-    clouds::rack_gr_window = clouds::rack_gr_speed = clouds::rack_gr_jitter = 0.0f; clouds::rack_gr_ph = 0.5f;
-#ifdef RACK_CLOUDS_32K
-    memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_reset_rs(); cl_mix_init_ = false; cl_dry_ok_ = true; cl_p16_ = cl_q_ & CL_LAYOUT_BITS;
-#ifdef FXC2
-    cl_primed_ = 0;   // nothing staged: its first block out is silence, the next the first in (the dry path with it)
-#endif
-#endif
-  }
-#endif
   if (id == M_REVERB) { reverb_.Init(reverb_buf_); if (shim_buf_) memset(shim_buf_, 0, 4096 * 2); memset(pre_buf_l_, 0, (pre_mask_ + 1) * 2); memset(pre_buf_r_, 0, (pre_mask_ + 1) * 2); shim_fb_ = 0; }
   if (id == M_DELAY) { memset(delay_l_, 0, dlen_ * sizeof(dsamp_t)); memset(delay_r_, 0, dlen_ * sizeof(dsamp_t)); }
   if (id == M_CHORUS) { memset(chorus_l_, 0, 4096 * sizeof(dsamp_t)); memset(chorus_r_, 0, 4096 * sizeof(dsamp_t)); }
@@ -1382,9 +1080,6 @@ static void init_fx(int id) {
 #define RACK_ARENA_ATTR
 #endif
 static uint8_t arena_[RACK_ARENA_KB * 1024] RACK_ARENA_ATTR __attribute__((aligned(16)));
-#ifndef RACK_CLOUDS_VOICES
-#define RACK_CLOUDS_VOICES 3   // the voices a patch with Clouds keeps its reverb for (update 8: it starts with 3, as app.c start_voices; was 4); fewer fit -> the reverb gives way
-#endif
 static int req_[NSLOT];           // what the patch asks for
 static int want_voices_ = 2, dropped_ = 0;
 static size_t arena_used_ = 0;
@@ -1392,19 +1087,15 @@ static size_t arena_used_ = 0;
 // pre-delay lines (a power of two), the shimmer's line, Rings' reverb (STR+VERB only). A parameter that a matrix row
 // can move counts at its full range, so nothing a patch can do outgrows its buffer.
 static int fit_dlen_ = DLEN, fit_pre_mask_ = 8191;
-static bool fit_shim_ = true, fit_rings_rev_ = true, fit_comb_ = true, fit_cl_full_ = true;   // (2.44: fit_cl_full_: Clouds' full buffers, for HIGH and NORMAL; LIGHT's are half)   // (2.43: fit_comb_: SAW COMB's delay line, 16 KB a voice, only for a patch that can reach that shape)
+static bool fit_shim_ = true, fit_rings_rev_ = true, fit_comb_ = true;   // (2.43: fit_comb_: SAW COMB's delay line, 16 KB a voice, only for a patch that can reach that shape)
 static uint8_t* comb_mem_ = nullptr;
 static void fm1_layout();
-static void fit_reset() { fit_dlen_ = DLEN; fit_pre_mask_ = 8191; fit_shim_ = true; fit_rings_rev_ = true; fit_comb_ = true; fit_cl_full_ = true; }
+static void fit_reset() { fit_dlen_ = DLEN; fit_pre_mask_ = 8191; fit_shim_ = true; fit_rings_rev_ = true; fit_comb_ = true; }
 static size_t carve(const int* eff, int nv, bool commit) {
   size_t at = 0;
   auto take = [&](size_t n) -> uint8_t* { at = (at + 15) & ~(size_t)15; uint8_t* p = arena_ + at; at += n; return p; };
   for (int s = S_FX1; s <= S_FX2; ++s) {
     int id = eff[s];
-#ifdef HAVE_CLOUDS
-    if (id == M_CLOUDS) { const int nl = fit_cl_full_ ? CL_LARGE : CL_LARGE_L, ns = fit_cl_full_ ? CL_SMALL : CL_SMALL_L;
-                          uint8_t* a = take(nl); uint8_t* b = take(ns); uint8_t* c = take(sizeof(clouds::GranularProcessor)); if (commit) { clouds_large_ = a; clouds_small_ = b; clouds_ = (clouds::GranularProcessor*)c; cl_large_n_ = nl; cl_small_n_ = ns; } }
-#endif
     if (id == M_REVERB) { uint8_t* a = take(32768); uint8_t* b = fit_shim_ ? take(8192) : nullptr;
                           size_t pl = (size_t)(fit_pre_mask_ + 1) * 2; uint8_t* c = take(pl); uint8_t* d = take(pl);
                           if (commit) { reverb_buf_ = (uint16_t*)a; shim_buf_ = (int16_t*)b; pre_buf_l_ = (int16_t*)c; pre_buf_r_ = (int16_t*)d; pre_mask_ = fit_pre_mask_; } }
@@ -1426,6 +1117,9 @@ static size_t carve(const int* eff, int nv, bool commit) {
                                   if (commit) braids_ = (braids::MacroOscillator*)a;
 #endif
                                 }
+#ifdef HAVE_WAVE
+    if (eff[S_SRC] == M_WAVE) { uint8_t* a = take(nv * sizeof(rackwave::Osc)); if (commit) wave_ = (rackwave::Osc*)a; }
+#endif
 #ifdef RACK_WITH_GRAIN
     if (eff[S_SRC] == M_GRAIN) { uint8_t* a = take(GRAIN_LEN); uint8_t* b = take(nv * sizeof(grain::Voice));
                                  if (commit) { grain_buf_ = a; grain_v_ = (grain::Voice*)b; } }
@@ -1448,20 +1142,6 @@ static void fm1_layout() {
   const size_t cap = sizeof(arena_);
   int eff[NSLOT]; for (int s = 0; s < NSLOT; ++s) eff[s] = req_[s];
   dropped_ = 0;
-#ifdef HAVE_CLOUDS
-  // CLOUDS (FM1 Phase 2 step 5). One engine instance: a second CLOUDS in the other slot is refused. Then, when the arena
-  // can't hold everything, Clouds keeps its buffers and the others give way in Josh's order: the REVERB first (when the
-  // effects and RACK_CLOUDS_VOICES voices don't fit), the DELAY only if absolutely necessary (when, the reverb gone, the
-  // effects and one voice still don't fit). Without Clouds the order below is as before (FX 2, then FX 1).
-  if (eff[S_FX1] == M_CLOUDS && eff[S_FX2] == M_CLOUDS) { eff[S_FX2] = 0; dropped_ |= 1 << S_FX2; }
-  if (eff[S_FX1] == M_CLOUDS || eff[S_FX2] == M_CLOUDS) {
-    for (int step = 0; step < 2; ++step) {
-      int victim = step == 0 ? M_REVERB : M_DELAY;
-      if (carve(eff, step == 0 ? RACK_CLOUDS_VOICES : 1, false) <= cap) break;
-      for (int s = S_FX1; s <= S_FX2; ++s) if (eff[s] == victim) { eff[s] = 0; dropped_ |= 1 << s; }
-    }
-  }
-#endif
   if (carve(eff, 0, false) > cap && eff[S_FX2]) { eff[S_FX2] = 0; dropped_ |= 1 << S_FX2; }
   if (carve(eff, 0, false) > cap && eff[S_FX1]) { eff[S_FX1] = 0; dropped_ |= 1 << S_FX1; }
   int nv = MAXV;
@@ -1488,6 +1168,9 @@ static void fm1_layout() {
       braids_[i].set_comb_buffer(comb_mem_ ? (int16_t*)(comb_mem_ + (size_t)i * 2 * COMB_LEN) : nullptr);
 #endif
     }
+#ifdef HAVE_WAVE
+    if (eff[S_SRC] == M_WAVE) { new (&wave_[i]) rackwave::Osc(); wave_[i].Init(); }
+#endif
 #ifndef RACK_LITE
     if (eff[S_SRC] == M_ELEMENTS) new (&elements_[i]) elements::Part();
 #endif
@@ -1496,9 +1179,6 @@ static void fm1_layout() {
     if (eff[S_SHP] == M_WARPS) new (&warps_[i]) warps::Modulator();
 #endif
   }
-#ifdef HAVE_CLOUDS
-  for (int s = S_FX1; s <= S_FX2; ++s) if (eff[s] == M_CLOUDS) new (clouds_) clouds::GranularProcessor();
-#endif
   mod_id_[S_SRC] = eff[S_SRC]; mod_id_[S_SHP] = eff[S_SHP]; mod_id_[S_FX1] = eff[S_FX1]; mod_id_[S_FX2] = eff[S_FX2];
 #ifdef RACK_WITH_GRAIN
   if (eff[S_SRC] == M_GRAIN) grain_fill_test();
@@ -1508,9 +1188,6 @@ static void fm1_layout() {
   int n = want_voices_ < nalloc_ ? want_voices_ : nalloc_; if (n < 1) n = 1;
   for (int i = n; i < MAXV; ++i) { vs_[i].gate = false; vs_[i].active = false; vs_[i].stage = 0; vs_[i].env = 0; }
   nvoices_ = n; shrink_to_ = 0;
-#ifdef FXC2
-  cl_pipe_decide();   // (the audio is standing aside: no job is out)
-#endif
 }
 // After a patch has loaded (its modules, parameters and routes): size the big buffers to what it can use and lay the
 // arena out again, so the room left goes to voices. The sound is the same, sample for sample, as with the full sizes.
@@ -1538,15 +1215,11 @@ static void fm1_fit_calc() {
       if (routed(s, 4) || PI(s, 4, 0) == 2) shim = true;
     }
   }
-  bool clfull = false;   // 2.44: Clouds' buffers at LIGHT's size unless HIGH or NORMAL can be reached (the page's RENDER, or a route on it; the bench's mask)
-#if defined(HAVE_CLOUDS) && defined(RACK_CLOUDS_32K)
-  for (int s = S_FX1; s <= S_FX2; ++s) if (req_[s] == M_CLOUDS) clfull = cl_fixed_q_ ? (cl_q_ & CLQ_16K) == 0 : (routed(s, 25) || PI(s, 25, 0) >= 2);
-#endif
   if (req_[S_SHP] == M_RINGS && (routed(S_SHP, 0) || PI(S_SHP, 0, 0) == 5)) rrev = true;
   bool comb = false;   // 2.43: SAW COMB reachable (the shape set to it, or a route, macro or knob that can move the shape)
   if (req_[S_SRC] == M_BRAIDS && (routed(S_SRC, 0) || list_norm(M_BRAIDS, PI(S_SRC, 0, 0)) == braids::MACRO_OSC_SHAPE_SAW_COMB)) comb = true;
   int mask = 63; while (mask < pre) mask = mask * 2 + 1;
-  fit_dlen_ = dl ? dl : DLEN; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb; fit_cl_full_ = clfull;
+  fit_dlen_ = dl ? dl : DLEN; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb;
 }
 EXPORT void fm1_fit() {
   fm1_fit_calc();
@@ -1557,10 +1230,10 @@ EXPORT void fm1_fit() {
 // 1 when the parameters and routes now reach past what fm1_fit sized (a longer delay, more pre-delay, SHIMMER,
 // STR+VERB): the platform then fits again, between renders
 EXPORT int fm1_fit_needed() {
-  int dl = fit_dlen_, mask = fit_pre_mask_; bool shim = fit_shim_, rrev = fit_rings_rev_, comb = fit_comb_, clf = fit_cl_full_;
+  int dl = fit_dlen_, mask = fit_pre_mask_; bool shim = fit_shim_, rrev = fit_rings_rev_, comb = fit_comb_;
   fm1_fit_calc();
-  bool more = fit_dlen_ > dl || fit_pre_mask_ > mask || (fit_shim_ && !shim) || (fit_rings_rev_ && !rrev) || (fit_comb_ && !comb) || (fit_cl_full_ && !clf);
-  fit_dlen_ = dl; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb; fit_cl_full_ = clf;
+  bool more = fit_dlen_ > dl || fit_pre_mask_ > mask || (fit_shim_ && !shim) || (fit_rings_rev_ && !rrev) || (fit_comb_ && !comb);
+  fit_dlen_ = dl; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb;
   return more ? 1 : 0;
 }
 // what the platform layer shows: 0 arena bytes used, 1 arena size, 2 voices that fit, 3 voices playing,
@@ -1572,13 +1245,6 @@ EXPORT int fm1_status(int what) {
     case 8: { int n = 0; for (int i = 0; i < MAXV; ++i) n += vs_[i].active ? 1 : 0; return n; }
     case 9: { int n = 0; for (int i = 0; i < MAXV; ++i) n += vs_[i].gate ? 1 : 0; return n; }
     case 10: case 11: case 12: case 13: return arr_info(what);   // the arrangement of the two cores, as the last block used it (the benchmark's --arr, the checks)
-#ifdef RACK_CLOUDS_32K
-    case 5: return cl32_on_;   // update 8: Clouds runs at 32 kHz (the picture's buffer times are 1.5 x longer)
-#endif
-#ifdef FXC2
-    case 6: return cl_pipe_;   // update 9: Clouds on the second core
-    case 7: return (int)cl_inline_;
-#endif
   }
   return 0;
 }
@@ -1589,16 +1255,18 @@ EXPORT void set_module(int slot, int id) {
   if (id == M_FILTER) id = M_NONE;   // the filter is no module any more (update 26): it is always in the chain, on GLO's parameters
 #endif
 #ifdef RACK_LITE
-  // the Lite firmware ships without Elements, Warps and Marbles (and without Clouds unless built with -DRACK_CLOUDS): they play as an empty slot
+  // the Lite firmware ships without Elements, Warps and Marbles (and, since 2.48, without Clouds): they play as an empty slot
   if (id == M_ELEMENTS || id == M_WARPS || id == M_MARBLES) id = M_NONE;
-#ifndef RACK_CLOUDS
-  if (id == M_CLOUDS) id = M_NONE;
 #endif
-#endif
+  if (id == M_CLOUDS) id = M_NONE;   // 2.48: Clouds is gone; a save that holds it loads that slot empty
 #ifndef RACK_WITH_GRAIN
   // GRAIN is shelved (FM1 Phase 2 step 4): without -DRACK_WITH_GRAIN a source that asks for it plays Braids
   if (slot == S_SRC && id == M_GRAIN) id = M_BRAIDS;
 #endif
+#ifndef HAVE_WAVE
+  if (id == M_WAVE) id = slot == S_SRC ? M_BRAIDS : M_NONE;   // a build without the wavetable source: a patch that asks for it plays Braids
+#endif
+  if (id == M_WAVE && slot != S_SRC) id = M_NONE;   // the wavetable engine is a source only
 #ifdef RACK_NO_PLAITS
   // FM1 Phase 2 has no Plaits (14 Nov 2026): a source that asks for it (a user preset saved before) plays Braids
   if (slot == S_SRC && id == M_PLAITS) id = M_BRAIDS;
@@ -1632,40 +1300,6 @@ EXPORT void set_hw(int) {}   // always on in this build
 #else
 EXPORT void set_hw(int on) { delay_max_ = on ? DMAX_FM1 : DLEN - 1; delay_q16_ = on ? 1 : 0; }
 #endif
-// FM1 Phase 2 update 8: the Clouds changes' runtime switches, for the benchmark's comparison cases only (the firmware leaves them as
-// built): k32 1/0 (RACK_CLOUDS_32K), skip_rev 1/0 (RACK_CLOUDS_SKIP_REVERB), grains: the grain ceiling, 0 = Mutable's own (32 stereo
-// 16-bit, 45 stereo 8-bit, 40 / 57 mono); takes effect when Clouds' buffers are next set up (a module load or a QUALITY change)
-EXPORT void set_clouds_opts(int k32, int skip_rev, int grains) {
-#ifdef RACK_CLOUDS_32K
-  cl32_on_ = k32; cl_mix_init_ = false;
-#ifdef FXC2
-  cl_pipe_decide();
-#endif
-#endif
-#ifdef RACK_CLOUDS_SKIP_REVERB
-  clouds::rack_cl_skip_reverb = skip_rev;
-#endif
-#ifdef RACK_CLOUDS_MAX_GRAINS
-  clouds::rack_cl_grain_cap = grains;
-#endif
-  (void)k32; (void)skip_rev; (void)grains;
-}
-// update 42 (the benchmark and the host checks only): the CLQ_* bits as a mask, taking RENDER's place (a mask of ~0u gives it back)
-EXPORT void set_clouds_mask(unsigned m) {
-#ifdef RACK_CLOUDS_32K
-#ifdef FXC2
-  if (cl_forked_) cl_join();
-#endif
-  cl_fixed_q_ = m != ~0u; if (cl_fixed_q_) cl_set_q(m);
-#ifdef RACK_FM1
-  if (cl_fixed_q_ && !(m & CLQ_16K) && cl_large_n_ < CL_LARGE) fm1_fit();   // update 44: a mask that needs the full buffers (the layout gave LIGHT's): laid out again, as the page's RENDER would be
-#endif
-#ifdef FXC2
-  cl_primed_ = 0;
-#endif
-#endif
-  (void)m;
-}
 EXPORT void set_voices(int n) {
   n = n < 1 ? 1 : n > MAXV ? MAXV : n;
 #ifdef RACK_FM1
@@ -2399,6 +2033,43 @@ static void render_voice(int i, float* mix_l, float* mix_r, int core = 0) {
       vbuf_[n] = f * slvl;
     }
     if (vca) for (int n = 0; n < BLOCK; ++n) vbuf_[n] *= v.benv;
+#ifdef HAVE_WAVE
+  } else if (src == M_WAVE) {   // 2.48: BANK SCAN X MORPH Y DRIFT | BITS RATE SIGN LEVEL | OCTAVE FINE AD ATK AD DEC | AD>X AD>Y AD>PTCH AD VCA | LOWPASS QUANT
+    rackwave::Osc& w = wave_[i];
+    v.drift += (randf() * 2.0f - 1.0f) * 0.02f; v.drift *= 0.995f;
+    float n2 = note + v.drift * P(S_SRC, 3, &v) * 0.6f;
+    run_benv(v);
+    float oct = P(S_SRC, 8, &v), fine = P(S_SRC, 9, &v), ex = P(S_SRC, 12, &v), ey = P(S_SRC, 13, &v), ep = P(S_SRC, 14, &v);
+    if (oct != 0.0f || fine != 0.0f || ep != 0.0f) n2 += floorf(oct + 0.5f) * 12.0f + fine + v.benv * ep * 24.0f;
+    float sx = P(S_SRC, 1, &v), sy = P(S_SRC, 2, &v), bank = P(S_SRC, 0, &v);
+    if (ex != 0.0f) sx += v.benv * ex;
+    if (ey != 0.0f) sy += v.benv * ey;
+    sx = clampf(sx, 0.0f, 1.0f); sy = clampf(sy, 0.0f, 1.0f); bank = clampf(bank, 0.0f, 1.0f);
+    if (v.retrig) w.Strike();
+    float f0 = 0.0091666667f * exp2f((clampf(n2, -20.0f, 130.0f) - 69.0f) * (1.0f / 12.0f));
+    f0 = clampf(f0, 0.00002f, 0.45f);
+    float wb[BLOCK];
+    w.Render(f0, sx, sy, bank, PI(S_SRC, 17, &v) == 1, P(S_SRC, 16, &v), wb, BLOCK);
+    static const int bits_tab[] = { 2, 3, 4, 6, 8, 12, 16 };
+    static const int rate_div[] = { 12, 6, 3, 2, 1, 1 };
+    int bits = bits_tab[PI(S_SRC, 4, &v)], div = rate_div[PI(S_SRC, 5, &v)];
+    float sign = P(S_SRC, 6, &v);
+    const float slvl = P(S_SRC, 7, &v) * WAVE_GAIN;
+    if (bits == 16 && div == 1 && !(sign > 0.01f)) {
+      for (int n = 0; n < BLOCK; ++n) vbuf_[n] = wb[n] * slvl;
+    } else {
+      int16_t held = 0;
+      for (int n = 0; n < BLOCK; ++n) {
+        if (n % div == 0) { float c = clampf(wb[n] * WAVE_GAIN, -1.0f, 1.0f); held = (int16_t)(c * 32767.0f); }
+        int32_t sm = held;
+        if (bits < 16) { int sh = 16 - bits; sm = (sm >> sh) << sh; }
+        float f = sm / 32768.0f;
+        if (sign > 0.01f) f = f * (1.0f - sign) + sign * f * fabsf(f) * 1.6f;
+        vbuf_[n] = f * P(S_SRC, 7, &v);
+      }
+    }
+    if (PI(S_SRC, 15, &v) == 1) for (int n = 0; n < BLOCK; ++n) vbuf_[n] *= v.benv;
+#endif
 #ifdef RACK_WITH_GRAIN
   } else if (src == M_GRAIN) {
     render_grain(i, v, note, vbuf_, vaux_);
@@ -2767,6 +2438,11 @@ static void rv_front(const float* l, const float* r, int pre, float lcc, float* 
 #endif
   }
 }
+#ifdef HAVE_DRUMS
+static inline bool reverb_eased() { return drum_run_ && drum_busy_ == 1 && drum_slow_; }   // 2.48 IF BUSY = REVERB: the drums run and the second core is slow
+#else
+static inline bool reverb_eased() { return false; }
+#endif
 // the reverb's wet signal from in_l/in_r (its pre-delay, LO CUT, shimmer and tank), into wl/wr
 static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, float* wr_out) {
     int type = PI(slot, 4, 0);                     // 0 PLATE, 1 HALL, 2 SHIMMER
@@ -2782,7 +2458,7 @@ static void reverb_wet(int slot, const float* l, const float* r, float* wl_out, 
       const float lr = 11657.0f / 15358.0f;
       time = powf(time, lr); rlp = 1.0f - powf(1.0f - rlp, lr);
     }
-    reverb_.set_lite((Q_ON(QB_RVAP) ? 1 : 0) | (Q_ON(QB_RVAP2) ? 2 : 0) | (Q_ON(QB_RVAP3) ? 4 : 0) | (Q_ON(QB_RVAP4) ? 8 : 0));   // 2.38, update 42
+    reverb_.set_lite((Q_ON(QB_RVAP) ? 1 : 0) | (Q_ON(QB_RVAP2) ? 2 : 0) | (Q_ON(QB_RVAP3) ? 4 : 0) | (Q_ON(QB_RVAP4) ? 8 : 0) | (reverb_eased() ? 15 : 0));   // 2.38, update 42; 2.48: IF BUSY = REVERB
     reverb_.set_amount(1.0f);
     reverb_.set_time(time);
     reverb_.set_diffusion(0.3f + 0.6f * P(slot, 2, 0));
@@ -2930,119 +2606,6 @@ static float drums_load() {
   return w;
 }
 #endif
-#ifdef FXC2
-// ---- Clouds on the second core (RACK_FX_CORE2; see the notes at cl_pipe_). What each core touches:
-//   job (second core, between the hand-over and the join): clouds_ (the processor object, its buffers and Parameters), cl_in32_ (reads), cl_out32_
-//     (writes), st_job_, and the stmlib Random state (Clouds' grains and its spectral glitches draw from it, as the voices do: one shared
-//     32-bit word, a lost update at worst; the voice job on the second core already shares it with the first)
-//   first core, in the same time: the voices, the other effect, the master; never clouds_, cl_in32_, cl_out32_
-//   first core, outside the job (before the hand-over, after the join): everything above, with plat_cpu2_sync() on each side
-static uint8_t rv_clj_ = 0;   // 2.46: this block's reverb job rides in Clouds' (Clouds' slot before the reverb's: the join there has it done by the time the chain reaches the reverb)
-static void cl_job(uint32_t) {
-  uint32_t t0 = ticks_ ? ticks_() : 0;
-  // update 10: the whole of Clouds' slot's work is the second core's: the staged block's 3:2 down (IN GAIN and the clamp first), Clouds, the 2:3 up, the
-  // dry delay, BLEND, TONE and the output stage (all at 48 kHz, as cl_front and cl_post did on the first core in update 9), and the voices above CL_V1.
-  // Reads (staged by the first core before the hand-over): cl_g_, cl_igain_, cl_umix_, cl_utone_, Clouds' Parameters. Writes: cl_g_ (clamped, in
-  // place), cl_in32_, cl_out32_, cl_po_, cl_dn_/cl_up_/cl_dry_/cl_mixs_/cl_tone_*, par_l_/par_r_ (the voices' mix), clouds_
-  // The voices first: they draw random numbers (drift), and in the host's deferred stand-in the job then draws them where one core's voices do
-  // (after the first core's own voices, before Clouds); the order inside the job costs the first core nothing
-#ifdef HAVE_DRUMS
-  if (drum_in_job_) { drums_render(); ++drum_blk_job_; }   // FM1 Phase 2 step 1: the drums are the second core's (one block late on the first: drum_r_)
-#endif
-  if (cl_vjob_) {                                  // the voices above CL_V1, into their own mix (the first core adds it at the join)
-    memset(par_l_, 0, sizeof(par_l_)); memset(par_r_, 0, sizeof(par_r_));
-    for (int i = CL_V1; i < cl_vn_; ++i) render_voice(i, par_l_, par_r_, 1);
-  }
-#ifdef RACK_FM1
-  if (rv_clj_) reverb_wet(rv_early_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_);   // 2.46: the reverb's wet job (last block's input, as early_work makes it) on this core, before Clouds
-#endif
-  const float ig = cl_igain_;
-  if (cl_q_ & CLQ_E_MONO) {   // update 45 (ECO)
-    clouds_->Prepare();
-    const bool fw = cl_eco_fullwet(cl_umix_, cl_utone_);
-    cl_eco_block(cl_g_[0], cl_g_[1], ig, cl_po_[0], cl_po_[1], fw);
-    if (fw) cl_mixs_ = cl_umix_; else cl_mixout_eco(cl_po_[0], cl_po_[1], cl_g_[0], cl_g_[1], ig, cl_po_[0], cl_po_[1], cl_umix_, cl_utone_);
-    if (ticks_) st_job_ += ticks_() - t0;
-    return;
-  }
-  float* const d0 = cl_po_[0]; float* const d1 = cl_po_[1];   // scratch for the 32 kHz blocks (32 of the 48 frames each), before the output is written
-  for (int n = 0; n < BLOCK; ++n) { cl_g_[0][n] = clampf(cl_g_[0][n] * ig, -1.0f, 1.0f); cl_g_[1][n] = clampf(cl_g_[1][n] * ig, -1.0f, 1.0f); }
-  cl_down(0, cl_g_[0], d0); cl_down(1, cl_g_[1], d1);
-  const int nf = cl_nf_;
-  for (int m = 0; m < nf; ++m) {
-    cl_in32_[m].l = (int16_t)(clampf(d0[m], -1.0f, 1.0f) * 32767.0f);
-    cl_in32_[m].r = (int16_t)(clampf(d1[m], -1.0f, 1.0f) * 32767.0f);
-  }
-  clouds_->Prepare();
-  clouds_->Process(cl_in32_, cl_out32_, nf);      // Clouds' own block: 32 frames at 32 kHz (24 at 24 kHz in LITE); its arrays hold 32
-  clouds::Parameters* p = clouds_->mutable_parameters(); p->trigger = false; p->gate = false;
-  for (int m = 0; m < nf; ++m) { d0[m] = cl_out32_[m].l / 32768.0f; d1[m] = cl_out32_[m].r / 32768.0f; }
-  cl_up(0, d0, cl_po_[0]); cl_up(1, d1, cl_po_[1]);      // the wet, in place in the output buffers (the up filter takes all in before it writes)
-  cl_mixout(cl_po_[0], cl_po_[1], cl_g_[0], cl_g_[1], cl_po_[0], cl_po_[1], cl_umix_, cl_utone_);
-  if (ticks_) st_job_ += ticks_() - t0;
-}
-// update 10: do the voices above CL_V1 ride in the second core's job? Only where that helps and changes nothing but the order they are added in:
-//  - Clouds in FX 1 and a live effect in FX 2: the first core then has the other effect to carry as well as its voices (alone, Clouds + resamplers + voices
-//    would load the second core more than the first: the host proxy, update 10's notes); the voices join the signal at Clouds' slot, so no effect may sit before
-//    it (it would miss them);
-//  - not Rings (its excitation is gathered on the first core right after the voices).
-static bool cl_voices_ride() {
-  return cl_voff_opt_ && nvoices_ > CL_V1 && mod_id_[S_SHP] != M_RINGS && cl_slot_ == S_FX1 && mod_id_[S_FX2] != M_NONE && !fx_off_[1];
-}
-// the start of a block: hand the staged block to the second core. Nothing staged (the first block after a load), Clouds switched off from
-// the panel, or no second core taking jobs: no job; the voices may then use the worker as before
-static void cl_fork() {
-  cl_forked_ = 0; cl_due_ = 0; cl_vjob_ = 0; cl_wait_now_ = 0;
-  rv_clj_ = 0;
-  if (!cl_pipe_ || fx_off_[cl_slot_ - S_FX1]) return;
-  cl_due_ = 1;                                    // (even with nothing staged yet: the voices never split in this arrangement, so their sum is one order)
-  if (!cl_primed_) return;
-  cl_vn_ = nvoices_;
-  cl_vjob_ = cl_voices_ride() ? 1 : 0;
-#ifdef RACK_FM1
-  rv_clj_ = (rv_early_ >= 0 && cl_slot_ < rv_early_ && rv_post_opt_ && !arr_old_ && par_run_) ? 1 : 0;   // (2.46: the first core's early reverb is the second core's, where Clouds is there with room)
-#endif
-#ifdef HAVE_DRUMS
-  drum_in_job_ = drum_pending_;                   // the drums ride in this job (it is done on one core or the other, always)
-#endif
-  if (par_run_) {
-    if (par_sync_) par_sync_();                   // the staged input written, before the second core reads it
-    cl_forked_ = par_run_(cl_job, 0) ? 1 : 0;
-  }
-  if (!cl_forked_) { cl_job(0); ++cl_inline_; }   // not taken: done here and now, where the second core would be running it beside the voices
-}
-// the join, where the chain reaches Clouds' slot (or at the block's end): wait for the job; given up or not taken, do it here, in this block.
-// The voices the job rendered are added to the signal here (at Clouds' slot, or at the block's end)
-static void cl_join() {
-  cl_wait_now_ = 0;
-  if (cl_forked_) {
-    cl_forked_ = 0;
-    uint32_t t0 = ticks_ ? ticks_() : 0;
-    int rc = par_wait_();
-    if (ticks_) { cl_wait_now_ = ticks_() - t0; st_wait_ += cl_wait_now_; }
-    if (par_sync_) par_sync_();                   // the job's output written, before this core reads it
-    if (rc == 0) ++par_blocks_;
-    else { cl_job(0); ++cl_inline_; }             // given up: the job was dropped; done here, in this block
-  }
-  if (cl_vjob_) { cl_vjob_ = 0; for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += par_l_[n]; blk_r_[n] += par_r_[n]; } }
-}
-// this block's input into the staging, for the next block's job: a copy (the job applies IN GAIN, the clamp and the 3:2 down)
-static void cl_front(const float* l, const float* r, float igain, float user_mix, float tone) {
-  memcpy(cl_g_[0], l, sizeof(cl_g_[0])); memcpy(cl_g_[1], r, sizeof(cl_g_[1]));
-  cl_igain_ = igain;
-  clouds_->mutable_parameters()->dry_wet = 1.0f;  // all wet out of Clouds: the mix is made in the job, at 48 kHz
-  cl_umix_ = user_mix; cl_utone_ = tone;
-  cl_primed_ = 1;
-}
-// where Clouds' arrangement is decided: after a layout (modules loaded or unloaded: arena re-carved), a worker given, a switch changed.
-// Nothing is staged after it. Never called with a job out (the audio stands aside for a layout; a render joins its own job)
-static void cl_pipe_decide() {
-  if (cl_forked_) cl_join();
-  cl_primed_ = 0; cl_forked_ = 0; cl_due_ = 0; cl_vjob_ = 0;
-  cl_slot_ = mod_id_[S_FX1] == M_CLOUDS ? S_FX1 : mod_id_[S_FX2] == M_CLOUDS ? S_FX2 : -1;
-  cl_pipe_ = cl_pipe_opt_ && cl32_on_ && cl_slot_ >= 0 && par_run_ && (!par_on_ || par_on_());
-}
-#endif
 #ifdef RACK_FM1
 static int rv_job_slot_ = -1;
 static void rv_job(uint32_t) {
@@ -3073,148 +2636,6 @@ static void rv_join() {
 static void run_fx(int slot, float* l, float* r) {
   int id = mod_id_[slot];
   if (fx_off_[slot - S_FX1]) return;   // switched off from the panel (set_fx_bypass)
-#ifdef HAVE_CLOUDS
-  if (id == M_CLOUDS) {
-#ifdef FXC2
-    // the job of the last block back first (before its parameters, buffers or object are touched), then its output mixed with its dry signal
-    const bool pipe = cl_pipe_ != 0;
-    if (pipe) { if (cl_primed_) cl_join(); else memset(cl_po_, 0, sizeof(cl_po_)); }   // (cl_join: nothing left to wait for if the job was done at the hand-over)
-#endif
-    clouds::Parameters* p = clouds_->mutable_parameters();
-    p->position = P(slot, 0, 0); p->size = P(slot, 1, 0); p->pitch = P(slot, 2, 0) * 24.0f;
-    p->density = P(slot, 3, 0);
-#ifdef HAVE_DRUMS
-    if (drum_run_ && drum_busy_ == 1 && p->density > DRUM_CLOUDS_CEIL) p->density = DRUM_CLOUDS_CEIL;   // IF BUSY = CLOUD: the drums run, Clouds eases
-    drum_dens_seen_ = p->density;
-#endif
-    p->texture = P(slot, 4, 0); p->dry_wet = P(slot, 5, 0);
-    p->stereo_spread = P(slot, 6, 0); p->feedback = P(slot, 7, 0); p->reverb = P(slot, 8, 0);
-    int cmode = PI(slot, 9, 0);
-#ifdef RACK_CLOUDS_32K
-    if (!cl_fixed_q_) cl_set_level(cl_large_n_ < CL_LARGE ? (PI(slot, 25, 0) > 0 ? 1 : 0) : PI(slot, 25, 0));   // (LIGHT's buffers: LIGHT, until the layout is fitted again for the level the page now asks for)   // update 42: RENDER, the page's HIGH / NORMAL / LITE (the benchmark fixes the mask instead)
-    if ((cl_q_ ^ cl_p16_) & CL_LAYOUT_BITS) {   // update 44: LIGHT on or off: Clouds lays its buffers out again (its lengths, FFT and tanks differ; set_low_fidelity twice sets its reset flag and puts the quality back)
-      cl_p16_ = cl_q_ & CL_LAYOUT_BITS; const bool lf = (clouds_->quality() & 2) != 0; clouds_->set_low_fidelity(!lf); clouds_->set_low_fidelity(lf);
-    }
-#endif
-#ifdef RACK_CLOUDS_NO_STRETCH
-    // The Lite firmware's MODE list is GRANULR, LOOPDLY, SPECTRL: Clouds' STRETCH is left out, because with the Mutable
-    // checkout used (f4cfa76) it plays silence (clouds/dsp/window.h: Window::Start never clears done_, so no WSOLA window
-    // ever plays; found by running Clouds alone, not through this engine)
-    cmode = cmode <= 0 ? clouds::PLAYBACK_MODE_GRANULAR : cmode == 1 ? clouds::PLAYBACK_MODE_LOOPING_DELAY : clouds::PLAYBACK_MODE_SPECTRAL;
-#endif
-    clouds_->set_playback_mode((clouds::PlaybackMode)cmode);
-    p->freeze = PI(slot, 10, 0) == 1;
-    // WINDOW (22), SPEED (23: bipolar, -2x .. +2x real time, finer near the centre), JITTER (24); only GRANULR uses them
-    clouds::rack_gr_window = clampf(P(slot, 22, 0), 0.0f, 1.0f);
-    { float sp = clampf(P(slot, 23, 0), -1.0f, 1.0f); clouds::rack_gr_speed = 2.0f * sp * fabsf(sp); }
-    clouds::rack_gr_jitter = clampf(P(slot, 24, 0), 0.0f, 1.0f);
-    // page 3-4: QUALITY (16/8-bit, stereo/mono, as the hardware's button), IN GAIN, NOTE TRG (a grain on each new note), PITCH TRK
-    int qual = PI(slot, 11, 0);
-#ifdef CL_TRIMMED
-    // the trimmed buffers hold the spectral mode's frames (fft 16 KB x 2, analysis 24 KB, 3 textures) only in the whole
-    // large buffer, as mono: SPECTRL plays as its mono QUALITY (16 or 8 bit as chosen), the others as chosen
-    if (cmode == clouds::PLAYBACK_MODE_SPECTRAL) qual |= 1;
-#endif
-#ifdef RACK_CLOUDS_32K
-    if (cl_q_ & CLQ_E_MONO) qual |= 1;   // update 45 (ECO): the mono buffer
-#endif
-    if (qual != clouds_quality_) { clouds_quality_ = qual; clouds_->set_quality(qual); }
-    static bool cl_prev = false; bool trg = PI(slot, 13, 0) == 1 && any_gate_ && !cl_prev; cl_prev = any_gate_;
-    // page 4-6 (1.5): GRN SYNC fires grains on the tempo; SPRAY, PITCH RND and SIZE RND give each grain its own
-    // position, pitch and length; PITCH QNT keeps the scatter musical; SCAN moves the read point; TONE colours the wet only
-    static const float grid_div[] = { 0, 1, 2, 4, 8 };
-    int gs = PI(slot, 15, 0);
-    if (gs > 0) { int cell = (int)(CLK() / grid_div[gs]); if (cell != cl_grid_) { cl_grid_ = cell; trg = true; } } else cl_grid_ = -1;
-    p->trigger = trg; p->gate = trg;
-    if (PI(slot, 14, 0) == 1) p->pitch = clampf(p->pitch + vs_[last_voice_].note - 60.0f, -48.0f, 48.0f);
-    float spray = P(slot, 16, 0), prnd = P(slot, 17, 0), srnd = P(slot, 19, 0), scan = P(slot, 20, 0), tone = P(slot, 21, 0);
-    int pq = PI(slot, 18, 0);
-    if (scan != 0.0f) { cl_scan_ += scan * fabsf(scan) * 0.5f * BLOCK / SR; cl_scan_ -= floorf(cl_scan_); } else cl_scan_ = 0.0f;
-    if (scan != 0.0f || spray > 0.0f) {
-      float pos = p->position + cl_scan_ + (spray > 0.0f ? (randf() - 0.5f) * spray : 0.0f);
-      p->position = pos - floorf(pos);
-    }
-    if (prnd > 0.0f) {
-      float st = (randf() * 2.0f - 1.0f) * prnd * 24.0f;
-      if (pq == 1) st = floorf(st + 0.5f);
-      else if (pq == 2) { static const float iv[] = { -24, -19, -12, -7, 0, 7, 12, 19, 24 }; float best = 0; for (float x : iv) if (fabsf(x - st) < fabsf(best - st)) best = x; st = best; }
-      else if (pq == 3) st = floorf(st / 12.0f + 0.5f) * 12.0f;
-      p->pitch = clampf(p->pitch + st, -48.0f, 48.0f);
-    }
-    if (srnd > 0.0f) p->size = clampf(p->size * (1.0f - randf() * srnd), 0.0f, 1.0f);
-    float user_mix = p->dry_wet;
-    if (tone != 0.0f) p->dry_wet = 1.0f;     // TONE: take the wet signal alone, filter it, and mix it back ourselves
-    float ig = P(slot, 12, 0), igain = ig != 0.0f ? powf(10.0f, ig * 12.0f / 20.0f) : 1.0f;
-#ifdef FXC2
-    if (pipe) {   // this block staged for the next job; out: the last block's
-      cl_front(l, r, igain, user_mix, tone);
-      memcpy(l, cl_po_[0], sizeof(cl_po_[0])); memcpy(r, cl_po_[1], sizeof(cl_po_[1]));
-      return;
-    }
-#endif
-    clouds_->Prepare();
-#ifdef RACK_CLOUDS_32K
-    if (cl32_on_) {
-      static_assert(BLOCK == 48, "RACK_CLOUDS_32K: the engine block is 48 frames, Clouds' 32 at 32 kHz");
-      if (cl_q_ & CLQ_E_MONO) {   // update 45 (ECO): the mono path; the dry is l and r themselves
-        float w[2][BLOCK];
-        const bool fw = cl_eco_fullwet(user_mix, tone);
-        if (fw) { cl_eco_block(l, r, igain, l, r, true); cl_mixs_ = user_mix; return; }   // (the wet goes out over the input: the down filter has read it all)
-        cl_eco_block(l, r, igain, w[0], w[1], false);
-        cl_mixout_eco(w[0], w[1], l, r, igain, l, r, user_mix, tone);
-        return;
-      }
-      float g[2][BLOCK], d[2][32], w[2][BLOCK];
-      clouds::ShortFrame in32[32], out32[32];
-      const int nf = cl_nf_;
-      for (int n = 0; n < BLOCK; ++n) { g[0][n] = clampf(l[n] * igain, -1.0f, 1.0f); g[1][n] = clampf(r[n] * igain, -1.0f, 1.0f); }
-      cl_down(0, g[0], d[0]); cl_down(1, g[1], d[1]);
-      for (int m = 0; m < nf; ++m) {
-        in32[m].l = (int16_t)(clampf(d[0][m], -1.0f, 1.0f) * 32767.0f);
-        in32[m].r = (int16_t)(clampf(d[1][m], -1.0f, 1.0f) * 32767.0f);
-      }
-      p->dry_wet = 1.0f;                      // all wet out of Clouds: the mix is made here, at 48 kHz, with the dry signal untouched
-      static_assert(clouds::kMaxBlockSize == 32, "Clouds' arrays hold 32 frames: exactly what is passed");
-      clouds_->Process(in32, out32, nf);      // Clouds' own block: 32 frames at 32 kHz (24 at 24 kHz in LITE)
-      p->trigger = false; p->gate = false;
-      for (int m = 0; m < nf; ++m) { d[0][m] = out32[m].l / 32768.0f; d[1][m] = out32[m].r / 32768.0f; }
-      cl_up(0, d[0], w[0]); cl_up(1, d[1], w[1]);
-      cl_mixout(w[0], w[1], g[0], g[1], l, r, user_mix, tone);
-    } else
-#endif
-    {
-    clouds::ShortFrame in[BLOCK], out[BLOCK];
-    for (int n = 0; n < BLOCK; ++n) {
-      in[n].l = (int16_t)(clampf(l[n] * igain, -1.0f, 1.0f) * 32767.0f);
-      in[n].r = (int16_t)(clampf(r[n] * igain, -1.0f, 1.0f) * 32767.0f);
-    }
-    // Clouds' own arrays hold kMaxBlockSize (32) frames and the FM-1's block is 48: Process in chunks of at most 32 (24), the
-    // trigger only on the first (an edge, not a level)
-    {
-      const int chunk = BLOCK <= (int)clouds::kMaxBlockSize ? BLOCK : BLOCK / 2;
-      static_assert(BLOCK <= 2 * 32 && (BLOCK % 24) == 0, "Clouds takes at most 32 frames at a time: BLOCK is 24 or 48");
-      for (int at = 0; at < BLOCK; at += chunk) {
-        clouds_->Process(in + at, out + at, chunk);
-        p->trigger = false; p->gate = false;
-      }
-    }
-    if (tone == 0.0f) for (int n = 0; n < BLOCK; ++n) { l[n] = out[n].l / 32768.0f; r[n] = out[n].r / 32768.0f; }
-    else {
-      float hz = tone < 0.0f ? 18000.0f * powf(300.0f / 18000.0f, -tone) : 20.0f * powf(2000.0f / 20.0f, tone);
-      float c = 1.0f - expf(-6.2831853f * hz / SR);
-      float fi = Interpolate(clouds::lut_xfade_in, user_mix, 16.0f), fo = Interpolate(clouds::lut_xfade_out, user_mix, 16.0f);
-      float norm = 2.0f / Interpolate(clouds::lut_xfade_in, 1.0f, 16.0f);   // Clouds halves its output (SoftConvert); undo that for the wet
-      for (int n = 0; n < BLOCK; ++n) {
-        float wl = out[n].l / 32768.0f * norm, wr = out[n].r / 32768.0f * norm;
-        cl_tone_l_ += (wl - cl_tone_l_) * c; cl_tone_r_ += (wr - cl_tone_r_) * c;
-        if (tone < 0.0f) { wl = cl_tone_l_; wr = cl_tone_r_; } else { wl -= cl_tone_l_; wr -= cl_tone_r_; }
-        float dl = in[n].l / 32768.0f, dr = in[n].r / 32768.0f;
-        l[n] = SoftLimit((dl * fo + wl * fi) * 0.5f); r[n] = SoftLimit((dr * fo + wr * fi) * 0.5f);   // the same output stage as Clouds
-      }
-    }
-    }
-  } else
-#endif
   if (id == M_REVERB) {
     int type = PI(slot, 4, 0);                     // 0 PLATE, 1 HALL, 2 SHIMMER
     float mix = P(slot, 3, 0), width = P(slot, 8, 0), duck = P(slot, 9, 0);
@@ -3333,57 +2754,17 @@ static void run_fx(int slot, float* l, float* r) {
 // scratch; stmlib's Random is shared, so its numbers may repeat across cores); the parameters, routes and
 // modulators they read only change between blocks.
 static int par_from_ = 0;
-static int arr_info(int what) { return what == 10 ? par_from_ : what == 11 ? (int)rv_post_ : what == 13 ? (int)rv_clj_ : rv_early_; }   // 10: the second core's first voice, 11: the reverb's job after its slot (1) or early on the first core (0), 12: the slot of the reverb run a block behind (-1: none), 13: the reverb's job rides in Clouds' (1)
+static int arr_info(int what) { return what == 10 ? par_from_ : what == 11 ? (int)rv_post_ : rv_early_; }   // 10: the second core's first voice, 11: the reverb's job after its slot (1) or early on the first core (0), 12: the slot of the reverb run a block behind (-1: none), 13: the reverb's job rides in Clouds' (1)
 EXPORT void set_worker(rack_run_fn run, rack_wait_fn wait) {
   par_run_ = run; par_wait_ = wait;
-#ifdef FXC2
-  cl_pipe_decide();
-#endif
 }
 // update 9: the barrier and the "is it taking jobs" call of the platform, and (the benchmark only) a clock for the cores' own times
 EXPORT void set_worker_ex(void (*sync)(void), int (*on)(void)) {
   par_sync_ = sync; par_on_ = on;
-#ifdef FXC2
-  cl_pipe_decide();
-#endif
 }
 EXPORT void set_ticks(uint32_t (*ticks)(void)) { ticks_ = ticks; }
-// run-time switch (the benchmark's comparison cases; the firmware never calls it): 0 = Clouds on the first core, the voices split, as update 8
-EXPORT void set_fx_core2(int on) {
-#ifdef FXC2
-  cl_pipe_opt_ = on != 0; cl_pipe_decide();
-#endif
-  (void)on;
-}
-// 1 when Clouds runs on the second core in this patch
-EXPORT int fx_core2_active() {
-#ifdef FXC2
-  return cl_pipe_;
-#else
-  return 0;
-#endif
-}
-// update 10: run-time switch (the benchmark's comparison cases): 0 keeps every voice on the first core, as update 9
-EXPORT void set_fx_core2_voices(int on) {
-#ifdef FXC2
-  cl_voff_opt_ = on != 0;
-#endif
-  (void)on;
-}
-// the overload guard's question: would one voice fewer relieve the core that is overloaded? With Clouds on the second core the block takes as long as the
-// slower core. The first core's wait at the join says which: waiting more than 1/16 of the block (smoothed over 16 blocks) = the second core is the slow one.
-// The voices from CL_V1 up are the second core's (when they ride in the job: cl_voices_ride), the others the first's; the voice shed is the top one.
-// Not Clouds on two cores, or no clock (the firmware sets one with set_ticks): 1, as before
-EXPORT int shed_helps() {
-#ifdef FXC2
-  if (!cl_pipe_ || !ticks_ || !cl_due_) return 1;
-  const bool core2_slow = cl_wait_avg_ * 16u > cl_blk_avg_;
-  const bool top_on_core2 = cl_voices_ride();
-  return core2_slow ? (top_on_core2 ? 1 : 0) : (top_on_core2 ? 0 : 1);
-#else
-  return 1;
-#endif
-}
+// the overload guard's question: would one voice fewer relieve the core that is overloaded? (Always yes: the voices are the only thing that shifts.)
+EXPORT int shed_helps() { return 1; }
 EXPORT uint32_t worker_blocks() { return par_blocks_; }
 // 2.43 run-time switches (the benchmark's A/B; the firmware never calls them): the reverb's job after its slot on the second core (1, the default) or the first core's early work (0, 2.42);
 // the voices' learnt split on (1, the default) or the table's alone (0: the host's instruction counts need a split that does not follow a clock)
@@ -3399,20 +2780,13 @@ EXPORT void set_arrangement(int m) {
   rv_want_ = m == 2 ? 1 : 0;
 }
 // what the cores did since the last reset: ticks the jobs took (summed where they ran), ticks the first core waited for one, blocks
-// in which Clouds' job was done on the first core instead of the second
+// (*inl: always 0 since 2.48)
 EXPORT void core_stats(uint32_t* job, uint32_t* wait, uint32_t* inl) {
   *job = st_job_; *wait = st_wait_;
-#ifdef FXC2
-  *inl = cl_inline_;
-#else
   *inl = 0;
-#endif
 }
 EXPORT void core_stats_reset() {
   st_job_ = 0; st_wait_ = 0;
-#ifdef FXC2
-  cl_inline_ = 0;
-#endif
 }
 static void par_job(uint32_t) {
   uint32_t t0 = ticks_ ? ticks_() : 0;
@@ -3449,16 +2823,6 @@ static void render_voices() {
   if (!drum_pending_ && nvoices_ >= 2 && first >= nvoices_) first = nvoices_ - 1;   // the second core keeps a voice: it is what the split learns from
 #endif
   par_from_ = first < 0 ? 0 : first > nvoices_ ? nvoices_ : first;
-#ifdef FXC2
-  if (cl_due_) {   // update 9: Clouds' job is the second core's (one job at a time, and the same sum order whether it takes it or not): the first core renders every voice
-    early_work();
-    for (int i = 0, n1 = cl_vjob_ ? CL_V1 : nvoices_; i < n1; ++i) render_voice(i, blk_l_, blk_r_);   // (update 10: the voices above CL_V1 are the job's)
-#ifdef HAVE_DRUMS
-    if (drum_pending_ && !drum_in_job_) { drums_render(); ++drum_blk_inl_; }   // no job this block (Clouds had nothing staged): the first core
-#endif
-    return;
-  }
-#endif
 #ifdef HAVE_DRUMS
   drum_in_job_ = drum_pending_;
   uint32_t t_fork = ticks_ ? ticks_() : 0;
@@ -3524,7 +2888,7 @@ static void run_rings_shared() {
 #ifdef RACK_FM1
 static void early_work() {
   if (mod_id_[S_SHP] == M_RINGS) run_rings_shared();
-  if (rv_early_ >= 0 && !rv_post_ && !rv_clj_) {
+  if (rv_early_ >= 0 && !rv_post_) {
     uint32_t t0 = ticks_ ? ticks_() : 0;
     reverb_wet(rv_early_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_);
     if (ticks_) rv_t_now_ = ticks_() - t0;
@@ -3561,7 +2925,7 @@ static void split_learn_old() {
 // The next round looks at what it did, smoothed: a move that did not lower the busier core by 1.5 %, or lengthened the block by more than 2 %, is undone and not tried again for eight rounds.
 // (2.43's learner weighed the job against the first core's work before the join, moved a voice only past the average cost of one with a job's fixed cost in it, and counted the reverb on neither core.)
 static void split_learn(uint32_t blk_ticks) {
-  if (!split_learn_ || !ticks_ || cl_due_ || !par_run_ || (par_on_ && !par_on_())) return;
+  if (!split_learn_ || !ticks_ || !par_run_ || (par_on_ && !par_on_())) return;
   const bool rvc2 = rv_out_was_ != 0;
   const uint32_t w = (bal_shared_ ? drum_wait_now_ : 0u) + rv_wait_now_;
   const uint32_t c1 = blk_ticks > w ? blk_ticks - w : 0u;
@@ -3607,17 +2971,13 @@ static void split_learn(uint32_t blk_ticks) {
 static void drum_account(uint32_t blk_ticks, bool had_drums) {
   drum_shared_ = drum_shared_ && had_drums;
   if (!had_drums) { drum_slow_ = 0; drum_wait_avg_ = drum_blk_avg_ = 0; return; }
-#ifdef FXC2
-  uint32_t w = (cl_pipe_ && cl_due_) ? cl_wait_now_ : drum_wait_now_;
-#else
-  uint32_t w = drum_wait_now_;   // (update 61: Clouds at 48 kHz, RACK_CLOUDS_32K off: Clouds does not go to the second core; this line did not compile without FXC2)
-#endif
+  uint32_t w = drum_wait_now_;
   drum_wait_avg_ = (uint32_t)((int32_t)drum_wait_avg_ + ((int32_t)w - (int32_t)drum_wait_avg_) / 16);
   drum_blk_avg_ = (uint32_t)((int32_t)drum_blk_avg_ + ((int32_t)blk_ticks - (int32_t)drum_blk_avg_) / 16);
   if (drum_busy_ == 0) { drum_slow_ = 0; return; }
   if (!drum_slow_ && drum_wait_avg_ * 16u > drum_blk_avg_) drum_slow_ = 1;
   else if (drum_slow_ && drum_wait_avg_ * 32u < drum_blk_avg_) drum_slow_ = 0;
-  if (drum_slow_)   // the third voice goes at once, not at the next hit
+  if (drum_slow_ && drum_busy_ == 2)   // the third voice goes at once, not at the next hit
     for (int k = 0, n = 0; k < DR_N; ++k) {
       DrumVoice& u = drum_->v[k];
       if (!u.active || u.fading) continue;
@@ -3649,25 +3009,7 @@ static void process_block() {
   drum_wait_now_ = 0;
 #endif
   rv_wait_now_ = 0; rv_t_now_ = 0; rv_out_was_ = 0;
-#ifdef FXC2
-  uint32_t tb0 = ticks_ ? ticks_() : 0;
   process_block_();
-#ifdef HAVE_DRUMS
-  if (ticks_ && drum_) {
-#ifdef RACK_BENCH_AB
-    if (arr_old_) split_learn_old(); else
-#endif
-    split_learn(ticks_() - tb0);
-    drum_account(ticks_() - tb0, drum_pending_ != 0);
-  }
-#endif
-  if (ticks_ && cl_pipe_ && cl_due_) {   // update 10: the first core's wait for the job, and the block, each smoothed over 16 blocks (shed_helps)
-    cl_wait_avg_ = (uint32_t)((int32_t)cl_wait_avg_ + ((int32_t)cl_wait_now_ - (int32_t)cl_wait_avg_) / 16);
-    cl_blk_avg_ = (uint32_t)((int32_t)cl_blk_avg_ + ((int32_t)(ticks_() - tb0) - (int32_t)cl_blk_avg_) / 16);
-  }
-#else
-  process_block_();
-#endif
 }
 static void process_block_() {
   glide_step();
@@ -3696,13 +3038,7 @@ static void process_block_() {
   drum_r_ = drum_w_; drum_w_ ^= 1; drum_ok_[drum_w_] = 0;       // the block before's drums are read now, this block's are written (by a job, or the first core)
   drum_pending_ = drum_ && drums_any() ? 1 : 0; drum_in_job_ = 0;
 #endif
-#ifdef FXC2
-  cl_fork();          // Clouds' job for the signal staged last block: the second core starts now
-#endif
   rv_post_ = 0;
-#ifdef FXC2
-  if (rv_early_ >= 0 && rv_post_opt_ && rv_want_ && par_run_ && !cl_due_ && (!par_on_ || par_on_())) rv_post_ = 1;
-#endif
   render_voices();
   pump_apply(false);
 #ifdef HAVE_DRUMS
@@ -3721,9 +3057,6 @@ static void process_block_() {
   run_fx(S_FX1, blk_l_, blk_r_);
   run_fx(S_FX2, blk_l_, blk_r_);
   pump_apply(true);
-#ifdef FXC2
-  if (cl_forked_ || cl_vjob_) cl_join();   // (a job still out at the block's end: Clouds' slot was not reached; none spans a block)
-#endif
 #ifdef HAVE_DRUMS
   if (drum_ok_[drum_r_]) { const float* dl = drum_->out[drum_r_][0]; const float* dr = drum_->out[drum_r_][1]; for (int n = 0; n < BLOCK; ++n) { blk_l_[n] += dl[n]; blk_r_[n] += dr[n]; } }   // ... and the dry part, after them
 #endif
@@ -3755,8 +3088,8 @@ EXPORT void render(int n) {
 
 // monitor: what the screen draws. 0-15 modulated params of `slot` (as the most recent voice hears them),
 // 16 envs, 22 mod envs, 28 gates, 34 notes, 40 mod outs, 44 lfos, 47 clock (16ths), 48 peaks, 50 route values,
-// 62 last voice, 63 voices; 64-159 Grids levels (3 x 32) when `slot` holds Grids; 160-161 master gain reduction; 162-164 CLOUDS' playhead, window start and end (0..1 on POSITION's axis); 168-183 params 16-31.
-static float mon_[200];
+// 62 last voice, 63 voices; 64-159 Grids levels (3 x 32) when `slot` holds Grids; 160-161 master gain reduction; 168-183 params 16-31; 200-263 the WAVE source's wave.
+static float mon_[264];   // 200-263: the wavetable source's wave (64 points)
 EXPORT float* monitor(int slot) {
   const VoiceState* v = &vs_[last_voice_];
   if (slot >= 0 && slot < NSLOT) { for (int p = 0; p < 16; ++p) mon_[p] = P(slot, p, v); for (int p = 16; p < 32; ++p) mon_[168 + p - 16] = P(slot, p, v); }
@@ -3777,8 +3110,8 @@ EXPORT float* monitor(int slot) {
   }
   mon_[62] = (float)last_voice_; mon_[63] = (float)nvoices_;
   mon_[160] = comp_gr_db_; mon_[161] = lim_gr_db_;
-#ifdef HAVE_CLOUDS
-  mon_[162] = clouds::rack_gr_pos; mon_[163] = clouds::rack_gr_lo; mon_[164] = clouds::rack_gr_hi;   // CLOUDS' playhead and window
+#ifdef HAVE_WAVE
+  if (mod_id_[S_SRC] == M_WAVE) rackwave::Osc::View(clampf(P(S_SRC, 1, v), 0.0f, 1.0f), clampf(P(S_SRC, 2, v), 0.0f, 1.0f), clampf(P(S_SRC, 0, v), 0.0f, 1.0f), mon_ + 200);   // the wave at the scan position (the most recent voice's)
 #endif
   if ((slot == S_MODA || slot == S_MODB) && mod_id_[slot] == M_GRIDS)
     for (int inst = 0; inst < 3; ++inst) for (int st = 0; st < 32; ++st) mon_[64 + inst * 32 + st] = grids_level(slot, inst, st) / 255.0f;
@@ -3803,7 +3136,7 @@ EXPORT void drum_hit(int voice, int model, float note, float p1, float p2, float
       ++n;
       if (u.env < qe) { qe = u.env; q = i; }
     }
-    if (n >= (drum_slow_ ? DRUM_MAX_SLOW : DRUM_MAX_SOUNDING) && q >= 0) { drum_->v[q].dec = expf(-6.9077553f / (0.008f * SR)); drum_->v[q].fading = 1; }
+    if (n >= (drum_slow_ && drum_busy_ == 2 ? DRUM_MAX_SLOW : DRUM_MAX_SOUNDING) && q >= 0) { drum_->v[q].dec = expf(-6.9077553f / (0.008f * SR)); drum_->v[q].fading = 1; }
   }
   if (voice == 0) pump_hit_ = 1;                    // the kick: the pump's curve (update 41 step 5)
   if (v.active) v.off = v.last;                     // a hit on a sounding voice (the voice is mono): its last sample carries on and falls away, not a step
@@ -3835,7 +3168,7 @@ EXPORT void drum_hit(int voice, int model, float note, float p1, float p2, float
   (void)voice; (void)model; (void)note; (void)p1; (void)p2; (void)decay; (void)level; (void)pan; (void)send;
 #endif
 }
-// the firmware's pattern is playing (1) or not (0): IF BUSY = CLOUD holds Clouds' DENSITY at 0.9 while it is
+// the firmware's pattern is playing (1) or not (0)
 EXPORT void drum_run(int on) {
 #ifdef HAVE_DRUMS
   drum_run_ = on != 0;
@@ -3843,7 +3176,7 @@ EXPORT void drum_run(int on) {
   (void)on;
 #endif
 }
-// IF BUSY: 0 NONE, 1 CLOUD (Clouds' DENSITY eases while the drums run), 2 VOICES (the overload guard's own shedding: nothing here)
+// IF BUSY: 0 NONE, 1 REVERB (the reverb's tank at its leanest while the drums run and the second core is slow: reverb_wet), 2 VOICES (a drum voice drops while it is slow: drum_account; and the overload guard's own shedding)
 EXPORT void drum_busy(int mode) {
 #ifdef HAVE_DRUMS
   drum_busy_ = (uint8_t)(mode < 0 ? 0 : mode > 2 ? 2 : mode);
@@ -3867,18 +3200,17 @@ EXPORT void drum_off() {
   if (drum_) for (int i = 0; i < DR_N; ++i) drum_->v[i].active = 0;
 #endif
 }
-// 0 voices sounding, 1 bytes the drums take of the arena (0: not built in), 2 1 while IF BUSY holds Clouds back, 3 blocks rendered in a job, 4 blocks rendered
+// 0 voices sounding, 1 bytes the drums take of the arena (0: not built in), 2 1 while IF BUSY has a drum voice dropped (VOICES) or the reverb eased (REVERB), 3 blocks rendered in a job, 4 blocks rendered
 // by the first core, 5 1 when the drums have room in the arena
 EXPORT int drum_status(int what) {
 #ifdef HAVE_DRUMS
   switch (what) {
     case 0: { int n = 0; if (drum_) for (int i = 0; i < DR_N; ++i) n += drum_->v[i].active ? 1 : 0; return n; }
     case 1: return (int)sizeof(DrumBus);
-    case 2: return drum_run_ && drum_busy_ == 1 && (mod_id_[S_FX1] == M_CLOUDS || mod_id_[S_FX2] == M_CLOUDS) && !(fx_off_[mod_id_[S_FX1] == M_CLOUDS ? 0 : 1]) ? 1 : 0;
+    case 2: return drum_run_ && drum_busy_ != 0 && drum_slow_ ? 1 : 0;
     case 3: return (int)drum_blk_job_;
     case 4: return (int)drum_blk_inl_;
     case 5: return drum_ ? 1 : 0;
-    case 6: return (int)(drum_dens_seen_ * 1000.0f + 0.5f);   // the DENSITY Clouds was last given, x 1000
   }
 #else
   (void)what;

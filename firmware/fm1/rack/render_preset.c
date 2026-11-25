@@ -69,8 +69,6 @@ int main(int argc, char **argv)
 #ifdef RACK_BENCH_AB
     if (getenv("RP_Q")) set_quality((unsigned)atoi(getenv("RP_Q")));   /* 2.38: the quality trims as a mask (build with RACK_FLAGS=-DRACK_BENCH_AB): 0 = the 2.37 sound, 1 reverb sum, 2 short halfband, 4 light reverb diffusion */
 #endif
-    if (getenv("RP_CLQ")) rk_clouds_mask((unsigned)strtoul(getenv("RP_CLQ"), 0, 0));   /* update 42: the Clouds quality bits (shim/clouds/dsp/rack_cl_q.h): 0 = 2.40's Clouds (HIGH), 15 NORMAL (2.43's), 3887 LIGHT (update 44, the default) */
-    if (getenv("RP_CAP")) rk_clouds_opts(getenv("RP_K32") ? atoi(getenv("RP_K32")) : 1, 1, atoi(getenv("RP_CAP")));   /* RP_CAP=n RP_K32=0|1: the Clouds grain ceiling / 48 kHz switch, for A/B renders */
     rk_seed(0x21u);
     rc_pause();
     rc_load(k);

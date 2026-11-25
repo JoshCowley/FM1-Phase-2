@@ -1,4 +1,4 @@
-# FM1 Phase 2 update 14, kept in update 40 as a run of HOME through changes (the spectral ribbons are gone, the signal path replaced them; see sim_home2.txt). DENSE CLOUD with a chord, FROZEN PAD frozen with K4, an older non-Clouds preset, a preset
+# FM1 Phase 2 update 14, kept in update 40 as a run of HOME through changes (the spectral ribbons are gone, the signal path replaced them; see sim_home2.txt). a pad with a chord, FROZEN PAD frozen with K4, an older preset, a preset
 # change caught mid-morph, silence. Exit 0 = it ran; the shots are the pictures to look at.
 wait 500
 turn PRESET 2

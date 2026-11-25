@@ -292,24 +292,21 @@ def batch2():
 
     # 29 --------------------------------------------------------------------------------------------------- TIDE PAD
     # A breathing pad: a Tides AR slope rises while the keys are held and falls on release, opening the filter and the
-    # grain blend of a light Clouds; the granular layer is colour, not the point.
-    a(B("TIDE PAD", "PAD", {"SRC": "BRAIDS", "SHP": "FILTER", "MODA": "TIDES", "FX1": "CLOUDS", "FX2": "REVERB"},
+    # reverb's shimmer; the chorus behind it blurs the saw's edge. (2.48: this was a light Clouds; the shimmer is the reverb's now.)
+    a(B("TIDE PAD", "PAD", {"SRC": "BRAIDS", "SHP": "FILTER", "MODA": "TIDES", "FX1": "REVERB", "FX2": "CHORUS"},
         {"SRC": {"MODEL": "CSAW", "TIMBRE": 0.35, "COLOR": 0.4, "DRIFT": 0.15, "LEVEL": 1.0},
          "SHP": {"TYPE": "LP", "CUTOFF": 0.45, "RESO": 0.1, "DRIVE": 0.1, "ENV AMT": 0.0, "KEY TRK": 0.5, "VEL AMT": 0.1},
          "MODA": {"MODE": "AR", "FREQ": 0.25, "SHAPE": 0.5, "SLOPE": 0.0, "SMOOTH": 0.3, "RANGE": "MID", "GATE": "NOTE", "INVERT": "OFF"},
-         "FX1": {"POSITION": 0.3, "SIZE": 0.8, "PITCH": 0.0, "DENSITY": 0.7, "TEXTURE": 0.8, "BLEND": 0.25, "SPREAD": 0.8,
-                 "FEEDBACK": 0.1, "REVERB": 0.0, "MODE": "GRANULR", "FREEZE": "OFF", "QUALITY": "16 ST", "IN GAIN": 0.0,
-                 "NOTE TRG": "OFF", "PITCH TRK": "OFF", "GRN SYNC": "OFF", "SPRAY": 0.0, "PITCH RND": 0.0, "PITCH QNT": "FREE",
-                 "SIZE RND": 0.0, "SCAN": 0.0, "TONE": 0.0},
-         "FX2": REV("HALL", 0.8, 0.3)},
+         "FX1": REV("HALL", 0.8, 0.3, SHIMMER=0.3),
+         "FX2": {"RATE": 0.25, "DEPTH": 0.4, "WIDTH": 0.8, "MIX": 0.3, "MODE": "CHORUS", "FEEDBACK": 0.0, "DELAY": 0.0}},
         AM(ATTACK=0.35, DECAY=0.5, SUSTAIN=0.9, RELEASE=0.6, **{"VEL AMT": 0.3, "SPREAD": 0.7}),
-        [[("SRC.COLOR", 0.15, 0.7), ("SHP.CUTOFF", 0.3, 0.6), ("MOD A.FREQ", 0.1, 0.4), ("FX 1.BLEND", 0.1, 0.45)],
+        [[("SRC.COLOR", 0.15, 0.7), ("SHP.CUTOFF", 0.3, 0.6), ("MOD A.FREQ", 0.1, 0.4), ("FX 1.SHIMMER", 0.2, 0.5)],
          [("MOD A.SHAPE", 0.2, 0.8)],
-         [("FX 2.MIX", 0.0, 0.7), ("FX 2.SIZE", 0.3, 0.95)],
+         [("FX 1.MIX", 0.0, 0.7), ("FX 1.SIZE", 0.3, 0.95)],
          [("SHP.RESO", 0.05, 0.7), ("SHP.DRIVE", 0.05, 0.9)]],
-        [["A TIDE+", "SHP.CUTOFF", 0.35, "M2"], ["A TIDE+", "FX 1.BLEND", 0.3, "M2"], ["A TIDES", "SRC.COLOR", 0.2, "M2"]],
+        [["A TIDE+", "SHP.CUTOFF", 0.35, "M2"], ["A TIDE+", "FX 1.SHIMMER", 0.3, "M2"], ["A TIDES", "SRC.COLOR", 0.2, "M2"]],
         LF(("SINE", 0.3), ("DRIFT", 0.35), ("SINE", 0.4)),
-        [("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 1.BLEND", 0.1), None, ("SRC.TIMBRE", 0.1)], voices=4))
+        [("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 2.DEPTH", 0.1), None, ("SRC.TIMBRE", 0.1)], voices=4))
 
     # 30 --------------------------------------------------------------------------------------------------- GRID CHOP
     # Held chords chopped by a Grids pattern: each hit opens the filter and the timbre. A Peaks LFO on the second modulator

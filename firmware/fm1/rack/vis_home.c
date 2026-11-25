@@ -8,25 +8,25 @@
  *     each down to every stage it moves, with a pulse running along it as brightly as the source is moving (the drums join the path between the
  *     last stage before the effects and the first effect: their wet part goes through the effects);
  *   - the path: the stages in signal order, only those in use, closed up and centred (the source, Rings when it is the shaper, the filter (always),
- *     the effect slots as they sit, Clouds by its mode), each a tile with its icon (home_icons.h) and name; dots run along the path at the output's level;
+ *     the effect slots as they sit, Braids or the wavetable source in the first), each a tile with its icon (home_icons.h) and name; dots run along the path at the output's level;
  *   - the scope of the output, tinted by the colours of the routes that are moving, white when loud, with the reverb's halo, the delay's echo and
  *     the chorus's second line;
  *   - the four macros as sliders (home_readouts), in their knobs' colours, with the movement a via source gives them.
- * The tiles and lines are drawn in the picture family's 40-row bands (vis_clouds.c: only the changed rows are sent), the stage list and the
+ * The tiles and lines are drawn in the picture family's 40-row bands (vis_kit.c: only the changed rows are sent), the stage list and the
  * levels are made once a frame (home_frame). The spectral ribbon of update 14 is gone; its band spectrum (hm_spectrum) and hue ramps are
  * kept below, the other pictures use them. */
 
 static const uint8_t HR_RAMP[5][5][3] = {
-    {{4, 16, 26}, {10, 70, 100}, {40, 168, 190}, {120, 224, 228}, {222, 250, 248}},       /* teal: with Clouds */
-    {{24, 10, 4}, {100, 46, 16}, {212, 118, 38}, {250, 184, 96}, {255, 238, 200}},        /* amber: without */
-    {{10, 16, 30}, {60, 100, 160}, {160, 200, 236}, {226, 240, 252}, {255, 255, 255}},    /* ice: held */
+    {{4, 16, 26}, {10, 70, 100}, {40, 168, 190}, {120, 224, 228}, {222, 250, 248}},       /* teal: effects */
+    {{24, 10, 4}, {100, 46, 16}, {212, 118, 38}, {250, 184, 96}, {255, 238, 200}},        /* amber: sources */
+    {{10, 16, 30}, {60, 100, 160}, {160, 200, 236}, {226, 240, 252}, {255, 255, 255}},    /* ice: links */
     {{6, 8, 26}, {28, 44, 120}, {80, 112, 222}, {160, 184, 255}, {230, 236, 255}},         /* indigo: modulators (update 15) */
     {{16, 6, 24}, {80, 36, 120}, {170, 90, 210}, {226, 160, 244}, {252, 226, 255}},        /* violet: rhythm and structure */
 };
 static const uint32_t HR_ACC[5] = {0xFFBE5Au, 0x6EEEFFu, 0xFFFFFFu, 0xFFB850u, 0xFFE070u};
 
 /* update 40: a picture is drawn in its page's colour (theme.h K_C_*, the colour of the icon on HOME): hx_set makes a fifth ramp from it (dark, deep, the colour, a lighter
- * tint, near white) that hr_ramp and hr_acc give in place of the family's ramps (the ice of a held Clouds keeps its own); hx_set(-1): the family's ramps */
+ * tint, near white) that hr_ramp and hr_acc give in place of the family's ramps (the ice of the matrix keeps its own); hx_set(-1): the family's ramps */
 static uint8_t HRX[5][3];
 static uint32_t HXACC;
 static int hx_on;
@@ -36,7 +36,7 @@ static void hx_set(int sc)
     uint32_t r, g, b, k;
     static const uint8_t TW[5] = {13, 72, 184, 90, 205};   /* the stops' weights of the colour (of 256), then white for the last two */
     switch (sc) {
-    case SC_CLOUDS: c = K_C_CLOUDS; break;
+    case SC_WAVE: c = K_C_WAVE; break;
     case SC_BRAIDS: c = K_C_BRAIDS; break;
     case SC_RINGS: c = K_C_RINGS; break;
     case SC_FILTER: c = K_C_FILTER; break;
@@ -168,7 +168,7 @@ static struct {
 float rk_eff_param(int slot, int param);
 static void h2_notes(void);
 static uint32_t h2_nfade(void);
-static const char *const HI_NAME[HI_N] = {"BRAIDS", "RINGS", "FILTER", "CLOUDS", "LOOP", "SPECTRL", "REVERB", "DELAY", "CHORUS", "LFO", "TIDES", "PEAKS", "FUNC",
+static const char *const HI_NAME[HI_N] = {"BRAIDS", "RINGS", "WAVE", "FILTER", "REVERB", "DELAY", "CHORUS", "LFO", "TIDES", "PEAKS", "FUNC",
                                           "GRIDS", "MSEQ", "GATE", "KNOB", "DRUMS", "JAM"};
 /* each icon's colour: the colour of its page (theme.h K_C_*; the table is in the manual) */
 static uint16_t h2_col(int hi)
@@ -177,7 +177,7 @@ static uint16_t h2_col(int hi)
     case HI_BRAIDS: return K_C_BRAIDS;
     case HI_RINGS: return K_C_RINGS;
     case HI_FILTER: return K_C_FILTER;
-    case HI_CLOUDS: case HI_CLOUDS_LOOP: case HI_CLOUDS_SPEC: return K_C_CLOUDS;
+    case HI_WAVETABLE: return K_C_WAVE;
     case HI_REVERB: return K_C_REVERB;
     case HI_DELAY: return K_C_DELAY;
     case HI_CHORUS: return K_C_CHORUS;
@@ -266,7 +266,7 @@ static const float *home_frame(uint32_t dt)
         int slot = i == 0 ? RS_SRC : i == 1 ? RS_SHP : i == 2 ? RS_GLO : i == 3 ? RS_FX1 : RS_FX2, id = i == 2 ? 12 : rc_patch.mod[slot], hi;
         if (!id || (i == 1 && id != 10))
             continue;
-        hi = i == 0 ? HI_BRAIDS : i == 1 ? HI_RINGS : i == 2 ? HI_FILTER : id == 30 ? HI_CLOUDS : id == 31 ? HI_DELAY : id == 32 ? HI_REVERB : HI_CHORUS;
+        hi = i == 0 ? (id == 5 ? HI_WAVETABLE : HI_BRAIDS) : i == 1 ? HI_RINGS : i == 2 ? HI_FILTER : id == 31 ? HI_DELAY : id == 32 ? HI_REVERB : HI_CHORUS;
         s = &h2.st[h2.ns++];
         s->hi = (uint8_t)hi;
         s->feed = 0;
@@ -278,13 +278,10 @@ static const float *home_frame(uint32_t dt)
             s->q = (uint8_t)(rk_get_param(RS_GLO, FLT_P0) + 0.5f);
         }
         s->flag = (uint8_t)((slot < RS_GLO && (rk_fm1_status(4) >> slot & 1)) ? 1 : 0) | (uint8_t)((slot == RS_FX1 || slot == RS_FX2) && rk_fx_bypass(slot) ? 2 : 0);
-        if (hi == HI_CLOUDS) {
-            int md;
+        if (hi == HI_WAVETABLE) {             /* SCAN X and MORPH Y as the matrix leaves them now */
             mon = rk_monitor(slot);
-            md = (int)(P(mon, 9) + 0.5f);
-            s->hi = (uint8_t)(md == 1 ? HI_CLOUDS_LOOP : md == 2 ? HI_CLOUDS_SPEC : HI_CLOUDS);
-            s->v = (int8_t)(fm_clampf(P(mon, 3), 0.0f, 1.0f) * 127.0f);      /* DENSITY, SIZE */
-            s->p = (uint8_t)(fm_clampf(P(mon, 1), 0.0f, 1.0f) * 255.0f);
+            s->v = (int8_t)(fm_clampf(P(mon, 1), 0.0f, 1.0f) * 127.0f);
+            s->p = (uint8_t)(fm_clampf(P(mon, 2), 0.0f, 1.0f) * 255.0f);
             mon = rk_monitor(RS_AMP);
         } else if (hi == HI_REVERB || hi == HI_DELAY || hi == HI_CHORUS) {
             int bp = s->flag & 2;
@@ -399,7 +396,7 @@ static const float *home_frame(uint32_t dt)
         }
     if (ti[6] >= 0)
         for (i = 0; i < h2.ns; i++)
-            if (h2.st[i].hi == HI_FILTER || h2.st[i].hi == HI_BRAIDS || h2.st[i].slot == RS_FX1 || h2.st[i].slot == RS_FX2)
+            if (h2.st[i].hi == HI_FILTER || h2.st[i].hi == HI_BRAIDS || h2.st[i].hi == HI_WAVETABLE || h2.st[i].slot == RS_FX1 || h2.st[i].slot == RS_FX2)
                 h2_feed(ti[6], i);
     /* the knob layer's tile moves when a knob was turned lately (cp_ro_act) */
     if (ti[5] >= 0) {
@@ -617,35 +614,12 @@ static void h2_chorus(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t 
         py0 = y0; py1 = y1;
     }
 }
-static void h2_clouds(const h2_t *t, int32_t x, int32_t y, uint16_t c, uint32_t br)   /* the cloud and its grains: as many as DENSITY says, new ones as often */
+static void h2_wave(const h2_t *t, int32_t x, int32_t y, uint16_t c, uint32_t br)   /* the icon with a scan line across it at SCAN X and a dot riding the wave at MORPH Y */
 {
-    int hi = t->hi, k, n = 1 + (int)((float)t->v * (11.0f / 127.0f));
-    uint32_t per = 50u + (uint32_t)(127 - t->v) * 2u, e = h2.ms / per;
-    h2_icon_rows(hi, x, y, c, br, S(14));
-    if (hi == HI_CLOUDS) {                    /* grains scattering */
-        for (k = 0; k < n; k++) {
-            uint32_t hh = h2_hash(e * 7u + (uint32_t)k * 131u);
-            int32_t gx = S(2) + (int32_t)(hh % (uint32_t)S(20)), gy = S(15) + (int32_t)((hh >> 8) % (uint32_t)S(8));
-            uint32_t a = 90u + (hh >> 16) % 166u;
-            h2_px(x + gx, y + gy, c, a * br / 256u);
-            h2_px(x + gx + 1, y + gy, c, a * br / 512u);
-            h2_px(x + gx, y + gy + 1, c, a * br / 512u);
-        }
-    } else if (hi == HI_CLOUDS_LOOP) {        /* the loop: a grain going round a coil */
-        float u = (float)h2.ms * (0.002f + (float)t->v * (0.006f / 127.0f));
-        int j;
-        for (j = 0; j < 4; j++) {
-            float a = u - (float)j * 0.45f, r = (3.0f + 0.9f * fm_sinf(a * 0.5f)) * (float)h2_is * (1.0f / 24.0f);
-            h2_dot3(x + S(12) + (int32_t)(r * fm_cosf(a) * 1.8f), y + S(19) + (int32_t)(r * fm_sinf(a)), c, br * (4u - (uint32_t)j) / 4u);
-        }
-    } else {                                  /* the spectrum: eight bars, their heights moving as the grains do */
-        for (k = 0; k < 8; k++) {
-            uint32_t hh = h2_hash(e * 13u + (uint32_t)k * 977u);
-            int32_t bh = 2 + (int32_t)(hh % 7u) * (1 + t->v / 40) / 2;
-            bh = S(bh > 9 ? 9 : bh);
-            cv_rect(x + S(2) + S(3) * k, y + S(23) - bh, S(2), bh, mix565(c, K_BG, br * 4u / 5u));
-        }
-    }
+    int32_t sx = S(2) + (int32_t)t->v * S(20) / 127;
+    h2_icon(t->hi, x, y, c, br);
+    cv_line(x + sx, y + S(3), x + sx, y + S(22), mix565(c, K_BG, br * 3u / 4u));
+    h2_dot3(x + sx, y + S(4) + (int32_t)t->p * S(14) / 255, c, br);
 }
 static void h2_knob(int32_t x, int32_t y, uint16_t c, uint32_t br, const h2_t *t)     /* the knob layer: a dial and its pointer at the macro turned last */
 {
@@ -678,7 +652,7 @@ static void h2_icon_live(const h2_t *t, int32_t x, int32_t y, uint16_t c, uint32
     case HI_REVERB: h2_reverb(x, y, c, br, t); return;
     case HI_DELAY: h2_delay(x, y, c, br, t); return;
     case HI_CHORUS: h2_chorus(x, y, c, br, t); return;
-    case HI_CLOUDS: case HI_CLOUDS_LOOP: case HI_CLOUDS_SPEC: h2_clouds(t, x, y, c, br); return;
+    case HI_WAVETABLE: h2_wave(t, x, y, c, br); return;
     case HI_KNOB: h2_knob(x, y, c, br, t); return;
     case HI_BRAIDS: dy = (int32_t)(fm_sinf(tt * 9.0f) * (float)a * (1.6f / 255.0f) + 0.5f); break;      /* wobbling with its level */
     case HI_RINGS: dx = (int32_t)(fm_sinf(tt * 7.0f) * (float)a * (1.6f / 255.0f) + 0.5f); dy = (int32_t)(fm_cosf(tt * 9.0f) * (float)a * (1.2f / 255.0f) + 0.5f); break;

@@ -5,7 +5,7 @@ usb_manufacturer = "FM1PH2"
 usb_product = "FM1 PHASE 2"
 words = "words.tsv"
 ble = false
-# the second core (fm1-base's plat_cpu2_*) renders half the voices (rack.cc render_voices), or, with CLOUDS loaded (update 9, -DRACK_FX_CORE2 below), runs Clouds; with the fallback, a unit
+# the second core (fm1-base's plat_cpu2_*) renders half the voices (rack.cc render_voices), with the fallback, a unit
 # whose second core misbehaves (fm1-base's notes: some FM-1s misread shared RAM) carries on with one core
 # USB audio (update 57, Josh: "I would like audio over USB"; off from 8 Nov to update 56): the FM-1 shows up as an
 # audio device beside its MIDI, recordable on the computer (in), and the computer can play through it (out). Costs
@@ -22,11 +22,9 @@ cpu2_fallback = true
 gen = ["make_units.py", "make_font.py {gen}"]   # (update 51: make_font.py, FM1 Rack's own typeface, over fm1-base's)
 o2 = ["units/*.cc"]
 o2_cflags = ["-std=gnu++11", "-w", "-fbuiltin", "-fno-exceptions", "-fno-rtti", "-DTEST", "-DRACK_FM1", "-DRACK_LITE",
-             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-DRACK_CLOUDS", "-DRACK_CLOUDS_NO_STRETCH", "-DRACK_CLOUDS_SHARE_SINE", "-DRACK_CLOUDS_32K", "-DRACK_CLOUDS_MAX_GRAINS=24", "-DRACK_CLOUDS_GRAIN_SLOTS=24", "-DRACK_CLOUDS_SKIP_REVERB", "-DRACK_FX_CORE2", "-DRACK_DRUMS", "-DRACK_BRAIDS_TRIM", "-DRACK_OUTN=288", "-O2", "-fdata-sections"]
-# CLOUDS (Mutable's texture processor, MIT; FM1 Phase 2 step 5) is in the Lite build: -DRACK_CLOUDS (the engine builds it in, with its buffers trimmed to
-# 98,304 + 49,152 B, engine/rack.cc RACK_CLOUDS_SMALL; its object lives in the arena) and -DRACK_CLOUDS_NO_STRETCH (STRETCH is silent with the Mutable
-# checkout used, so MODE is GRANULR, LOOPDLY, SPECTRL). With it loaded and the arena short, the reverb gives way first, the delay only if nothing else will do
-# (rack.cc fm1_layout). Flash and CPU on an FM-1 are NOT measured (no device build here)
+             "-DRACK_ARENA_KB=304", "-DRACK_ARENA_POOL", "-DRACK_RINGS16", "-DRACK_NO_PLAITS", "-DRACK_DRUMS", "-DRACK_BRAIDS_TRIM", "-DRACK_WAVE", "-DRACK_OUTN=288", "-O2", "-fdata-sections"]
+# WAVE (Plaits' wavetable engine, MIT; 2.48) is a source: -DRACK_WAVE (engine/rack.cc, units/rack_wave_osc.h and the 50,688 B wave data from common/make_wave_osc.py).
+# Clouds (the granular processor) was removed in 2.48; the second core renders half the voices only.
 # GRAIN (the home-made granular source) is SHELVED: compiled only with -DRACK_WITH_GRAIN, which is not in o2_cflags above. To build it in, add
 # "-DRACK_WITH_GRAIN" to o2_cflags (and to the bench's fm1.toml); on a computer: RACK_FLAGS=-DRACK_WITH_GRAIN sh build_host.sh
 # FM1 Rack's Plaits shim (first: it stands in for one of Plaits' headers), the Mutable code (a checkout of
@@ -42,7 +40,7 @@ author = "Josh Cowley"
 repo = "https://github.com/JoshCowley/FM1-Phase-2"
 site = "https://joshcowley.github.io/FM1-Phase-2/"
 install = "https://joshcowley.github.io/FM1-Phase-2/install/"
-description = "FM1 Phase 2 turns the M-VAVE FM-1 into a polyphonic synth voice built from Mutable Instruments' open-source module code: Braids oscillators, Rings, a filter, Tides, Peaks, Grids and function generators, a modulation matrix, delay, reverb, chorus and the Clouds granular processor on the second core. Four macro knobs per preset; HOME shows the sound as a live spectral ribbon. A pre-release: not yet tested widely on hardware."
+description = "FM1 Phase 2 turns the M-VAVE FM-1 into a polyphonic synth voice built from Mutable Instruments' open-source module code: Braids oscillators, Rings, a filter, Tides, Peaks, Grids and function generators, a modulation matrix, delay, reverb, chorus and Plaits' wavetable source. Four macro knobs per preset; HOME shows the sound as a live spectral ribbon. A pre-release: not yet tested widely on hardware."
 tags = ["synth", "ambient", "experimental"]
 screenshot = "docs/img/screen.png"
 boot_pack = true

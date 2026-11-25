@@ -1,29 +1,19 @@
 /* SPDX-License-Identifier: MPL-2.0 */
-/* FM1 Phase 2 firmware: the CLOUDS page's picture (update 7), part of app.c after vis.c and vis3.c.
+/* FM1 Phase 2 firmware: the picture kit's layout (update 7; the Clouds page it was made for went in 2.48), part of app.c after vis.c and vis3.c.
  *
  * The page is "picture first" with the picture all the way down to a slim band of four read-outs: the picture is 240 x
  * 190 (y 10 to 200), drawn in five bands of at most 40 rows (the canvas is 240 x 40), the read-outs 240 x 40 under it.
  * Drawing is in the main loop (app_loop: draw() and draw_well_only()), never in the audio interrupt or on the second
  * core, so a slow frame delays the screen and the buttons, not the sound.
  *
- * What is real and what is illustrative:
- *   real     the parameters as the engine hears them (rk_monitor: POSITION, SIZE, PITCH, DENSITY, TEXTURE, SPRAY, MODE,
- *            FREEZE, QUALITY, with the matrix's modulation), the output peak (the ribbon and every brightness), the
- *            voices' gates (a burst of grains on a new note), the buffer's real length for the QUALITY chosen (the
- *            comet's speed), the freeze (the ribbon stops being written, as the buffer does).
- *   modelled grain births: their rate from DENSITY (none at 0.47 to 0.53, where Clouds plays none), their place from
- *            POSITION and SPRAY, their size, hue, softness and speed from SIZE, PITCH and TEXTURE. Clouds' real grain
- *            positions are private to Mutable's code and are NOT read.
- *   illustrative  SPECTRL's 24 curtains: Clouds' FFT is not read; they follow TEXTURE, DENSITY, SIZE and the level.
- *            The ribbon's small column-to-column texture is cosmetic (it only ever scales the real level).
- * Cost: no floating point and no maths functions per pixel: glows are const sprites (clouds_sprites.h, in flash) added
- * with saturation into RGB565; at most CP_NM motes; the picture is drawn at most 30 times a second and not at all
+ * Cost: no floating point and no maths functions per pixel: glows are const sprites (pic_sprites.h, in flash) added
+ * with saturation into RGB565; at most CP_NM motes; the pictures are drawn at most 12.5 times a second and not at all
  * while the sound is silent and nothing on it moves.
- * Update 8: at most 20 pictures a second, and only the ROWS THAT CHANGED are sent to the LCD (a hash of each row of the picture and of the
+ * Update 8: only the ROWS THAT CHANGED are sent to the LCD (a hash of each row of the picture and of the
  * read-outs, kept from the last frame: rows alike are not sent; runs of changed rows within CP_GAP of each other go in one transfer). The
  * picture is composed in full as before (the compose is cheap, 130-160 us on the host); what is saved is the SPI transfer, which is what the
  * FM-1's 25-30 ms a frame (update 7's debug read-out) is made of, and the wait for it at the next canvas clear. */
-#include "clouds_sprites.h"
+#include "pic_sprites.h"
 #ifdef PLAT_HOST
 #include <stdio.h>
 #endif
@@ -37,7 +27,7 @@
 #define HR_NB 9                               /* update 14: HOME's ribbons: 9 frequency bands x 72 columns of history, one byte each (aliased on the ribbon arrays below) */
 #define HR_NC 72
 #define HR_ND 48                              /* HOME's grain dabs (aliased on the mote field: HOME has no motes) */
-#define SC_CLOUDS 0                           /* update 13: the pictures (cp.scene) */
+#define SC_WAVE 0                             /* update 13: the pictures (cp.scene); 2.48: 0 is the wavetable source's (it was Clouds') */
 #define SC_BRAIDS 1
 #define SC_RINGS 2
 #define SC_FILTER 3
@@ -140,9 +130,6 @@ static uint32_t cp_hue(int32_t k)             /* HUE step k (0-15) as 0xRRGGBB *
     k = k < 0 ? 0 : k > 15 ? 15 : k;
     return (uint32_t)HUE[k * 3] << 16 | (uint32_t)HUE[k * 3 + 1] << 8 | HUE[k * 3 + 2];
 }
-static const char *const CP_MODE[3] = {"GRANULR", "LOOPDLY", "SPECTRL"};
-static const uint16_t CP_BUF_MS[4] = {512, 1024, 2048, 4096};   /* the buffer's length at 48 kHz for QUALITY 16 ST, 16 MONO, 8 ST, 8 MONO (1.5 x as long at 32 kHz, update 8) */
-
 
 static void cp_birth(int32_t x, int32_t y, int32_t vx, int32_t vy, int hue, int sz, int soft, int spark, uint32_t life)
 {
@@ -195,126 +182,6 @@ static void cp_motes_advance(uint32_t dt, uint32_t lv8)
     }
 }
 
-/* the picture's state moves on dt ms: level, write head, ribbon, grain births, motes */
-static void cp_step(const float *mon, uint32_t dt)
-{
-    float raw = mon[48] > mon[49] ? mon[48] : mon[49], pos = P(mon, 0), size = P(mon, 1), pitch = P(mon, 2), dens = P(mon, 3);
-    float tex = P(mon, 4), spray = P(mon, 16);
-    int qual = (int)(P(mon, 11) + 0.5f) & 3, i, n, mode = (int)(P(mon, 9) + 0.5f), pf, hue, gates = 0;
-    uint32_t bufms, col0, col1, lv8, lo;
-    static uint8_t gate_was;
-    cp_level(raw, dt);
-    mode = mode < 0 ? 0 : mode > 2 ? 2 : mode;
-    if (cp.nobirth)                           /* HOME without Clouds: no grains, the granular field is only fading */
-        mode = 0, dens = 0.5f;
-    cp.mode = mode;
-    cp.freeze = !cp.nobirth && (int)(P(mon, 10) + 0.5f) == 1;
-    if (mode == 2)
-        qual |= 1;                            /* SPECTRL plays as the mono QUALITY (engine: CL_TRIMMED) */
-    bufms = CP_BUF_MS[qual] * (rk_fm1_status(5) ? 3u : 2u) / 2u;   /* (Clouds at 32 kHz holds the same samples 1.5 x as long) */
-    lv8 = (uint32_t)(cp.lv * 255.0f);
-    pitch = pitch < -1.0f ? -1.0f : pitch > 1.0f ? 1.0f : pitch;
-    pf = (int)((pitch + 1.0f) * 0.5f * 15.0f + 0.5f);
-    {   /* the new notes: a burst of grains (NOTE TRG and a fresh chord both start grains) */
-        uint8_t g = 0;
-        for (i = 0; i < 6; i++)
-            if (mon[28 + i] >= 1.0f)
-                g |= (uint8_t)(1u << i);
-        gates = (g & ~gate_was) != 0 && !cp.nobirth;
-        gate_was = g;
-    }
-    /* the ribbon: written as the head passes, unless frozen; silent, the head parks and the ribbon settles flat */
-    if (lv8 < 3u) {
-        if (!cp.freeze)
-            for (i = 0; i < 240; i++)
-                cp.env[i] = (uint8_t)(cp.env[i] - (cp.env[i] >> 3) - (cp.env[i] ? 1 : 0));
-    } else if (!cp.freeze) {
-        col0 = cp.head >> 8;
-        cp.head += dt * (240u * 256u) / bufms;
-        if (cp.head >= 240u * 256u)
-            cp.head -= 240u * 256u;
-        col1 = cp.head >> 8;
-        {
-            int tot = (int)(col1 >= col0 ? col1 - col0 : col1 + 240u - col0);
-            tot = tot ? tot : 1;
-            for (n = 0, i = (int)col0; i != (int)col1 && n < 240; n++) {
-            uint32_t lvi = (cp.lv8_prev * (uint32_t)(tot - n) + lv8 * (uint32_t)n) / (uint32_t)tot;
-            lo = lvi * (236u + (cp_rnd() & 31u)) >> 8;
-            cp.env[i] = (uint8_t)(lo > 255u ? 255u : lo);
-            i = i + 1 >= 240 ? 0 : i + 1;
-            }
-        }
-    }
-    cp.lv8_prev = lv8;
-    if (mode == 1 && lv8 >= 3u) {   /* LOOPDLY: the playhead goes round the loop */
-        uint32_t nl = (uint32_t)((0.10f + 0.90f * size) * 256.0f) + 1u, loop_ms = (uint32_t)((float)bufms * (0.3f + 0.7f * size)) + 1u;
-        cp.ph += dt * nl * 256u / loop_ms;
-        cp.ph %= nl * 256u;
-    }
-    /* grain births */
-    {
-        float d = dens - 0.5f, rate = 0.0f, lvg = cp.lv * 3.0f > 1.0f ? 1.0f : cp.lv * 3.0f;
-        d = d < 0.0f ? -d : d;
-        if (mode == 0 && d > 0.03f && lv8 >= 3u)
-            rate = (d - 0.03f) * (1.0f / 0.47f) * 70.0f * lvg;
-        else if (mode == 1 && lv8 >= 3u)
-            rate = 14.0f * lvg;
-        else if (mode == 2 && lv8 >= 3u)
-            rate = 12.0f * lvg;
-        cp.acc += (uint32_t)(rate * 10.0f) * dt;
-        n = 0;
-        while (cp.acc >= 10000u || (gates && n < 5 && mode == 0 && d > 0.03f)) {
-            int32_t x, y, vx, vy, sz, mult, ang;
-            int soft = (float)(cp_rnd() & 255u) < tex * 255.0f;
-            uint32_t r = cp_rnd();
-            if (cp.acc >= 10000u)
-                cp.acc -= 10000u;
-            n++;
-            if (n > 24)
-                break;
-            hue = pf + (int)(r & 3u) - 1;
-            sz = size < 0.33f ? 0 : size < 0.66f ? 1 : 2;
-            if ((r >> 4 & 3u) == 0u && sz < 2) sz++;
-            if (pf < 5 && sz < 2) sz++;       /* down: larger */
-            else if (pf > 11 && sz > 0 && (r >> 6 & 1u)) sz--;
-            mult = -170 + 680 * pf / 15;       /* x 1/256: sinking a little at the bottom of PITCH, rising fast at the top */
-            if (mode == 0) {
-                /* (update 27: the newest audio at the right; with WINDOW up the grains rise round the playhead, JITTER spreading them over the window) */
-                float win = P(mon, 22);
-                int32_t j = 14 + (int32_t)(spray * 80.0f), px = (int32_t)((1.0f - (win > 0.0f ? mon[162] : pos)) * 239.0f);
-                if (win > 0.0f)
-                    j += (int32_t)(P(mon, 24) * win * 120.0f);
-                x = px + (int32_t)((cp_rnd() & 255u) + (cp_rnd() & 255u) - 255u) * j / 255;
-                x = x < 2 ? 2 : x > 237 ? 237 : x;
-                y = cp.cy - 18 + (int32_t)(cp_rnd() % 36u);
-                vx = (int32_t)(cp_rnd() % 16000u) - 8000;
-                vy = -(int32_t)((50u + cp_rnd() % 70u) * 256u) * mult / 256;
-                cp_birth(x, y, vx, vy, hue, sz, soft, 0, 800u + (cp_rnd() % 900u) + (uint32_t)sz * 150u);
-            } else if (mode == 1) {           /* sparks off the lit arc of the orbit */
-                int32_t nl = (int32_t)((0.10f + 0.90f * size) * 256.0f) + 1, s0 = (int32_t)(pos * 256.0f);
-                int32_t pidx = (s0 + (int32_t)(cp_rnd() % (uint32_t)nl)) & 255, phi = (int32_t)(pitch * 28.0f);
-                int32_t ex = 100 * cp_cos(pidx) >> 14, ey = 70 * cp_sin(pidx) >> 14;
-                x = 120 + ((ex * cp_cos(phi) - ey * cp_sin(phi)) >> 14);
-                y = 88 + ((ex * cp_sin(phi) + ey * cp_cos(phi)) >> 14);
-                ang = pidx;
-                vx = cp_cos(ang) * 40 >> 14 << 8;
-                vy = cp_sin(ang) * 40 >> 14 << 8;
-                cp_birth(x, y, vx, vy, hue, 0, 0, 1, 700u + cp_rnd() % 700u);
-            } else {                          /* SPECTRL: sparks lift off the curtains' tops */
-                int32_t k = (int32_t)(cp_rnd() % 24u);
-                x = 10 + k * 9;
-                y = 168 - (int32_t)cp.colh[x] - 4;
-                cp_birth(x, y < 8 ? 8 : y, (int32_t)(cp_rnd() % 600u) - 300, -(int32_t)(26u + cp_rnd() % 30u) * 256, 4 + (int)(cp_rnd() & 3u), 0, 0, 1, 700u + cp_rnd() % 900u);
-            }
-            gates = 0;
-            
-        }
-        if (cp.acc > 30000u)
-            cp.acc = 30000u;
-    }
-    cp_motes_advance(dt, lv8);
-}
-
 /* update 8: the canvas (hb rows, drawn for screen row y) to the LCD, only the rows that are not what was last sent there (rh: the hash of
  * each); runs of changed rows no more than CP_GAP rows apart are one transfer. rh_ok = 0 (the screen was cleared or drawn over): all. */
 static void cp_send(uint32_t y, int hb, uint32_t *rh)
@@ -354,7 +221,6 @@ static int pic_idle(int sc);
 static const char *pic_sub(int sc, const float *mon);
 static void pk_icon_draw(int ic, int32_t x, int32_t y, uint16_t c);
 static void fam_reset(void);
-static void fm_clouds_step(const float *mon, uint32_t dt);
 static const float *home_frame(uint32_t dt);
 static void home_draw(const float *mon, int pf);
 static void home_text(void);
@@ -425,7 +291,7 @@ static void cp_readouts(int pg, const ui_mod_t *m)
         l[q] = 0;
         while (text_w(&FONT_T, l) > 56 && q > 1) l[--q] = 0;
         fmt(p, v, t);
-        cp_ro_cell(k, l, t, frac(p, v), p->t == UT_BIP, p->t == UT_LIST || p->t == UT_INT, cp.scene == SC_CLOUDS ? K_C_CLOUDS : KNOB_C[k], g);
+        cp_ro_cell(k, l, t, frac(p, v), p->t == UT_BIP, p->t == UT_LIST || p->t == UT_INT, cp.scene == SC_WAVE ? K_C_WAVE : KNOB_C[k], g);
     }
     cp.pkey = key;
     cp_send(CP_RY, 40, cp.rh + CP_H);
@@ -458,7 +324,7 @@ static void cp_dbg_text(void)
 }
 static int pic_icon_of(int sc)
 {
-    static const uint8_t IC[14] = {IC_CLOUDS, IC_BRAIDS, IC_RINGS, IC_FILTER, IC_TIDES, IC_PEAKS, IC_GRIDS, IC_FUNC, IC_DELAY, IC_REVERB, IC_CHORUS, IC_HOME, IC_LFO, IC_AMP};
+    static const uint8_t IC[14] = {IC_WAVE, IC_BRAIDS, IC_RINGS, IC_FILTER, IC_TIDES, IC_PEAKS, IC_GRIDS, IC_FUNC, IC_DELAY, IC_REVERB, IC_CHORUS, IC_HOME, IC_LFO, IC_AMP};
     return IC[sc > 13 ? 0 : sc];
 }
 static void cp_text_layers(const float *mon, int pg, const ui_mod_t *m)
@@ -472,17 +338,10 @@ static void cp_text_layers(const float *mon, int pg, const ui_mod_t *m)
     if (cp.by < 26) {
         pk_icon_draw(pic_icon_of(cp.scene), 3, 1, page_colour(pg));      /* update 13: the page's icon, alive with its process */
         cv_text(24, 2, &FONT_T, m->name, page_colour(pg));
-        cv_text(24, 12, &FONT_T, cp.scene == SC_CLOUDS ? CP_MODE[cp.mode] : pic_sub(cp.scene, mon), K_DIM);
+        cv_text(24, 12, &FONT_T, pic_sub(cp.scene, mon), K_DIM);
         for (i = 0; i < np && np > 1; i++) {                        /* the page: small dots, top right */
             int32_t x = 234 - (np - 1 - i) * 7, r = i == sb ? 2 : 1;
             cv_rect(x - r, 5 - r, 2 * r + 1, 2 * r + 1, i == sb ? K_FG : mix565(K_DIM, K_BG, 140));
-        }
-        if (cp.freeze && cp.scene == SC_CLOUDS) {                  /* FROZEN: a small snow-flake and the word */
-            cv_line(7, 29, 15, 29, 0xBF7Fu);
-            cv_line(11, 25, 11, 33, 0xBF7Fu);
-            cv_line(8, 26, 14, 32, 0xBF7Fu);
-            cv_line(8, 32, 14, 26, 0xBF7Fu);
-            cv_text(20, 24, &FONT_T, "FROZEN", 0xBF7Fu);
         }
     }
     cp_dbg_text();
@@ -515,19 +374,18 @@ static int pic_scene(int pg)
     case 21: return SC_TIDES;
     case 23: return SC_GRIDS;
     case 24: return SC_FUNC;
-    case 30: return SC_CLOUDS;
+    case 5: return SC_WAVE;
     case 31: return SC_DELAY;
     case 32: return SC_REVERB;
     case 33: return SC_CHORUS;
     default: return -1;
     }
 }
-static int clouds_page(int pg) { return pic_scene(pg) == SC_CLOUDS; }
 
 /* the whole picture screen between the status strip and the bottom: the picture, then the read-outs */
 static void help(const char *s);
 static int cp_screen_do(int pg, const ui_mod_t *m, int force);
-static void clouds_screen(int pg, const ui_mod_t *m, int force)
+static void pic_screen(int pg, const ui_mod_t *m, int force)
 {
     uint32_t ta = plat_ticks24(), now = plat_ms();
     cp.scene = pic_scene(pg);
@@ -584,16 +442,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         mon = home_frame(dt);                 /* (it stepped the granular field, and the morph) */
     } else {
         mon = rk_monitor(page_slot(pg));
-        if (sc == SC_CLOUDS) {
-            cp_step(mon, dt);
-            fm_clouds_step(mon, dt);
-        } else
-            pic_step(sc, mon, dt);
-    }
-    if (sc == SC_CLOUDS) {
-        float pitch = P(mon, 2);
-        pitch = pitch < -1.0f ? -1.0f : pitch > 1.0f ? 1.0f : pitch;
-        pf = (int)((pitch + 1.0f) * 7.5f + 0.5f);
+        pic_step(sc, mon, dt);
     }
     quiet = cp.lv < 0.012f && !cp.nlive && (pic_idle(sc) || sc == SC_HOME);
     {   /* nothing moves (silent, no motes) and nothing was changed: the picture stays as it is */
@@ -604,8 +453,9 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         else
             for (i = 0; i < 16; i++)
                 sig = sig * 31u + (uint32_t)(P(mon, i) * 255.0f + 300.0f);
-        if (sc == SC_CLOUDS)
-            sig ^= (uint32_t)((int)(P(mon, 9) + 0.5f) + 4 * cp.freeze + 16 * ((int)(P(mon, 11) + 0.5f) & 3)) * 97u;
+        if (sc == SC_WAVE)
+            for (i = 0; i < 64; i += 4)
+                sig = sig * 31u + (uint32_t)(mon[WV_MON + i] * 255.0f + 300.0f);   /* (the wave moves with the matrix) */
         sig ^= (uint32_t)(8 * cp.dbg) * 97u + (uint32_t)sc * 7919u;
         if (!force && quiet && sig == cp.sig && !cp.dbg) {
             cp.still = 1;

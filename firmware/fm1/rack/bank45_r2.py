@@ -8,6 +8,8 @@ from presets_granular import REV, DLY
 
 
 def round2(pool):
+    from bank45_wave import wave_presets
+    WV = wave_presets()
     S = lambda *a, **kw: spec(*a, pool=pool, **kw)
     N = newp
     L = []
@@ -87,15 +89,7 @@ def round2(pool):
               "FX 2.MIX .3 0 .5 L; FX 2.SIZE .3 .3 1 L; FX 1.MIX .3 .4 1 L; FX 1.FEEDBACK .4 .6 1 SL; AMP.RELEASE .4 .5 1 S"),
              BRK), macros=(0.4, 0.3, 0.5, 0.3))
 
-    thumb("BOX KALIMBA", SL, {"MODEL": "FM", "TIMBRE": 0.06, "COLOR": 0.91, "AD DEC": 0.12, "AD>TIMB": 0.5},
-          FL("LP", 0.6, 0.15, 0.1, 0.0, 0.7, 0.3), {"DECAY": 0.65, "RELEASE": 0.3}, CHO(0.15, "CHORUS", 0.2, 0.3, 0.7), REV("PLATE", 0.25, 0.12),
-          "A box kalimba: a woody, resonant body behind a short bright tine, a touch of chorus and a small room.",
-          tk(("The body goes from a dull wooden knock to a hollow, resonant box; the top is a hard, ringing, nasal tone.",
-              "SRC.TIMBRE .4 0 1 SL; SHP.CUTOFF .45 0 1 L; SHP.RESO .35 .2 1 SL; SHP.AUDIO FM .5 .6 1 SL; SRC.AD>TIMB .3 .2 1 L"),
-             SHV,
-             ("A dry box to a bigger room and a swelling chorus; past 65% the chorus feeds back and the knock rings on.",
-              "FX 2.MIX .3 0 .5 L; FX 2.SIZE .3 .3 1 L; FX 1.MIX .3 .4 1 L; FX 1.FEEDBACK .4 .6 1 SL; AMP.RELEASE .4 .5 1 S"),
-             BRK), macros=(0.5, 0.3, 0.3, 0.3))
+    L.append(WV["WAVE KEYS"])
 
     thumb("BELL KALIMBA", SD, {"MODEL": "FM", "TIMBRE": 0.1, "COLOR": 0.93, "AD DEC": 0.15, "AD>TIMB": 0.4},
           FL("LP", 0.55, 0.05, 0.05, 0.0, 0.7, 0.2), {"DECAY": 0.7, "RELEASE": 0.5}, DLY("1/8D", 0.3, 0.2, "PING"), REV("HALL", 0.6, 0.25),
@@ -131,15 +125,7 @@ def round2(pool):
             "FX 1.FEEDBACK .45 .6 1 SL; AMP.RELEASE .4 .5 1 S; FX 2.SIZE .25 .4 1 L"),
            ("GRIT", *GRIT)]))
 
-    a(S("HOLLOW LEAD", cat="LEAD", move="subtle", level=0.5, rows=RND,
-        summary="A hollow, square-ish mono lead with a soft filter swell and a slow Tides drift on the cutoff.",
-        k=[("WOOD", "A closed, woody tone at 0, opening to a reedy hollow sound; the top is a hard, nasal buzz.",
-            "SHP.AUDIO FM .5 .65 1 SL"),
-           ("DRIFT", "The Tides drift and the vibrato speed and deepen; the top is a restless wobble.",
-            "ROW 15 .02 .3 1 SL; ROW 16 .3 .4 1 SL; ROW 17 .5 .4 1 SL; LFO.RATE 3 .4 .4 1 SL"),
-           ("SPACE", "A dry line at 0, delay and hall behind it; past 65% the delay feeds back.",
-            "FX 1.FEEDBACK .45 .6 1 SL; AMP.RELEASE .4 .5 1 S; FX 2.SIZE .25 .4 1 L"),
-           ("GRIT", *GRIT)]))
+    a(WV["WAVE LEAD"])
 
     a(S("FORMANT LEAD", cat="LEAD", move="medium", level=0.5, rows=RND,
         summary="A vowel lead: the formants glide between sung vowels under Tides, with a delay and a hall.",
@@ -203,7 +189,7 @@ def round2(pool):
              ("The delay and hall open; past 65% the delay feeds back and its repeats darken into a wash.",
               "FX 1.MIX .3 0 .5 L; FX 1.FEEDBACK .4 .6 1 SL; FX 1.TONE -.4 .6 1 L; FX 2.SIZE .3 .3 1 L; AMP.RELEASE .4 .5 1 S"),
              BRK), kind="arp", macros=(0.5, 0.3, 0.4, 0.3), level=0.45)
-    names = ["FM BELL", "GLASS BELLS", "SYMPATH HARP", "KALIMBA", "MBIRA", "SANSULA", "BOX KALIMBA", "BELL KALIMBA", "HAZE KALIMBA",
-             "SAW LEAD", "HOLLOW LEAD", "FORMANT LEAD", "HARD SYNC", "FLUTE", "STRING LEAD"]
+    names = ["FM BELL", "GLASS BELLS", "SYMPATH HARP", "KALIMBA", "MBIRA", "SANSULA", "WAVE KEYS", "BELL KALIMBA", "HAZE KALIMBA",
+             "SAW LEAD", "WAVE LEAD", "FORMANT LEAD", "HARD SYNC", "FLUTE", "STRING LEAD"]
     L.sort(key=lambda q: names.index(q["name"]))
     return L

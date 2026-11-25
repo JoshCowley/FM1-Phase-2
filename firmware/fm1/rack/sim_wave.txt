@@ -1,0 +1,66 @@
+# FM1 Phase 2 2.48: the wavetable source. WAVE PAD (preset 3 of the bank) on HOME with a chord held, then the WAVE page (EDIT) with its picture of the wave and the scan
+# position, a knob turned to move the scan, then WAVE LEAD (preset 26) and WAVE DRONE (preset 42) on HOME. Exit 0 = it ran; the shots are the pictures to look at.
+wait 500
+turn PRESET 3
+wait 1200
+key w0 down 100
+key w4 down 100
+key w7 down 90
+wait 3500
+shot wave_home_pad_1.png
+wait 700
+shot wave_home_pad_2.png
+press OCT-
+press OCT+
+wait 700
+shot wave_home_pad_debug.png
+release OCT-
+release OCT+
+wait 300
+tap EDIT
+wait 300
+wait 3500
+shot wave_page_1.png
+turn K1 12
+wait 1500
+shot wave_page_scan_a.png
+turn K1 -25
+wait 1500
+shot wave_page_scan_b.png
+turn SELECT 1
+wait 1200
+shot wave_page_2.png
+turn SELECT 1
+wait 1200
+shot wave_page_3.png
+key w0 up
+key w4 up
+key w7 up
+wait 300
+press HOME
+release HOME
+wait 300
+turn PRESET 23
+wait 1200
+key w7 down 100
+wait 3000
+shot wave_home_lead.png
+tap EDIT
+wait 1500
+shot wave_page_lead.png
+key w7 up
+press HOME
+release HOME
+wait 300
+turn PRESET 16
+wait 1200
+key w0 down 100
+key w7 down 90
+wait 3500
+shot wave_home_drone.png
+tap EDIT
+wait 1500
+shot wave_page_drone.png
+key w0 up
+key w7 up
+wait 800

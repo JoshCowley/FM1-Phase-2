@@ -8,6 +8,8 @@ from presets_batch3 import TD, FL, PK
 
 
 def round1(pool):
+    from bank45_wave import wave_presets
+    WV = wave_presets()
     S = lambda *a, **kw: spec(*a, pool=pool, **kw)
     N = newp
     L = []
@@ -35,16 +37,7 @@ def round1(pool):
            ("ROSIN", "Resonance and drift, then drive and a random pitch scatter per note near the top, and a bit-crush at the end.",
             "SHP.DRIVE .5 .5 1 SL; ROW @1 .05 .7 1 SL; SRC.BITS -.4 .9 1 T")]))
 
-    a(S("SLOW STRINGS", cat="PAD", move="medium", level=0.3, rows=[["RANDOM", "PITCH", 0.0]],
-        summary="Slow-attack strings with a Peaks envelope and a Tides loop that move the filter and the timbre.",
-        k=[("SWELL", "Hardly any attack at 0 to a long swell and brighter saw by the middle; the top folds the timbre and rings the filter.",
-            "SHP.AUDIO FM .3 .75 1 SL; SRC.TIMBRE .3 .8 1 SL"),
-           ("TIDE", "Tides speeds up and the filter and timbre moves follow it; the top is a fast stutter of the whole sound.",
-            "LFO.RATE 1 .45 .35 1 SL; MOD A.K2 .5 .5 1 SL; ROW 13 .5 .5 1 SL; MOD A.K1 .3 .6 1 L"),
-           ("CATHEDRAL", "Chorus and reverb grow together; past 65% the hall runs on and the chorus feeds back.",
-            "FX 1.FEEDBACK .5 .65 1 SL; AMP.RELEASE .35 .5 1 S; FX 2.SIZE .15 .5 1 L"),
-           ("DUST", "Resonance and drive rise gently; random pitch scatter and a bit-crush take over near the top.",
-            "ROW @1 .05 .7 1 SL; SRC.BITS -.4 .88 1 T; SRC.DRIFT .4 .3 1 L")]))
+    a(WV["WAVE PAD"])
 
     a(S("VOX PAD", cat="PAD", move="subtle", level=0.35, rows=[["RANDOM", "PITCH", 0.0]], lfo_set={5: ("AMP.LEVEL", 0.0)}, edit={"LFO": {"SHAPE 3": "SQUARE"}},
         summary="A choir-like pad from Braids' vowel model, a slow Tides loop and a wide chorus.",
@@ -69,17 +62,16 @@ def round1(pool):
             "ROW @1 .05 .7 1 SL; SRC.BITS -.4 .88 1 T; SRC.DRIFT .5 .3 1 L")]))
 
     a(S("TIDE PAD", cat="PAD", move="bold", level=0.6, rows=[["RANDOM", "PITCH", 0.0]],
-        drop=[(3, "FX 2.MIX"), (3, "FX 2.SIZE")], slots={"FX2": None}, edit={"FX1": {"REVERB": 0.3}},
-        lfo_tgt=[("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 1.BLEND", 0.1), None, ("SRC.TIMBRE", 0.1), ("AMP.LEVEL", 0.0)],
-        summary="A saw pad through light Clouds with a Tides AR that moves the colour, the cutoff and the grain blend.",
-        k=[("COLOUR", "A dark saw at 0, colour and cutoff opening and the Tides speed rising to the middle; the top scans the grains hard.",
-            "FX 1.POSITION .4 .3 1 L; FX 1.SIZE -.5 .6 1 SL; SHP.AUDIO FM .5 .6 1 SL; FX 1.TEXTURE .4 .65 1 SL"),
-           ("MOTION", "The shape of the Tides AR and the LFO speeds move together; the top is a restless, fast-moving cloud.",
+        lfo_tgt=[("SHP.CUTOFF", 0.15), ("SRC.COLOR", 0.1), ("FX 2.DEPTH", 0.1), None, ("SRC.TIMBRE", 0.1), ("AMP.LEVEL", 0.0)],
+        summary="A saw pad whose Tides AR moves the colour, the cutoff and the reverb's shimmer, with a chorus behind it.",
+        k=[("COLOUR", "A dark saw at 0, colour and cutoff opening and the Tides speed rising to the middle; the top is audio-rate FM and a sharp edge.",
+            "FX 2.RATE .4 .3 1 L; FX 2.DEPTH .4 .6 1 SL; SHP.AUDIO FM .5 .6 1 SL; FX 1.SHIMMER .4 .65 1 SL"),
+           ("MOTION", "The shape of the Tides AR and the LFO speeds move together; the top is a restless, fast-moving pad.",
             "LFO.RATE 1 .45 .3 1 SL; LFO.RATE 2 .4 .4 1 SL; ROW 13 .3 .5 1 SL; ROW 14 .3 .5 1 SL; LFO.RATE 3 .5 .4 1 SL; ROW 18 .6 .5 1 SL"),
-           ("CLOUD", "The reverb opens; Clouds' own reverb and feedback follow, and the tails run on and on.",
-            "FX 1.REVERB .5 .4 1 SL; FX 1.FEEDBACK .45 .65 1 SL; AMP.RELEASE .3 .5 1 S; FX 1.TONE .25 .5 1 SL"),
-           ("SCATTER", "Resonance and drive, then Clouds' grain spray and pitch random: the pad breaks into drifting pitched grains.",
-            "FX 1.SPRAY .7 .5 1 SL; FX 1.PITCH RND .7 .55 1 SL; ROW @1 .08 .7 1 SL; FX 1.TONE -.5 .7 1 L; FX 1.SIZE RND .6 .6 1 SL; FX 1.BLEND .4 .6 1 SL")]))
+           ("CLOUD", "The reverb opens and shimmers; the chorus feeds back and the tails run on and on.",
+            "FX 1.SHIMMER .5 .4 1 SL; FX 2.FEEDBACK .45 .65 1 SL; AMP.RELEASE .3 .5 1 S; FX 1.DAMP -.25 .5 1 SL"),
+           ("SCATTER", "Resonance and drive, then a random pitch scatter, a bit-crush and a wide chorus: the pad breaks into drifting pitched pieces.",
+            "SRC.DRIFT .7 .5 1 SL; ROW @1 .08 .7 1 SL; SRC.BITS -.5 .8 1 T; FX 2.WIDTH .3 .6 1 SL; FX 2.MIX .4 .6 1 SL")]))
 
     a(S("HORN SECT", cat="PAD", move="medium", level=0.35, rows=[["RANDOM", "PITCH", 0.0]],
         summary="A brass section: four saws with a quick filter swell and a Tides envelope, vibrato that the knob brings in.",

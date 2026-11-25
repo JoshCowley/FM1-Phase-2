@@ -37,7 +37,7 @@ static int host_cl_piped(const bcase_t *c)
         const bpreset_t *p = c->ms ? &MSPRESETS[c->preset] : &PRESETS[c->preset];
         int i;
         for (i = 0; i < p->nops; i++)
-            if (p->ops[i].fn == 1 && p->ops[i].b == M_CLOUDS) return 1;
+            if (0 /* 2.48: Clouds is gone */) return 1;
     }
     return 0;
 }
@@ -52,8 +52,7 @@ static uint32_t host_arg;
  * (Clouds' random numbers in the one-core order: the output is then one core's, a block later); the voices' job still waits for the join */
 static int host_cpu2_run(void (*fn)(uint32_t), uint32_t arg)
 {
-    if (rk_fx_core2_active()) { IR_JOB(fn(arg)); host_job = 0; return 1; }
-    host_job = fn; host_arg = arg;
+        host_job = fn; host_arg = arg;
 #ifdef BENCH_IR
     if (ir_on && ir_mode == 3 && arg == 0) { CALLGRIND_TOGGLE_COLLECT; host_pre_on = 1; }   /* mode 3: the first core's own voices, from the hand-over to the join */
 #endif
@@ -174,7 +173,6 @@ int main(int argc, char **argv)
             if (!strcmp(bcases[k].name, argv[2])) break;
         if (k == bncases) { fprintf(stderr, "no case %s (%d cases)\n", argv[2], bncases); return 2; }
         ir_mode = atoi(argv[3]);
-        if (getenv("CL_Q")) rk_clouds_mask((unsigned)strtoul(getenv("CL_Q"), 0, 0));   /* update 42: the Clouds quality bits (rack_cl_q.h) */
         bench_setup(k);
         if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(1);   /* bench_ir NAME MODE [REV|LIM|BOTH]: REV = the summed reverb input (not bit-identical), LIM = the 2.35 limiter */
         if (argc > 4 && (!strcmp(argv[4], "LIM") || !strcmp(argv[4], "BOTH"))) rk_lim_fast(0);

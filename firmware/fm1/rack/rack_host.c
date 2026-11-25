@@ -8,8 +8,6 @@
  *   3. every preset makes sound through rc_render, with a chord, no NaN;
  *   4. the unison modes play 2 and 4 voices per key;
  *   5. the overload shed;
- *   6. CLOUDS: its modes sound, the arena holds, the reverb gives way first (clouds_check.c);
- *   7. CLOUDS on the second core (update 9, RACK_FX_CORE2): the same sound as one core, a block late (fx_core2_check.c).
  *   8. the knob layer (update 18): the curve maths, and MACRO TEST's eight K1 targets (presets_macrotest.h).
  *   10. the filter's SWEEP (update 26): darker down, brighter up, the matrix's LFO on the cutoff still moves it.
  *   12. the drum voices (step 1 of the drum track, drum_check.c): bit-identical models, hits, cores, IF BUSY.
@@ -23,8 +21,7 @@
 #include <string.h>
 #include <math.h>
 #include "rack_core.c"
-#include "clouds_check.c"
-#include "fx_core2_check.c"
+#include "host_cpu2.h"
 #include "drum_check.c"
 #include "drumseq.c"
 #include "drumseq_check.c"
@@ -209,17 +206,34 @@ static int check_guard_5b(void)
 
 #include "gate_check.c"
 #include "shape_check.c"
+/* update 63, 2.48: the VOICE GUARD setting both ways at six voices. Since 2.48 an overload always has a voice to shed (there is no Clouds job on the second
+ * core that could make a shed useless: rk_shed_helps is 1), so guard ON sheds one voice, OFF keeps all six. Run last (rack_host main): it renders a few hundred
+ * blocks, and the clock-phase-dependent checks (10, 15, 16) read the engine's clock where they start */
+static int check_guard_7h(void)
+{
+    int fails = 0, on_v = 0, off_v = 0, g, b;
+    for (g = 1; g >= 0; g--) {
+        rk_set_worker(hc2_cpu_run, hc2_cpu_wait); rk_set_worker_ex(hc2_cpu_sync, hc2_cpu_on);
+        hc2_mode = HC2_NOW; hc2_giveup_pct = hc2_norun_pct = 0;
+        rc_pause(); rc_load(0); rc_resume();
+        rc_set_guard(g);
+        rc_do(RCE_VOICES, 6, 0.0f, 0.0f);
+        { int32_t lr7[512]; for (b = 0; b < 40; b++) rc_render(lr7, 256, 8388607.0f); }
+        if (rk_shed_helps() != 1) { printf("7h guard test: shed_helps is not 1   FAIL\n"); fails++; }
+        rc_overload();
+        { int32_t lr7[512]; for (b = 0; b < 4; b++) rc_render(lr7, 256, 8388607.0f); }
+        if (g) on_v = rc_patch.voices_now; else off_v = rc_patch.voices_now;
+    }
+    rc_set_guard(0);
+    printf("7h guard setting: six voices, an overload: guard ON sheds to %d (expected 5), OFF keeps %d (expected 6)\n", on_v, off_v);
+    if (on_v != 5 || off_v != 6) fails++;
+    return fails;
+}
 int main(int argc, char **argv)
 {
     static float a[48000], b[48000];
     static const int CHORD[6] = {48, 52, 55, 59, 62, 65};
     int k, i, fails = 0;
-    if (argc == 8 && !strcmp(argv[1], "--fx2")) {   /* update 9: one two-core case, its output on stdout (fx_core2_check.c) */
-        static float o[2 * 48 * 1500];
-        fc_play(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), atoi(argv[6]), atoi(argv[7]), o);
-        fwrite(o, sizeof(float), 2 * 48 * 1500, stdout);
-        return 0;
-    }
     if (argc == 6 && !strcmp(argv[1], "--drum")) {   /* FM1 Phase 2 step 1: one drum case, its output on stdout (drum_check.c) */
         static float o[2 * DC_BLK * DC_BLOCKS];
         dc_play(atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]), o);
@@ -375,14 +389,6 @@ int main(int argc, char **argv)
             fails++;
         rc_pause(); rc_load(0); rc_resume();
     }
-    /* 6: CLOUDS (clouds_check.c) */
-    fails += check_clouds();
-    /* 7: CLOUDS on the second core (fx_core2_check.c; with RACK_FX_CORE2 off the arrangement is off and these check nothing) */
-#ifdef RACK_FX_CORE2
-    fails += check_fx_core2(argv[0]);
-#else
-    printf("7 RACK_FX_CORE2 is off in this build: Clouds stays on the first core (nothing to check)\n");
-#endif
     /* 8: the knob layer (update 18): the curve maths, then MACRO TEST (K1 on 8 targets, loaded from the packed ops as the
      * firmware loads a preset) gives each parameter the offset depth x curve(K1) x span, and a row target moves a row's depth */
     {
@@ -582,7 +588,7 @@ int main(int argc, char **argv)
         if (bad10)
             fails++;
     }
-    /* 11: JAM's moves (update 28). Three presets (chorus + reverb, Clouds + reverb, a delay): each of the 12 moves changes at least one
+    /* 11: JAM's moves (update 28). Three presets (chorus + reverb, a second reverb preset, a delay): each of the 12 moves changes at least one
      * of the 32 targets while on, and, once let go (HOLD), pressed again (LATCH) or cleared, every target is exactly the preset's own
      * value again (the targets as the voices hear them: rk_eff_param; the pitch, which has no such reader, is not in it). Two moves
      * together add up; the stutters' gate follows the tempo (twice the tempo, twice the cycles; 1/8 half, 1/32 double a 1/16's);

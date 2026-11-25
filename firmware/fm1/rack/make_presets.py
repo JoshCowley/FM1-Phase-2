@@ -20,7 +20,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SRC = HERE.parent.parent / "tests" / "presets-fm1-calls.json"
-LITE_OUT = {3, 11, 22}   # Elements, Warps, Marbles (update 11: Clouds is in the Lite firmware, and its presets are kept)
+LITE_OUT = {3, 11, 22}   # Elements, Warps, Marbles (2.48: no Clouds either: a saved Clouds slot loads empty)
 
 # op: (code, small ints, floats)
 OPS = {"set_module": (1, 2, 0), "set_param": (2, 2, 1), "set_meta": (3, 2, 3), "set_route": (4, 4, 2),
@@ -200,12 +200,12 @@ def main():
     # 21 Nov 2026 (GATE PATTERN): the lists that gained GATE 1 / GATE 2 have wider ranges than the page's data (tests/presets-fm1-calls.json)
     # gives them: FUNC's TRIG lists, LFO RETRIG 1-3 (OFF, KEY, GATE 1, GATE 2), PEAKS' and TIDES' GATE (+ 2). No preset uses the new values.
     meta[FUNC_ID] = func_meta()
+    from wave_def import WAVE_ID, wave_meta     # 2.48: WAVE, the wavetable source: its ranges as wave_def has them
+    meta[WAVE_ID] = wave_meta()
     for lp in (3, 7, 11):
         meta[108][lp] = (0, 3, 3)
     meta[20][3] = (0, 7, 7)
     meta[21][6] = (0, 7, 7)
-    from clouds_def import CLOUDS_ID, clouds_meta   # CLOUDS (step 5): no preset uses it yet, so its ranges are added here
-    meta.setdefault(CLOUDS_ID, clouds_meta())
     byname = {p["name"]: p for p in data}
     init = final_state(byname["INIT"]["calls"])
     keep = [p for p in data if not any(c[0] == "set_module" and c[2] in LITE_OUT for c in p["calls"])]

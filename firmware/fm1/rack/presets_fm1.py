@@ -622,8 +622,6 @@ def fm1_presets(page, braids=None):
     for q in added():
         if q["name"] in TWEAK: TWEAK[q["name"]](q)
         out.append(q)
-    from presets_granular import granular      # update 11: the granular batch (device only), first in the bank after INIT
-    out += granular()
     from presets_batch2 import batch2          # update 15: the second batch (bank 2), bank positions 17-32
     out += batch2()
     from presets_batch3 import batch3          # update 17: the third batch (bank 3), bank positions 33-48

@@ -27,7 +27,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import granular_batch as gb
-from presets_granular import granular, KINDS
+KINDS = {}   # (2.48: the granular batch is gone; this file keeps the helpers bank45_report.py uses)
 
 SR = gb.SR
 RHYTHMIC = ("stab", "pluck", "bell", "notes")
@@ -116,38 +116,7 @@ def host_lines(path):
 
 
 def main():
-    a = sys.argv[1:]
-    opt = lambda k: a[a.index(k) + 1] if k in a else None
-    mp3, js, hl = opt("--mp3"), opt("--json"), opt("--host-log")
-    names = [x for i, x in enumerate(a) if not x.startswith("--") and (i == 0 or a[i - 1] not in ("--mp3", "--json", "--host-log"))]
-    P = granular()
-    out = []
-    host = host_lines(hl) if hl else {}
-    for i, q in enumerate(P):
-        gb.NUMBER[q["name"]] = i + 1
-    with tempfile.TemporaryDirectory() as t:
-        for i, q in enumerate(P):
-            if names and q["name"] not in names:
-                continue
-            r = measure(q, i + 1, Path(t), mp3)
-            r["host"] = host.get(q["name"])
-            out.append(r)
-    med = float(np.median([db(r["ctl_rms"]) for r in out]))
-    for r in out:
-        r["loud_rel"] = db(r["ctl_rms"]) - med
-        o = r["off"]
-        r["move_ok"] = o["rms_pp_dB"] >= 2.0 or o["cent_ratio"] >= 1.2
-        c = r["corners"]
-        r["safe"] = c["peak"] < 0.9 and c["quiet"] >= 0.004 and not (c["grow"] > 2.5 and c["peak"] > 0.5)
-        r["pass"] = (0.2 < r["peak"] < 0.9 and min(r["rms4"]) >= 0.01 and r["move_ok"] and abs(r["loud_rel"]) <= 4.0
-                     and all(e["pass"] for e in r["ev"]) and r["safe"] and (not r["host"] or r["host"]["voices"] >= 4))
-        print(f"{r['num']:2} {r['name']:12} pk {r['peak']:.2f} rms4 {min(r['rms4']):.3f}-{max(r['rms4']):.3f} loud {r['loud_rel']:+.1f} dB "
-              f"off {o['rms_pp_dB']:.1f} dB x{o['cent_ratio']:.2f} {'ok' if r['move_ok'] else 'LOW'} | "
-              + " ".join(f"K{k + 1}{'+' if e['pass'] else '-'}{e['sc']:.2f}/{e['ab_cent']:.2f}/{e['ab_rms']:.2f}" for k, e in enumerate(r["ev"]))
-              + f" | corners pk {c['peak']:.2f} q {c['quiet']:.3f}@{''.join(str(int(v)) for v in c['qat'])} g x{c['grow']:.2f} | est {r['est'][0]:.0f}/{r['est'][1]:.0f}/{r['est'][2]:.0f} | "
-              + ("PASS" if r["pass"] else "FAIL"))
-    if js:
-        Path(js).write_text(json.dumps(out, indent=1, default=float))
+    sys.exit("granular_report.py is a helper library now (the granular batch went with Clouds in 2.48): run bank45_report.py")
 
 
 if __name__ == "__main__":

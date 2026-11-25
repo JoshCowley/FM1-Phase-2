@@ -6,15 +6,15 @@
  * hidden-line terrain), the real signal as the material in fine 1 px lines or filled gradient profiles, one hue ramp per process family and one
  * bright accent for "now", glow used only for the accent, no text in the window beyond the page's header and its four read-outs.
  *
- * Hue ramps (hr_ramp, vis_home.c): TEAL = effects and processing (Filter, Delay, Reverb, Chorus, Clouds; HOME with Clouds); AMBER = sound
- * sources and the voice (Braids, Rings, AMP); INDIGO = modulators (LFO, Tides, Peaks, Func); VIOLET = rhythm and structure (Grids, the
- * sequencer, arp and chord pages); ICE = held (a frozen Clouds) and links (the matrix). The accent is each ramp's own (HR_ACC).
+ * Hue ramps (hr_ramp, vis_home.c): TEAL = effects and processing (Filter, Delay, Reverb, Chorus); AMBER = sound
+ * sources and the voice (Braids, the wavetable source, Rings, AMP); INDIGO = modulators (LFO, Tides, Peaks, Func); VIOLET = rhythm and structure (Grids, the
+ * sequencer, arp and chord pages); ICE = links (the matrix). The accent is each ramp's own (HR_ACC).
  *
  * The kit (this file's top): fm_terrain (slices with perspective, occlusion and an accent slice), fm_curve (a filled gradient profile under
  * a curve), fm_seg (a fine line), fm_dash (a dashed guide), fm_node (the "now" dab). History is stepped at a low rate (a slice every 100 to 150
  * ms) and lives in the one shared state block (cp.tr, aliased on the ribbon arrays: no new RAM); every picture is composed in the same five
  * 40-row bands as before, with plain writes (two pixels at a time for the fills), no floating point and no maths functions in a pixel loop, and
- * is shown at most 12.5 times a second (so that no page sends more rows a second than the Clouds page did).
+ * is shown at most 12.5 times a second (so that no page sends more rows a second than the first picture page did).
  *
  * What is real, modelled and illustrative is listed per page in README.md. */
 
@@ -534,123 +534,58 @@ static void fm_chorus_draw(const float *mon)
     }
 }
 
-/* ---- CLOUDS: the buffer as a grain terrain (a slice of its envelope every 130 ms, newest nearest), the POSITION a scan line through it with SPRAY a band, grains lifting off as sparks; FROZEN: the terrain stops, goes ice-pale, a pale box round it */
-#define FC_NP 40
-#define FC_NS 12
-static const fm_geo_t G_CL = {52, 170, 62, 178, 12, 228, 24, 82};
-static void fm_clouds_step(const float *mon, uint32_t dt)
+/* ---- WAVETABLE: the wave the voice is playing now (the block's mix of the waves round the scan position, as the engine publishes it in the monitor, two cycles of it) as a
+ * filled profile under, the bank's 8 x 8 map above it with SCAN X across and MORPH Y down (the four waves round the position lit by how near it is, a node on it) and the bank
+ * as four bars (BANK crossfades between neighbours). Real: every position and the wave itself. Nothing is modelled. */
+#define FW_MX 148
+#define FW_MY 34
+#define FW_CW 10
+#define FW_CH 7
+static void fm_wave_step(const float *mon, uint32_t dt)
 {
-    int mode = cp.mode;
-    uint32_t lv8 = (uint32_t)(cp.lv * 255.0f);
-    fm.acc = (uint16_t)(fm.acc + dt);
-    if (fm.acc >= 130u) {
-        uint8_t sl[FC_NP];
-        int i, j;
-        fm.acc = 0;
-        if (!cp.freeze) {
-            if (mode == 2) {                       /* SPECTRL: the curtains (illustrative: they follow TEXTURE, DENSITY, SIZE and the level) */
-                float tex = P(mon, 4), size = P(mon, 1);
-                int32_t cen = (int32_t)(tex * (float)(FC_NP - 1)), wid = 2 + (int32_t)(size * 6.0f);
-                for (i = 0; i < FC_NP; i++) {
-                    int32_t dd = i > cen ? i - cen : cen - i, a = GAUSS[dd * 63 / (wid * 3 + 1) > 63 ? 63 : dd * 63 / (wid * 3 + 1)], sh = (cp_sin((int32_t)(cp.t_ms >> 3) + i * 41) + 16384) >> 8;
-                    int32_t h = (30 + (a * (int32_t)(60u + lv8) >> 8) * 150 / 256) * (192 + (sh >> 2)) >> 8;
-                    sl[i] = (uint8_t)(lv8 < 8u ? 4 : h > 255 ? 255 : h);
-                }
-            } else {                               /* the buffer's real recent output level, from the oldest column to the newest */
-                int32_t hc = (int32_t)(cp.head >> 8);
-                for (i = 0; i < FC_NP; i++) {
-                    uint32_t m = 0;
-                    for (j = 0; j < 6; j++) {
-                        uint32_t v = cp.env[(hc + 1 + i * 6 + j) % 240];
-                        m = v > m ? v : m;
-                    }
-                    m = m * 6u / 5u;
-                    sl[i] = (uint8_t)(m > 255u ? 255u : m);
-                }
-                {   /* the grains' texture (illustrative: peaks at random places, more of them away from DENSITY's middle, wider for a bigger SIZE) */
-                    float dn = P(mon, 3) - 0.5f;
-                    uint32_t g = 70u + (uint32_t)((dn < 0.0f ? -dn : dn) * 2.0f * 150.0f), r0 = cp_rnd() & 255u, r1 = r0, r2;
-                    int wsm = 1 + (int)(P(mon, 1) * 2.0f);
-                    uint8_t nz[FC_NP];
-                    for (i = 0; i < FC_NP; i++) {
-                        r2 = cp_rnd() & 255u;
-                        nz[i] = (uint8_t)(r2 * r2 >> 8);
-                    }
-                    for (i = 0; i < FC_NP; i++) {
-                        uint32_t a = 0, n = 0;
-                        for (j = -wsm; j <= wsm; j++)
-                            if (i + j >= 0 && i + j < FC_NP) { a += nz[i + j]; n++; }
-                        a = a / n * 3u / 2u;
-                        a = a > 255u ? 255u : a;
-                        sl[i] = (uint8_t)((uint32_t)sl[i] * (256u - g + g * a / 256u) >> 8);
-                    }
-                    (void)r1;
-                }
-            }
-            fm_push(cp.colh, FC_NP, FC_NS, sl);
-            fm.hot = FC_NS + 2;
-        }
-        if (lv8 < 3u && fm.hot)
-            fm.hot--;
+    int x;
+    (void)dt;
+    for (x = 0; x < 240; x++) {
+        float u = (float)(x - 12) * (128.0f / 216.0f), f, w;
+        int i0;
+        if (x < 12 || x > 227) { cp.colh[x] = 128; continue; }
+        i0 = (int)u;
+        f = u - (float)i0;
+        w = mon[WV_MON + (i0 & 63)] * (1.0f - f) + mon[WV_MON + ((i0 + 1) & 63)] * f;
+        w = 128.0f + w * 118.0f;
+        cp.colh[x] = (uint8_t)(w < 0.0f ? 0.0f : w > 255.0f ? 255.0f : w);
     }
+    if (cp.lv > 0.01f) fm.hot = 3;
+    else if (fm.hot) fm.hot--;
 }
-static void fm_clouds_draw(const float *mon)
+static void fm_wave_draw(const float *mon)
 {
-    float pos = P(mon, 0), spray = P(mon, 16), size = P(mon, 1);
-    int ramp = cp.freeze ? FR_ICE : FR_TEAL, s, i;
-    int32_t y0 = G_CL.y0, y1 = G_CL.y1, xa, xb, xc, wd = 2 + (int32_t)(spray * 18.0f);
-    uint32_t br = cp.freeze ? 256u : fm_bright();
-    uint8_t bt[FC_NS];
-    for (s = 0; s < FC_NS; s++)
-        bt[s] = (uint8_t)(cp.freeze ? 80 + s * 14 : 50 + s * 17);
-    fm_terrain(cp.colh, FC_NP, FC_NS, &G_CL, ramp, br, bt, cp.freeze ? FC_NS - 1 : -1);
-    if (cp.mode == 1) {                           /* LOOPDLY: the loop's start and end, the playhead between */
-        int32_t s0 = (int32_t)(pos * 256.0f), nl = (int32_t)((0.10f + 0.90f * size) * 256.0f) + 1, ph = (s0 + (int32_t)(cp.ph >> 8)) & 255;
-        s0 = s0 * 220 / 256;
-        xa = 12 + s0;
-        xb = 12 + (s0 + nl * 220 / 256 > 216 ? 216 : s0 + nl * 220 / 256);
-        fm_dash(xa, y1, xa + 20, y0, 0xFFC878u, 130u);
-        fm_dash(xb, y1, xb + 10, y0, 0xFFC878u, 130u);
-        xc = 12 + ph * 216 / 256;
-        fm_seg(xc, y1 + 2, xc + 14, y0, fm_sw(fm_acc(ramp)));
-        fm_node(xc, y1 + 2, ramp, 230u);
-    } else if (cp.mode == 0) {                    /* the scan line: POSITION, with SPRAY a band either side */
-        /* (update 27: the newest audio is at the right, as the terrain has it: POSITION 0 is there. With WINDOW up, the scan line is the playhead (the engine's real
-         * one, monitor 162) and the window's two ends are dashed lines; the window at 0 draws what it always did) */
-        float win = P(mon, 22);
-        int32_t xf, xbk, xl, xh;
-        if (win > 0.0f) {
-            float ph = mon[162];
-            xf = 20 + (int32_t)((1.0f - ph) * 200.0f); xbk = 70 + (int32_t)((1.0f - ph) * 100.0f);
-            xl = 20 + (int32_t)((1.0f - mon[164]) * 200.0f); xh = 20 + (int32_t)((1.0f - mon[163]) * 200.0f);
-            fm_dash(xl, y1 + 3, 70 + (xl - 20) / 2, y0, 0xFFC878u, 150u);
-            fm_dash(xh, y1 + 3, 70 + (xh - 20) / 2, y0, 0xFFC878u, 150u);
-            fm_dash(xl, y1 + 4, xh, y1 + 4, 0xFFC878u, 150u);
-        } else {
-            xf = 20 + (int32_t)((1.0f - pos) * 200.0f); xbk = 70 + (int32_t)((1.0f - pos) * 100.0f);
+    float bank = fm_clampf(P(mon, 0), 0.0f, 1.0f) * 3.0f, sx = fm_clampf(P(mon, 1), 0.0f, 1.0f) * 7.0f, sy = fm_clampf(P(mon, 2), 0.0f, 1.0f) * 7.0f;
+    int i, j, k;
+    int32_t nx, ny;
+    for (k = 0; k < 4; k++) {                     /* the bank: four bars, the nearer lit */
+        float w = 1.0f - fm_fabsf(bank - (float)k);
+        int32_t a;
+        w = w < 0.0f ? 0.0f : w;
+        a = 40 + (int32_t)(w * 215.0f);
+        cv_rect(12, 40 + k * 12, 8 + (int32_t)(w * 112.0f), 6, mix565(K_C_WAVE, K_BG, (uint32_t)a));
+        cv_rect(12, 40 + k * 12 + 6, 120, 1, mix565(K_C_WAVE, K_BG, 24u));
+    }
+    for (j = 0; j < 8; j++)                       /* the map: a cell's light is how near the scan position is to it */
+        for (i = 0; i < 8; i++) {
+            float wx = 1.0f - fm_fabsf(sx - (float)i), wy = 1.0f - fm_fabsf(sy - (float)j);
+            uint32_t a;
+            wx = wx < 0.0f ? 0.0f : wx; wy = wy < 0.0f ? 0.0f : wy;
+            a = 36u + (uint32_t)(wx * wy * 219.0f);
+            cv_rect(FW_MX + i * FW_CW, FW_MY + j * FW_CH, FW_CW - 2, FW_CH - 2, mix565(K_C_WAVE, K_BG, a));
         }
-        if (wd > 3) {
-            fm_dash(xf - wd, y1, xbk - wd / 2, y0, 0xFFC878u, 80u);
-            fm_dash(xf + wd, y1, xbk + wd / 2, y0, 0xFFC878u, 80u);
-        }
-        fm_seg(xf, y1 + 3, xbk, y0, fm_sw(fm_acc(ramp)));
-        fm_node(xf, y1 + 3, ramp, 240u);
-    }
-    for (i = 0; i < CP_NM; i++) {                 /* grains lifting off */
-        cp_mote_t *o = &cp.m[i];
-        uint32_t f;
-        if (!o->life)
-            continue;
-        f = o->age * 4u < o->life ? o->age * 4u * 255u / o->life : (o->life - o->age) * 255u / (o->life - o->life / 4u);
-        f = (f > 255u ? 255u : f) * o->gain >> 8;
-        pk_blob(0, 0, o->x >> 8, o->y >> 8, o->flags & 1 ? hr_ramp(ramp, 200) : 0xFFFFFFu, f);
-    }
-    if (cp.freeze) {                              /* unmistakable: a pale outlined box round the terrain */
-        fm_dash(8, 44, 232, 44, 0xBFE0FFu, 200u);
-        fm_dash(8, 180, 232, 180, 0xBFE0FFu, 200u);
-        fm_dash(8, 44, 8, 180, 0xBFE0FFu, 200u);
-        fm_dash(232, 44, 232, 180, 0xBFE0FFu, 200u);
-    }
+    nx = FW_MX + (int32_t)(sx * (float)FW_CW + 0.5f) + (FW_CW - 2) / 2;
+    ny = FW_MY + (int32_t)(sy * (float)FW_CH + 0.5f) + (FW_CH - 2) / 2;
+    fm_dash(nx, FW_MY - 3, nx, FW_MY + 8 * FW_CH, 0xFFFFFFu, 70u);
+    fm_dash(FW_MX - 3, ny, FW_MX + 8 * FW_CW, ny, 0xFFFFFFu, 70u);
+    fm_node(nx, ny, FR_VIOLET, 240u);
+    fm_curve(cp.colh, 184, 84, FR_VIOLET, fm_bright(), 12, 228, 70);
+    fm_dash(12, 142, 228, 142, 0xFFFFFFu, 40u);   /* the centre line */
 }
 
 /* ---- AMP: the envelope as a filled gradient profile (ATTACK, DECAY, SUSTAIN, RELEASE as set), each sounding voice's real envelope a node travelling along it */
@@ -718,6 +653,7 @@ static void fam_step(int sc, const float *mon, uint32_t dt, uint32_t edge)
     case SC_REVERB: fm_reverb_step(mon, dt); break;
     case SC_CHORUS: fm_chorus_step(mon, dt); break;
     case SC_AMP: fm_amp_step(mon, dt); break;
+    case SC_WAVE: fm_wave_step(mon, dt); break;
     default: break;
     }
 }
@@ -732,7 +668,7 @@ static void fam_draw(int sc, const float *mon)
     case SC_DELAY: fm_delay_draw(); break;
     case SC_REVERB: fm_reverb_draw(mon); break;
     case SC_CHORUS: fm_chorus_draw(mon); break;
-    case SC_CLOUDS: fm_clouds_draw(mon); break;
+    case SC_WAVE: fm_wave_draw(mon); break;
     case SC_AMP: fm_amp_draw(mon); break;
     default: break;
     }
@@ -768,7 +704,7 @@ static int pic_idle(int sc)
     int v;
     switch (sc) {
     case SC_TIDES: case SC_PEAKS: case SC_FUNC: case SC_LFO: case SC_GRIDS: return 0;
-    case SC_CLOUDS: case SC_DELAY: case SC_RINGS: case SC_AMP: return fm.hot == 0;
+    case SC_WAVE: case SC_DELAY: case SC_RINGS: case SC_AMP: return fm.hot == 0;
     case SC_REVERB: return pk.tail < 0.004f && pk_recent(&v) > 3000u;
     default: return 1;
     }

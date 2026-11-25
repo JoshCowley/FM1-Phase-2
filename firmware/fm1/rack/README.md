@@ -1,5 +1,13 @@
 # FM1 Rack (Lite) firmware
 
+## 2.48: Clouds is removed, Plaits' wavetable engine is a source (25 Nov 2026; host-measured and host-tested, NOT heard on an FM-1, NOT run on an FM-1)
+
+**Clouds is gone**: its pages, picture, HOME icon, the ECO / LIGHT / NORMAL / HIGH setting, menu entries and matrix and knob destinations. A saved patch that names Clouds (module 30) loads with that effect slot empty. JAM's twelve moves are rebuilt on the delay, the reverb, the chorus and the filter (jam.c). Drums' IF BUSY is now NONE, REVERB (the reverb eases while the drums run) or VOICES (a voice is dropped). TIDE PAD is re-voiced on a shimmer reverb and a chorus (same pitch, name and knob roles; 0.05 dB quieter in RMS than 2.47's render on the host (one three-second script)).
+
+**WAVE is a new source** (module 5, in the source slot beside BRAIDS and RINGS): Plaits' wavetable engine, 8 x 8 waves per bank, four banks (the three factory banks and the same 192 waves in Plaits' fixed shuffle: 50,688 B of wave data), scanned by SCAN X, MORPH Y and BANK. Pages: BANK / SCAN X / MORPH Y / DRIFT, BITS / RATE / SIGN / LEVEL, OCTAVE / FINE / AD ATK / AD DEC, AD>X / AD>Y / AD>PTCH / AD VCA, LOWPASS / QUANT. It has its own HOME icon and colour and a page picture of the wave and the scan position. Six factory presets replace six older ones (the bank stays 45 + INIT): WAVE PAD (SLOW STRINGS), WAVE KEYS (BOX KALIMBA), WAVE LEAD (HOLLOW LEAD), WAVE BASS (SNAP BASS), WAVE DRONE (ATMOSPHERE), WAVE TEXTURE (TIDAL WASH). The other 39 factory presets render bit-identical to 2.47 on the host (a 3 s script of notes 57, 64 and 69).
+
+Release build 2.48: image 530,360 B of the 581,564 B slot (2.47: 566,176 B); RAM .data + .bss 89,700 B of 98,304 B (2.47: 93,332 B). The wavetable engine's CPU is measured on a computer only (about 0.4 us a block of 48 frames still, 0.9 us while the scan moves): the device bench `bench/` (WAVE group) measures it on an FM-1.
+
 The user manual for this firmware: `manual/FM1-Rack-FM1-Firmware-Manual.md` (hosted as `web/manual/fm1.html`).
 
 **Status: builds and passes fm1-base's checks; its sound side passes the computer check; it has not run on an
@@ -402,7 +410,7 @@ rc_render at 44.1 kHz) with a phrase for its category and writes a WAV each, wit
 
 ## Update 14: HOME's spectral ribbon (simulator-tested, NOT yet seen on an FM-1)
 
-HOME's picture is now a time-frequency picture (`vis_home.c`, on the picture kit of `vis_pic.c` and `vis_clouds.c`; only HOME's picture changed): nine
+HOME's picture is now a time-frequency picture (`vis_home.c`, on the picture kit of `vis_pic.c` and `vis_kit.c`; only HOME's picture changed): nine
 ribbons, one a band of frequency (170 Hz to 13 kHz, log spaced, low at the bottom), each the filled profile of that band's energy over the last seven seconds,
 dimmer with age, in one hue ramp (teal with Clouds in the patch, amber without), a bright accent "now" edge at the right with a dot at each band's newest
 level. The history moves one 3 px column every 100 ms; between steps only the dabs, the now edge's dots, the dashed cutoff edge and the freeze outline move,
@@ -604,7 +612,7 @@ each behind its own compile flag, ON in the FM-1 builds (`fm1.toml`, `build_host
 4. **Three voices with Clouds**: a poly patch with Clouds in a slot starts with 3 voices on one core (SELECT asks for more; two cores: as before, 6); picking Clouds
    lowers a poly patch to 3 (unless SELECT's number is kept). `RACK_CLOUDS_VOICES` (the voices the reverb is protected for when memory is short) is 3 to match, not 4: with Rings, Clouds and the
    plate reverb 3 voices fit, so the reverb now stays (it left when 4 were asked). Host checks 6c changed to match (clouds_check.c, commented).
-5. **Lighter picture, same look** (`vis_clouds.c`): at most 20 pictures a second (was ~33); only the ROWS THAT CHANGED are sent to the LCD (a hash of each of the 230 rows;
+5. **Lighter picture, same look** (`vis_kit.c`): at most 20 pictures a second (was ~33); only the ROWS THAT CHANGED are sent to the LCD (a hash of each of the 230 rows;
    runs of changed rows within 3 rows are one transfer); the picture is composed whole as before. The comet's buffer time follows the 32 kHz length.
    Why: update 7's read-out on the FM-1 said ~24-29 ms a frame (against 130-160 us on the host). The LCD path (fm1-base `device/lcd.c`) sends a canvas as one
    DMA transfer of w x h x 2 bytes and the next `cv_begin` waits for it (`lcd_sync`); a full frame is 230 rows x 480 B = 110 KB, in 6 transfers. The compose is in
@@ -623,8 +631,8 @@ Checks: `rack_host` (6d: the reverb switched 0 -> 0.5 -> 0, no click; 6e: pitch 
 The CLOUDS page is "picture first": the picture fills the screen from under the status strip to a 40 px band at the bottom
 that holds the page's four read-outs (name, small arc, value, in the four slider colours; the one being turned grows and
 brightens for about a second). The mode name is small at top left, the page dots small at top right. SELECT still pages
-through Clouds' six parameter pages; the other modules' pages keep their layout. Code: `vis_clouds.c` (part of `app.c`),
-its const tables `clouds_sprites.h` (generated by `make_clouds_sprites.py`, in flash).
+through Clouds' six parameter pages; the other modules' pages keep their layout. Code: `vis_kit.c` (part of `app.c`),
+its const tables `pic_sprites.h` (generated by `make_pic_sprites.py`, in flash).
 
 - **GRANULR:** the buffer as a ribbon across the lower third, the write head as a comet moving at the buffer's real length
   for the QUALITY (0.51 s at 16 ST, 0.93 s 16 MONO, 1.02 s 8 ST, 1.85 s 8 MONO at 48 kHz; 1.5 x as long since update 8's 32 kHz Clouds: 0.77, 1.40, 1.53, 2.78 s; SPECTRL plays mono), POSITION as a thin

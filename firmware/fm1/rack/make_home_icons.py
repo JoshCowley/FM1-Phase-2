@@ -46,14 +46,13 @@ icon('BRAIDS', 'src', FILL(2, 6, 0.9, 12), FILL(21.1, 6, 0.9, 12),              
 icon('RINGS', 'src', P([(12 + (7.6 + 1.4 * math.sin(3 * math.radians(a))) * math.cos(math.radians(a)),
                         12 + (7.6 + 1.4 * math.sin(3 * math.radians(a))) * math.sin(math.radians(a))) for a in range(0, 361, 10)]),
      CIRC(12, 12, 3.4, 0.45), DOT(12, 12, 1.1))
+icon('WAVETABLE', 'src', P([(2.5, 7.2 - 4.4 * math.sin((x - 2.5) / 19 * 2 * math.pi)) for x in [2.5 + i * 19 / 24 for i in range(25)]], 1.0),     # a sine, a saw and a scan line between
+     P([(2.5, 19.5), (21.5, 13.5)] + [(21.5, 19.5)], 0.5) + P([(2.5, 19.5), (2.5, 13.5), (21.5, 19.5)], 0.45),
+     L(12, 3, 12, 22, 0.55), DOT(12, 7.2, 1.5))
 # THE FILTER ---------------------------------------------------------------------------------------------
 icon('FILTER', 'flt', L(2, 20, 22, 20, 0.35), L(14.5, 4.5, 14.5, 20, 0.35),           # a low-pass with its resonance, the cutoff marked
      P([(2, 9), (8, 9), (11, 8.6), (13.2, 6.2), (14.6, 4.6), (16, 7.5), (18, 12.5), (20, 17.5), (22, 19.2)]))
 # EFFECTS ------------------------------------------------------------------------------------------------
-icon('CLOUDS', 'fx', cloud(1.0, -1.5), DOT(8, 20, 1.0), DOT(12, 18.7, 1.0, 0.8), DOT(15.5, 20.3, 1.0), DOT(19, 18.8, 0.9, 0.6), DOT(10, 22, 0.8, 0.5))     # grains falling
-icon('CLOUDS LOOP', 'fx', cloud(1.0, -3.5),                                                                                                       # a loop going round
-     ARC(12, 19.2, 3.3, 20, 320, 1.0), P([(15.4, 17.0), (15.3, 20.0), (12.6, 18.6)]))
-icon('CLOUDS SPEC', 'fx', cloud(1.0, -3.0), *[FILL(5.6 + i * 2.7, 20 - h, 1.1, h, 0.9) for i, h in enumerate([2, 4, 6, 3, 5, 2, 4])])                 # bars of a spectrum
 icon('REVERB', 'fx', *[ARC(4.5, 12, r, -52, 52, a) for r, a in ((4.5, 1.0), (8.5, 0.8), (12.5, 0.6), (16.5, 0.42))], DOT(4.5, 12, 1.3))          # wavefronts, thinning
 icon('DELAY', 'fx', L(2, 20.5, 22, 20.5, 0.35), *[FILL(3 + i * 5.2, 20 - h, 1.3, h, a) for i, (h, a) in enumerate([(15, 1.0), (10.5, 0.75), (6.8, 0.52), (4, 0.34)])])  # echoes, each lower
 icon('CHORUS', 'fx', *[FUNC(lambda x, p=p: 12 + 4.4 * math.sin(x * 0.52 + p), 2, 22, a) for p, a in ((0, 1.0), (1.9, 0.7), (3.8, 0.45))])           # strands woven
@@ -141,7 +140,7 @@ def header(icons):
 
 # each icon's colour = its page's colour: theme.h PN_C_* (keep the two in step). name -> (RGB, the page that uses it)
 COLOURS = {'BRAIDS': ((240, 184, 104), 'SRC: BRAIDS'), 'RINGS': ((232, 108, 40), 'SHP: RINGS'), 'FILTER': ((50, 205, 70), 'ENV: FILTER'),
-           'CLOUDS': ((125, 180, 255), 'FX: CLOUDS (all three modes)'), 'CLOUDS LOOP': ((125, 180, 255), 'FX: CLOUDS LOOPDLY'), 'CLOUDS SPEC': ((125, 180, 255), 'FX: CLOUDS SPECTRL'),
+           'WAVETABLE': ((205, 65, 135), 'SRC: WAVETABLE'),
            'REVERB': ((232, 238, 255), 'FX: REVERB'), 'DELAY': ((70, 100, 240), 'FX: DELAY'), 'CHORUS': ((20, 165, 185), 'FX: CHORUS'),
            'LFO': ((170, 110, 245), 'LFO: THREE LFOS'), 'TIDES': ((0, 235, 255), 'MOD: TIDES'), 'PEAKS': ((255, 74, 82), 'MOD: PEAKS'),
            'FUNC': ((232, 226, 64), 'MOD: FUNC'), 'GRIDS': ((176, 226, 84), 'MOD: GRIDS'), 'MSEQ': ((246, 86, 198), 'LFO menu: MSEQ'),

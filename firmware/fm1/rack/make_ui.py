@@ -9,13 +9,14 @@ The definitions are evaluated with Node (the same JavaScript the page runs), the
   UI_MODS[]          the Lite firmware's modules: engine id, name, blurb, kind, pages, outputs (matrix sources)
   UI_GLO, UI_SEL, UI_ARP the GLOBAL (its first five pages, then SYSTEM with none), SEL (CHORD) and ARP pages
   TUNE_*, SCALE_*    the tunings (cents per degree) and the scales (semitones per degree)
-Run by fm1.toml's gen step before each build (needs node). The Lite module set: no Elements, Warps or Marbles (Clouds since FM1 Phase 2 step 5).
+Run by fm1.toml's gen step before each build (needs node). The Lite module set: no Elements, Warps or Marbles (and, since 2.48, no Clouds).
 """
 import json
 import subprocess
 import sys
 from pathlib import Path
 from func_def import FUNC                # the firmware's own module (not on the page)
+from wave_def import WAVE                # 2.48: the wavetable source, the firmware's own too
 from style_def import ARP_EXTRA, style_table   # ARP's STYLE and layer pages, the styles' patterns (firmware only)
 
 HERE = Path(__file__).resolve().parent
@@ -24,9 +25,9 @@ TOOLS = HERE / "../../../web/src/5c-tools.js"
 GLO_PAGES = 5                     # SETTINGS PLAYING TUNING MIDI MASTER (the page's STEP ADV, HARDWARE, FIRMWARE: not here)
 OUT = HERE / "ui_defs.h"
 # FM1 Phase 2 (14 Nov 2026): no Plaits (fm1.toml RACK_NO_PLAITS): the picker offers Braids as the source
-LITE = ["BRAIDS", "RINGS", "FILTER", "PEAKS", "TIDES", "GRIDS", "FUNC", "CLOUDS", "DELAY", "REVERB", "CHORUS"]   # + CLOUDS (step 5)
-MID = {"PLAITS": 1, "BRAIDS": 2, "RINGS": 10, "FILTER": 12, "PEAKS": 20, "TIDES": 21, "GRIDS": 23, "FUNC": 24,
-       "CLOUDS": 30, "DELAY": 31, "REVERB": 32, "CHORUS": 33}
+LITE = ["BRAIDS", "WAVE", "RINGS", "FILTER", "PEAKS", "TIDES", "GRIDS", "FUNC", "DELAY", "REVERB", "CHORUS"]
+MID = {"PLAITS": 1, "BRAIDS": 2, "WAVE": 5, "RINGS": 10, "FILTER": 12, "PEAKS": 20, "TIDES": 21, "GRIDS": 23, "FUNC": 24,
+       "DELAY": 31, "REVERB": 32, "CHORUS": 33}
 KIND = {"src": 0, "shp": 1, "mod": 2, "fx": 3, "amp": 4, "lfo": 5}
 TYPE = {"num": 0, "bip": 1, "list": 2, "int": 3}
 
@@ -88,7 +89,7 @@ def main():
             mod = 0 if p.get("mod") is False else 1
             rows.append(f"    {{{cstr(p['l'])}, {t}, {mod}, {lo}, {hi}, {o}, {float(p['def'])!r}f}},")
         tables.append(f"static const ui_param_t UP_{tag}[] = {{\n" + "\n".join(rows) + "\n};")
-        if layout:   # update 27 (CLOUDS): the pages as lists of parameter numbers: UPM_ maps (page, knob) to the parameter
+        if layout:   # update 27: the pages as lists of parameter numbers: UPM_ maps (page, knob) to the parameter
             tables.append(f"static const uint8_t UG_{tag}[] = {{{', '.join(str(len(pg)) for pg in layout)}}};")
             tables.append(f"static const uint8_t UPM_{tag}[] = {{{', '.join(str(i) for pg in layout for i in pg)}}};")
             return len(layout), len(flat)
@@ -96,9 +97,8 @@ def main():
         return len(pages), len(flat)
 
     mods = []
-    from clouds_def import lite_page
-    lite_page(d["MODULES"]["CLOUDS"])
     d["MODULES"]["FUNC"] = FUNC
+    d["MODULES"]["WAVE"] = WAVE
     for name in LITE:
         m = d["MODULES"][name]
         if name in ("PEAKS", "TIDES"):        # FM1 Phase 2 (21 Nov 2026): the GATE list also takes the GATE PATTERN's two lanes

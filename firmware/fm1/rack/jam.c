@@ -5,10 +5,10 @@
  * Twelve moves, one on each of the keys above the SPLIT. A move is an offset layer on the sound's own parameters
  * (engine/rack.cc: set_jam_offsets; never written into the preset): each audio block jam_block() works out, from
  * each move's level (0 to 1, gliding to its target at the move's own speed, so nothing clicks), the offset of up to
- * 32 targets, and hands them to the engine. A target the preset does not have (a module not loaded: Clouds is in
- * one factory preset in 46, a delay in 16) is ignored there, so every move uses the parameters of whatever the
- * preset does have: the voices' level, the filter and its SWEEP, the pitch, Braids' BITS and RATE, two LFO rates,
- * the chorus, the reverb, the delay and, where it is loaded, Clouds.
+ * 20 targets, and hands them to the engine. A target the preset does not have (a module not loaded: a delay is in
+ * 16 factory presets in 46) is ignored there, so every move uses the parameters of whatever the preset does have: the
+ * voices' level, the filter and its SWEEP, the pitch, the source's BITS and RATE, two LFO rates, the chorus, the reverb and
+ * the delay. (2.48: the moves that threw grains through Clouds are rebuilt on the delay, the reverb, the chorus and the filter.)
  * A move ends exactly: its level snaps to 0 below 0.01, all the offsets are then 0 and the engine drops the layer
  * (the preset's sound again, sample for sample). HOLD: on while the key is down. LATCH: a press turns it on, the next off.
  * Amount (0-100 %, 0 to 1 here) and the key's velocity scale a move. Clocked moves (the stutters, GLITCH, FILTER RISE) count 16ths
@@ -20,7 +20,7 @@ void rk_set_jam_offsets(const float *o);
 void rk_clear_jam(void);
 
 #define JAM_NM 12                             /* moves */
-#define JAM_NT 32                             /* targets */
+#define JAM_NT 20                             /* targets */
 /* the settings the JAM page edits (floats: the page's own machinery): ON, SPLIT (the first key of the moves), then
  * each move's AMOUNT (0-1) and LATCH (0 HOLD, 1 LATCH) */
 enum { JV_ON, JV_SPLIT, JV_MV0, JV_N = JV_MV0 + 2 * JAM_NM };
@@ -28,24 +28,21 @@ enum { JV_ON, JV_SPLIT, JV_MV0, JV_N = JV_MV0 + 2 * JAM_NM };
 #define JV_LAT(m) (JV_MV0 + 2 * (m) + 1)
 static float jam_v[JV_N];
 
-/* the targets: (a slot, or a module id from 30 up for the FX slot that holds it, or 255 the voice's pitch; a parameter) */
+/* the targets: (a slot, or a module id from 31 up for the FX slot that holds it, or 255 the voice's pitch; a parameter) */
 enum {
     T_LEVEL, T_SWEEP, T_RESO, T_DRIVE, T_PITCH, T_BITS, T_BRATE, T_LFO1, T_LFO2,
-    T_DFB, T_DMIX, T_DWOW, T_RSIZE, T_RDAMP, T_RMIX, T_RSHIM, T_CRATE, T_CDEPTH, T_CMIX,
-    T_GPOS, T_GSIZE, T_GPITCH, T_GDENS, T_GTEX, T_GBLEND, T_GFB, T_GREV, T_GFREEZE, T_GWIN, T_GSPEED, T_GJIT, T_DTONE
+    T_DFB, T_DMIX, T_DWOW, T_RSIZE, T_RDAMP, T_RMIX, T_RSHIM, T_CRATE, T_CDEPTH, T_CMIX, T_DTONE
 };
 static const uint8_t JAM_TAB[JAM_NT * 2] = {
     6, 7,  7, 23,  7, 10,  7, 11,  255, 0,  0, 4,  0, 5,  8, 1,  8, 5,
-    31, 1,  31, 3,  31, 5,  32, 0,  32, 1,  32, 3,  32, 6,  33, 0,  33, 1,  33, 3,
-    30, 0,  30, 1,  30, 2,  30, 3,  30, 4,  30, 5,  30, 7,  30, 8,  30, 10,  30, 22,  30, 23,  30, 24,  31, 2
+    31, 1,  31, 3,  31, 5,  32, 0,  32, 1,  32, 3,  32, 6,  33, 0,  33, 1,  33, 3,  31, 2
 };
 /* each target's span (the engine takes offsets as a fraction of it): the moves are written in the parameter's own units */
 static const float JAM_SPAN[JAM_NT] = {
     1, 1, 1, 1, 1, 6, 5, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
 };
-static const char *const JAM_NAME[JAM_NM] = {"GRAIN DELAY", "STUTTER 1/8", "STUTTER 1/16", "STUTTER 1/32", "REVERSE SCRUB", "TAPE STOP",
+static const char *const JAM_NAME[JAM_NM] = {"DELAY THROW", "STUTTER 1/8", "STUTTER 1/16", "STUTTER 1/32", "REVERSE SCRUB", "TAPE STOP",
                                               "WASH", "FREEZE PAD", "GLITCH", "FILTER DIVE", "FILTER RISE", "CRUSH"};
 /* each move's glide to its level, and back, in milliseconds */
 static const uint16_t JAM_ATK[JAM_NM] = {25, 8, 8, 8, 40, 450, 600, 120, 5, 500, 5, 15};
@@ -126,43 +123,36 @@ static float jam_gate(float age, float div) { float c = age / div; return c - (f
 static void jam_mv(int m, float s, float lvl, float age)
 {
     switch (m) {
-    case 0:   /* GRAIN DELAY: the sound thrown back in pitched, smeared echoes, the feedback up */
-        JA(T_GBLEND, 0.5f); JA(T_GFB, 0.4f); JA(T_GDENS, 0.25f); JA(T_GTEX, 0.2f); JA(T_GPITCH, 0.5f); JA(T_GSIZE, -0.15f); JA(T_GREV, 0.15f);
-        JA(T_DFB, 0.45f); JA(T_DMIX, 0.35f); JA(T_DWOW, 0.5f); JA(T_CMIX, 0.4f); JA(T_CDEPTH, 0.45f); JA(T_CRATE, 0.35f);
-        JA(T_RMIX, 0.35f); JA(T_RSIZE, 0.2f); JA(T_LFO1, 0.3f); JA(T_LFO2, 0.3f);
+    case 0:   /* DELAY THROW: the sound thrown back in wobbling, smeared echoes with the feedback up, the chorus and reverb opening round them */
+        JA(T_DFB, 0.55f); JA(T_DMIX, 0.45f); JA(T_DWOW, 0.6f); JA(T_DTONE, -0.25f); JA(T_CMIX, 0.4f); JA(T_CDEPTH, 0.45f); JA(T_CRATE, 0.35f);
+        JA(T_RMIX, 0.35f); JA(T_RSIZE, 0.2f); JA(T_LFO1, 0.3f); JA(T_LFO2, 0.3f); JA(T_SWEEP, -0.1f);
         break;
     case 1: case 2: case 3: {   /* STUTTER: the voices and the wet of the chorus, delay and reverb chopped on the grid (8ths, 16ths, 32nds), the gate's edges
-                                 * about 10 ms; with Clouds, a frozen slice of short grains plays through the gaps */
+                                 * about 10 ms */
         float div = m == 1 ? 2.0f : m == 2 ? 1.0f : 0.5f, *gs = &jam_gs[m - 1];
         *gs += (jam_gate(age, div) - *gs) * 0.5f;
         JA(T_LEVEL, -*gs); JA(T_RMIX, -*gs); JA(T_DMIX, -*gs); JA(T_CMIX, -*gs);
-        if (lvl > 0.02f && s > 0.01f) jam_off[T_GFREEZE] += 1.0f;
-        JA(T_GSIZE, -0.4f); JA(T_GDENS, 0.3f); JA(T_GBLEND, -*gs);
         break;
     }
-    case 4: {   /* REVERSE SCRUB: a frozen slice read backwards; without Clouds the filter opens under a swelling reverb */
+    case 4: {   /* REVERSE SCRUB: a reversed swell: the filter opens and the level rises under a growing reverb and a delay that smears it */
         float ramp = age >= 8.0f ? 1.0f : age * 0.125f;
-        if (lvl > 0.02f && s > 0.01f) jam_off[T_GFREEZE] += 1.0f;
-        JA(T_GSPEED, -0.75f); JA(T_GWIN, 0.6f); JA(T_GBLEND, 0.7f); JA(T_GSIZE, 0.2f);
-        JA(T_RMIX, 0.45f); JA(T_RSIZE, 0.4f); JA(T_SWEEP, -0.6f * (1.0f - ramp)); JA(T_CDEPTH, 0.3f); JA(T_CRATE, 0.2f);
+        JA(T_RMIX, 0.45f); JA(T_RSIZE, 0.4f); JA(T_SWEEP, -0.7f * (1.0f - ramp)); JA(T_LEVEL, -0.55f * (1.0f - ramp));
+        JA(T_DMIX, 0.25f); JA(T_DFB, 0.3f); JA(T_DTONE, -0.3f * (1.0f - ramp)); JA(T_CDEPTH, 0.3f); JA(T_CRATE, 0.2f);
         break;
     }
     case 5:   /* TAPE STOP: the pitch and the movement fall away, darker, the repeats sag */
         JA(T_PITCH, -2.0f); JA(T_SWEEP, -0.3f); JA(T_LFO1, -0.35f); JA(T_LFO2, -0.35f);
-        JA(T_GPITCH, -1.0f); JA(T_GSPEED, -0.4f); JA(T_DWOW, 0.4f);
+        JA(T_DWOW, 0.4f); JA(T_DTONE, -0.3f);
         break;
     case 6:   /* WASH: reverb and feedback swell, the filter softens */
         JA(T_RMIX, 0.5f); JA(T_RSIZE, 0.45f); JA(T_RSHIM, 0.3f); JA(T_RDAMP, 0.25f); JA(T_SWEEP, -0.3f);
         JA(T_DMIX, 0.2f); JA(T_DFB, 0.3f); JA(T_CMIX, 0.3f); JA(T_CDEPTH, 0.2f);
-        JA(T_GBLEND, 0.35f); JA(T_GREV, 0.5f); JA(T_GFB, 0.3f);
         break;
-    case 7:   /* FREEZE PAD: the sound held and smeared wide */
-        if (lvl > 0.02f && s > 0.01f) jam_off[T_GFREEZE] += 1.0f;
-        JA(T_GWIN, 0.7f); JA(T_GJIT, 0.5f); JA(T_GBLEND, 0.8f); JA(T_GSIZE, 0.4f); JA(T_GDENS, 0.2f);
-        JA(T_DFB, 0.5f); JA(T_DMIX, 0.35f); JA(T_RMIX, 0.6f); JA(T_RSIZE, 0.55f); JA(T_RSHIM, 0.3f); JA(T_CDEPTH, 0.3f); JA(T_CMIX, 0.25f);
-        JA(T_SWEEP, -0.15f);
+    case 7:   /* FREEZE PAD: the sound held and smeared wide: the delay feeds back almost to ringing, the reverb opens far, the chorus spreads it */
+        JA(T_DFB, 0.65f); JA(T_DMIX, 0.4f); JA(T_DTONE, -0.2f); JA(T_RMIX, 0.65f); JA(T_RSIZE, 0.6f); JA(T_RDAMP, 0.15f); JA(T_RSHIM, 0.3f);
+        JA(T_CDEPTH, 0.3f); JA(T_CMIX, 0.3f); JA(T_SWEEP, -0.2f); JA(T_LFO1, 0.15f);
         break;
-    case 8: {   /* GLITCH: every 16th a new position, size, pitch, a drop-out or a crushed bit */
+    case 8: {   /* GLITCH: every 16th a new pitch, a drop-out, a crushed bit, a filter jump and a burst of the delay */
         int32_t cell = (int32_t)age;
         static const float PQ[7] = {-1.0f, -7.0f / 12.0f, -5.0f / 12.0f, 0.0f, 5.0f / 12.0f, 7.0f / 12.0f, 1.0f};
         int q;
@@ -173,11 +163,10 @@ static void jam_mv(int m, float s, float lvl, float age)
                 jam_gr[i] = jam_rand();
         }
         q = (int)((jam_gr[2] * 0.5f + 0.5f) * 6.999f);
-        JA(T_GPOS, jam_gr[0] * 0.5f); JA(T_GSIZE, jam_gr[1] * 0.3f); JA(T_GPITCH, PQ[q] * 0.5f); JA(T_GDENS, 0.35f); JA(T_GBLEND, 0.5f);
-        JA(T_PITCH, PQ[q]);
+        JA(T_PITCH, PQ[q]); JA(T_DFB, 0.2f);
         if (jam_gr[3] < -0.5f) JA(T_LEVEL, -1.0f);
         if (jam_gr[1] > 0.3f) JA(T_BITS, -2.0f);
-        JA(T_SWEEP, jam_gr[1] * 0.35f); JA(T_LFO1, 0.4f * (jam_gr[0] < 0 ? -jam_gr[0] : jam_gr[0])); JA(T_DMIX, 0.15f);
+        JA(T_SWEEP, jam_gr[1] * 0.35f); JA(T_LFO1, 0.4f * (jam_gr[0] < 0 ? -jam_gr[0] : jam_gr[0])); JA(T_DMIX, 0.3f * (jam_gr[0] < 0 ? -jam_gr[0] : jam_gr[0])); JA(T_RMIX, 0.15f);
         break;
     }
     case 9:   /* FILTER DIVE: the cutoff falls, the resonance rises */
