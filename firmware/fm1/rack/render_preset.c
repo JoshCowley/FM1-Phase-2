@@ -24,6 +24,7 @@ typedef struct { int k; float t0, t1, v0, v1; } mv_t;
 static ev_t ev[MAXEV]; static int nev;
 static mv_t mv[MAXEV]; static int nmv;
 static int pars[64][2]; static float parv[64]; static int npar;
+static int pat[8][2], pat_done[8]; static float pat_t[8], pat_v[8]; static int npat;   /* parat T slot idx value: a parameter set at a time (a FREEZE part way) */
 static float wavbuf[2 * SR * 64];
 
 static void wavf(const char *path, const float *x, int frames)
@@ -58,6 +59,7 @@ int main(int argc, char **argv)
         else if (sscanf(line, "voices %f", &a) == 1) voices = (int)a;
         else if (nev < MAXEV && sscanf(line, "on %f %f %f %f", &a, &bb, &c, &d) == 4) { ev[nev].t = a; ev[nev].d = bb; ev[nev].n = (int)c; ev[nev].v = d; nev++; }
         else if (nmv < MAXEV && sscanf(line, "ramp %d %f %f %f %f", &kk, &a, &bb, &c, &d) == 5) { mv[nmv++] = (mv_t){kk - 1, a, bb, c, d}; }
+        else if (npat < 8 && sscanf(line, "parat %f %d %d %f", &a, &kk, &i, &bb) == 4) { pat_t[npat] = a; pat[npat][0] = kk; pat[npat][1] = i; pat_v[npat++] = bb; }
         else if (npar < 64 && sscanf(line, "par %d %d %f", &kk, &i, &a) == 3) { pars[npar][0] = kk; pars[npar][1] = i; parv[npar++] = a; }
         else if (nmv < MAXEV && sscanf(line, "set %d %f %f", &kk, &a, &c) == 3) { mv[nmv++] = (mv_t){kk - 1, a, a, c, c}; }
         (void)e;
@@ -88,6 +90,7 @@ int main(int argc, char **argv)
                 if (!ev[i].on && ev[i].t >= t0 - 1e-6f && ev[i].t < t1) { rc_note_on(ev[i].n, ev[i].v); ev[i].on = 1; }
                 if (ev[i].on == 1 && ev[i].t + ev[i].d < t1) { rc_note_off(ev[i].n); ev[i].on = 2; }
             }
+            for (i = 0; i < npat; i++) if (!pat_done[i] && t0 >= pat_t[i]) { rc_set(pat[i][0], pat[i][1], pat_v[i]); pat_done[i] = 1; }
             for (i = 0; i < nmv; i++) {          /* the latest move whose time has begun sets its macro */
                 const mv_t *m = &mv[i];
                 float v;

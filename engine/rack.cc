@@ -905,7 +905,7 @@ static CL_NOINL void cl_mixout(const float* w0, const float* w1, const float* g0
   cl_mixs_ = user_mix;
 }
 // update 45 (ECO): the output stage with a cubic soft limit (no division: x (1 - x^2 / 6.75) up to 1.5, where it is 1) and, while BLEND sits at full wet, no dry line to keep
-static inline float cl_lim3(float x) { x = x > 1.5f ? 1.5f : x < -1.5f ? -1.5f : x; return x * (1.0f - x * x * (1.0f / 6.75f)); }
+static inline float cl_lim3(float x) { const float y = x * x; return x * (27.0f + y) / (27.0f + 9.0f * y); }   // (LIGHT's own soft limit, so the level is LIGHT's)
 // full wet and settled (BLEND at 1, no TONE): the gains are 1 and 0, so the wet is limited at 16 kHz inside cl_eco_block and goes out as it is, with no dry line to keep
 static bool cl_eco_fullwet(float user_mix, float tone) {
   if (!(cl_q_ & CLQ_E_MIX) || tone != 0.0f) return false;
@@ -930,15 +930,16 @@ static CL_NOINL void cl_mixout_eco(const float* w0, const float* w1, const float
   const float dfi = (Interpolate(clouds::lut_xfade_in, user_mix, 16.0f) - fi) / (float)(BLOCK - 1);
   const float dfo = (Interpolate(clouds::lut_xfade_out, user_mix, 16.0f) - fo) / (float)(BLOCK - 1);
   const float k = 0.5f * norm;
-  float gi = fi * k, go = fo * 0.5f * ig; const float dgi = dfi * k, dgo = dfo * 0.5f * ig;
+  float gi = fi * k, go = fo * 0.5f; const float dgi = dfi * k, dgo = dfo * 0.5f;
   int n = 0;
   while (n < BLOCK) {
     int run = cl_dryd_ - cl_dry_at_; if (run > BLOCK - n) run = BLOCK - n;
     float* d0 = cl_dry_[0] + cl_dry_at_; float* d1 = cl_dry_[1] + cl_dry_at_;
     for (int j = 0; j < run; ++j, ++n) {
       const float xl = d0[j] * go + w0[n] * gi, xr = d1[j] * go + w1[n] * gi;
-      d0[j] = g0[n]; d1[j] = g1[n];
-      o0[n] = cl_lim3(xl); o1[n] = cl_lim3(xr);
+      d0[j] = clampf(g0[n] * ig, -1.0f, 1.0f); d1[j] = clampf(g1[n] * ig, -1.0f, 1.0f);   // (the dry clamped as LIGHT's is: a hot dry no longer rides over it)
+      const float yl = xl * (27.0f + xl * xl), yr = xr * (27.0f + xr * xr), dl = 27.0f + 9.0f * xl * xl, dr = 27.0f + 9.0f * xr * xr, rr = 1.0f / (dl * dr);
+      o0[n] = yl * dr * rr; o1[n] = yr * dl * rr;
       gi += dgi; go += dgo;
     }
     cl_dry_at_ += run; if (cl_dry_at_ == cl_dryd_) cl_dry_at_ = 0;

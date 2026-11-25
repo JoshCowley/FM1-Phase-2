@@ -177,7 +177,12 @@ void GranularProcessor::Init(""")
     gp = _sub(gp, "  reverb_.set_lite((rack_cl_q & CLQ_RVALL) ? 15 : (rack_cl_q & CLQ_CLRV) != 0);", "  reverb_.set_lite(((rack_cl_q & CLQ_E_RV) ? 16 : 0) | ((rack_cl_q & CLQ_RVALL) ? 15 : (rack_cl_q & CLQ_CLRV) != 0));")
     gp = _sub(gp, "  const float post_gain = 1.2f;\n", """  const float post_gain = 1.2f;
   if (e_flt) {   // update 45 (CLQ_E_FLT): the wet alone, as floats, with the gain the 16-bit path gave it (its SoftConvert's limit is the engine's output stage now)
-    const float wg = 0.5f * post_gain * Interpolate(lut_xfade_in, 1.0f, 16.0f);   // (the 0.5 is SoftConvert's)
+    // ECO's level matched to LIGHT's per mode and REVERB (measured, update 45): the dB ECO sat above LIGHT with the mono sum and the small tank, taken off
+    const float rv = parameters_.reverb;
+    float dbt = playback_mode_ == PLAYBACK_MODE_LOOPING_DELAY ? (parameters_.freeze ? 0.8f + 1.5f * rv * rv : 2.2f + 2.27f * rv * rv) + 0.85f * parameters_.feedback
+              : playback_mode_ == PLAYBACK_MODE_SPECTRAL ? 1.0f - 1.7f * rv : 0.62f - 1.6f * rv - 2.45f * rv * rv;
+    const float ey = 0.1151f * dbt, eg = (1.0f - 0.5f * ey + ey * ey * (1.0f / 12.0f)) / (1.0f + 0.5f * ey + ey * ey * (1.0f / 12.0f));   // 10^(-dbt/20)
+    const float wg = 0.5f * post_gain * eg * Interpolate(lut_xfade_in, 1.0f, 16.0f);   // (the 0.5 is SoftConvert's)
     for (size_t i = 0; i < size; ++i) { rack_eco_out[0][i] = out_[i].l * wg; rack_eco_out[1][i] = out_[i].r * wg; }
     return;
   }
