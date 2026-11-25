@@ -571,7 +571,7 @@ static int cp_screen_do(int pg, const ui_mod_t *m, int force)
         cp.force = 0;
         cp.rh_ok = 0;                         /* the screen was cleared or drawn over: every row is sent again */
     }
-    if (!force && now - cp.draw_ms < (sc == SC_HOME ? CP_MIN_MS : FM_MIN_MS))
+    if (!force && now - cp.draw_ms < (sc == SC_HOME ? CP_MIN_MS - 12u : FM_MIN_MS))   /* (update 45: HOME's frames come on app_frame's grid, 50 ms apart on average, up to a loop step early) */
         return 0;
     dt = cp.t_ms ? now - cp.t_ms : 0u;
     dt = dt > 100u ? 100u : dt;

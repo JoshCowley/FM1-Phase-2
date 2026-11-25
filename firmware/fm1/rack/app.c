@@ -988,7 +988,10 @@ void app_frame(void)
         last_draw = now;
         draw();
     } else if (now - last_well > (GI(G_ANIM) == 0 ? 33u : GI(G_ANIM) == 1 ? 50u : 166u)) {   /* the well: 30, 20, 6 a second */
-        last_well = now;
+        uint32_t per = GI(G_ANIM) == 0 ? 33u : GI(G_ANIM) == 1 ? 50u : 166u;
+        /* (update 45) on a fixed grid: each frame is due one period after the last one's due time, not after the loop got round to it, so the pace
+         * keeps its average (HOME's 20 a second) whatever the loop's own step; a late one (a long frame, another page) starts the grid again */
+        last_well = mn.page == PG_HOME && now - last_well < 2u * per ? last_well + per : now;
         draw_well_only();
     }
     ann_tick(now);

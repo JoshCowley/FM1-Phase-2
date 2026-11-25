@@ -158,6 +158,11 @@ static struct {
     uint32_t nk, nt_at;                       /* the notes band: the keys lit (bit k: key k), and when something last sounded */
     char nname[20], ntext[40];                /* the chord's name and the notes' names, made again when the notes change */
     uint32_t nsig;
+    float eaf[HI_N], stv[5][2], mdv[8][2], mda[8], nkf[32];   /* (update 45) smoothed: the icons' activity, the tiles' values (p: 0..255, v: -127..127), the mods tiles' activity, the keys' glow */
+    uint8_t sthi[5], mdhi[8], mdok;           /* the icon each smoothed tile value belongs to (a new one starts there, not from the old one's value) */
+    uint32_t dt;                              /* this frame's ms: the one-pole filters and the sub-pixel positions run on it, not on the frame count */
+    int16_t scy[228];                         /* the scope's main trace as drawn, 1/8 px */
+    uint8_t scok;
     uint8_t nt[PL_MAXN], nn, ntot, nbass, narp;   /* the notes shown (lowest first), how many sound, the bass's and the arp's note now (0 none) */
 } h2;
 float rk_eff_param(int slot, int param);
@@ -191,7 +196,11 @@ static uint16_t h2_col(int hi)
 static void home_reset(void)
 {
     int i;
-    for (i = 0; i < HI_N; i++) h2.ea[i] = 0;
+    for (i = 0; i < HI_N; i++) h2.ea[i] = 0, h2.eaf[i] = 0.0f;
+    for (i = 0; i < 32; i++) h2.nkf[i] = 0.0f;
+    for (i = 0; i < 5; i++) h2.sthi[i] = 255;
+    for (i = 0; i < 8; i++) h2.mdhi[i] = 255, h2.mda[i] = 0.0f;
+    h2.scok = 0;
     h2.lev = 0.0f;
     cp.nlive = 0;
 }
@@ -207,11 +216,13 @@ static float h2_level(void)                   /* the output's level lately, 0..1
     s = fm_sqrtf(s * (1.0f / 256.0f)) * 3.0f;
     return s > 1.0f ? 1.0f : s;
 }
-static void h2_ease(int hi, float a)          /* a stage's activity: quick up, slow down */
+/* (update 45) a one-pole filter's step for this frame's dt (ms) and time constant tau (ms): the same motion at any frame pace */
+static float h2_k(float tau) { float d = (float)h2.dt; return d / (d + tau); }
+static void h2_ease(int hi, float a)          /* a stage's activity: quick up (35 ms), slow down (170 ms), in floats so a slow fall never stalls on a rounding step */
 {
-    int t = (int)(fm_clampf(a, 0.0f, 1.0f) * 255.0f), e = h2.ea[hi];
-    e += (t - e) / (t > e ? 2 : 6);
-    h2.ea[hi] = (uint8_t)e;
+    float t = fm_clampf(a, 0.0f, 1.0f) * 255.0f;
+    h2.eaf[hi] += (t - h2.eaf[hi]) * h2_k(t > h2.eaf[hi] ? 35.0f : 170.0f);
+    h2.ea[hi] = (uint8_t)(h2.eaf[hi] + 0.5f);
 }
 static int h2_stage_of(int slot, int param)   /* the stage a (slot, parameter) is on (the SRC stage is 0): -1 none */
 {
@@ -240,7 +251,10 @@ static const float *home_frame(uint32_t dt)
     cp.nlive = 0;
     h2.ms = plat_ms();
     h2_notes();
-    h2.lev += (h2_level() - h2.lev) * (dt > 60u ? 0.8f : 0.4f);
+    h2.dt = dt;
+    {   float tl = h2_level();
+        h2.lev += (tl - h2.lev) * h2_k(tl > h2.lev ? 25.0f : 140.0f);   /* quick up, slow down, on the clock */
+    }
     h2.ph += (float)dt * (0.012f + 0.09f * h2.lev);
     h2.ph2 += (float)dt * 0.0011f;
     for (i = 0; i < 6; i++)
@@ -394,6 +408,36 @@ static const float *home_frame(uint32_t dt)
         for (k = 0; k < 4; k++)
             if (cp.act[k] && now - cp.act[k] < 600u && h2.md[ti[5]].act < 220)
                 h2.md[ti[5]].act = (uint8_t)(255u - (now - cp.act[k]) * 255u / 600u);
+    }
+    {                                         /* (update 45) what each tile shows moving, eased: a source's value and a stage's settings glide, not step */
+        float kv = h2_k(45.0f), ka = h2_k(35.0f), kr = h2_k(170.0f);
+        int unsettled = 0;
+        for (i = 0; i < h2.ns; i++) {
+            h2_t *t = &h2.st[i];
+            float *sv = h2.stv[i];
+            if (h2.sthi[i] != t->hi) { h2.sthi[i] = t->hi; sv[0] = (float)t->v; sv[1] = (float)t->p; }
+            sv[0] += ((float)t->v - sv[0]) * kv; sv[1] += ((float)t->p - sv[1]) * kv;
+            unsettled |= fm_fabsf((float)t->v - sv[0]) > 1.0f || fm_fabsf((float)t->p - sv[1]) > 1.5f;
+            t->v = (int8_t)(sv[0] + (sv[0] < 0.0f ? -0.5f : 0.5f)); t->p = (uint8_t)(fm_clampf(sv[1] + 0.5f, 0.0f, 255.0f));
+        }
+        for (i = h2.ns; i < 5; i++) h2.sthi[i] = 255;
+        for (i = 0; i < h2.nm; i++) {
+            h2_t *t = &h2.md[i];
+            float *mv = h2.mdv[i], tg = (float)t->act;
+            if (h2.mdhi[i] != t->hi) { h2.mdhi[i] = t->hi; mv[0] = (float)t->v; h2.mda[i] = tg; }
+            mv[0] += ((float)t->v - mv[0]) * kv;
+            h2.mda[i] += (tg - h2.mda[i]) * (tg > h2.mda[i] ? ka : kr);
+            unsettled |= fm_fabsf((float)t->v - mv[0]) > 1.0f || fm_fabsf(tg - h2.mda[i]) > 1.5f;
+            t->v = (int8_t)(mv[0] + (mv[0] < 0.0f ? -0.5f : 0.5f)); t->act = (uint8_t)(h2.mda[i] + 0.5f);
+        }
+        for (i = h2.nm; i < 8; i++) h2.mdhi[i] = 255;
+        for (i = 0; i < 32; i++) {            /* the keys' glow: on at once, off over ~120 ms */
+            float tg = h2.nk >> i & 1u ? 1.0f : 0.0f;
+            h2.nkf[i] += (tg - h2.nkf[i]) * (tg > h2.nkf[i] ? 1.0f : h2_k(120.0f));
+            if (h2.nkf[i] < 0.01f) h2.nkf[i] = 0.0f; else unsettled = 1;
+        }
+        for (i = 0; i < HI_N; i++) unsettled |= h2.eaf[i] > 0.6f && h2.eaf[i] < 255.0f && fm_fabsf(h2.eaf[i] - (float)h2.ea[i]) > 0.0f && h2.ea[i] > 0;
+        if (unsettled) cp.nlive++;            /* not still yet: the next frame moves them on */
     }
     /* where the drums join: between the stage before the first effect and that effect (the end of the path with no effect) */
     h2.jx = -1;
@@ -707,6 +751,22 @@ static void h2_dot(int32_t x, int32_t y, uint16_t c, uint32_t a)
     rrect(x - 2, y - 2, 5, 5, mix565(c, K_BG, a / 4u), 2);
     rrect(x - 1, y - 1, 3, 3, mix565(K_FG, c, a), 1);
 }
+/* (update 45) a dot at a sub-pixel position: each pixel near it takes its share from its distance, so it glides instead of stepping a pixel at a time */
+static void h2_dotf(float x, float y, uint16_t c, uint32_t a)
+{
+    int32_t x0 = (int32_t)fm_floorf(x), y0 = (int32_t)fm_floorf(y), i, j;
+    uint16_t cc;
+    if (!h2_vis(y0 - 2, 6)) return;
+    if (a > 255u) a = 255u;
+    cc = mix565(K_FG, c, a);
+    for (j = -2; j <= 3; j++)
+        for (i = -2; i <= 3; i++) {
+            float dx = (float)(x0 + i) - x, dy = (float)(y0 + j) - y, d2 = dx * dx + dy * dy, f;
+            if (d2 >= 6.5f) continue;
+            f = 1.0f - d2 * (1.0f / 6.5f);
+            cv_pset(x0 + i, y0 + j, mix565(cc, K_BG, (uint32_t)(f * (float)(a >> 2) + f * f * f * (float)(a - (a >> 2)))));
+        }
+}
 static void h2_vline(int32_t x, int32_t y0, int32_t y1, uint16_t c)
 {
     if (y1 < y0) { int32_t t = y0; y0 = y1; y1 = t; }
@@ -726,10 +786,11 @@ static void h2_feedline(int32_t x0, int32_t y0, int32_t ly, int32_t x1, int32_t 
     }
     if (act > 12u && tot > 0) {
         float u = u0 - fm_floorf(u0);
-        p = (int32_t)(u * (float)tot);
-        if (p < l1) h2_dot(x0, y0 + p, c, act);
-        else if (p < l1 + l2) h2_dot(x0 + d * (p - l1), ly, c, act);
-        else h2_dot(x1, ly + (p - l1 - l2), c, act);
+        float pf = u * (float)tot;
+        (void)p;
+        if (pf < (float)l1) h2_dotf((float)x0, (float)y0 + pf, c, act);
+        else if (pf < (float)(l1 + l2)) h2_dotf((float)x0 + (float)d * (pf - (float)l1), (float)ly, c, act);
+        else h2_dotf((float)x1, (float)ly + (pf - (float)(l1 + l2)), c, act);
     }
 }
 static void h2_scope(void)
@@ -738,6 +799,7 @@ static void h2_scope(void)
     int32_t top = h2.sy, h = H_SBOT - top, mid = top + h / 2, amp = h / 2 - 3, x, py[3], pp[3], by = cp.by, be = cp.by + cp.bh;
     uint16_t c, halo;
     uint32_t ld = (uint32_t)(h2.lev * 256.0f);
+    float ks = h2_k(30.0f);
     if (top >= be || H_SBOT <= by)
         return;
     c = ld > 120u ? mix565(K_FG, h2.tint, (ld - 120u) * 256u / 136u) : h2.tint;     /* white when loud */
@@ -752,7 +814,12 @@ static void h2_scope(void)
     cv_rect(6, mid, 228, 1, mix565(K_FAINT, K_BG, 150));
     for (x = 0; x < 228; x++) {
         int32_t v = rc_scope[(start + k + 2u * (uint32_t)x) & (RC_SCOPE_N - 1u)], n;
-        py[0] = mid - (v * amp) / 16384;
+        {   /* (update 45) the main trace eased from the last frame's (1/8 px): the wave settles instead of flickering from one frame's cut to the next */
+            int32_t r8 = mid * 8 - (v * amp * 8) / 16384, cur = h2.scy[x];
+            cur = h2.scok ? cur + (int32_t)((float)(r8 - cur) * ks) : r8;
+            h2.scy[x] = (int16_t)cur;
+            py[0] = (cur + 4) >> 3;
+        }
         py[0] = py[0] < top + 1 ? top + 1 : py[0] > H_SBOT - 2 ? H_SBOT - 2 : py[0];
         n = (int32_t)(h2.ch ? rc_scope[(start + k + 2u * (uint32_t)x + 9u) & (RC_SCOPE_N - 1u)] : 0);
         py[1] = mid - (n * amp) / 16384 * 3 / 4;
@@ -773,6 +840,7 @@ static void h2_scope(void)
         }
         pp[0] = py[0]; pp[1] = py[1]; pp[2] = py[2];
     }
+    h2.scok = 1;
 }
 /* ---- update 41 step 4: what is being played. The notes sounding (the chord layer's and the keys' own; the arp's and the bass's apart), or the chord held
  * while the arp plays it; kept, dimmed, for 1.1 s after the last one ends */
@@ -837,8 +905,8 @@ static void h2_noteband(void)
     for (k = 0; k < NKEYS; k++) {             /* the keys of the FM-1 (F3 up), whites first */
         int pc = (53 + k) % 12;
         if (WHITE[pc]) {
-            int lit = h2.nk >> k & 1u, z = zone && k < 7, zh = ui.zkeys >> k & 1u;
-            uint16_t col = lit ? mix565(on, GREY(64), fa) : GREY(64);
+            int z = zone && k < 7, zh = ui.zkeys >> k & 1u;
+            uint16_t col = mix565(on, GREY(64), (uint32_t)((float)fa * h2.nkf[k]));
             if (zh) col = zc;
             cv_rect(kx + wi * 7, ky, 6, 18, col);
             if (z) cv_rect(kx + wi * 7, ky + 15, 6, 3, zh ? K_FG : zc);
@@ -850,8 +918,8 @@ static void h2_noteband(void)
         int pc = (53 + k) % 12;
         if (WHITE[pc]) { wi++; continue; }
         {
-            int lit = h2.nk >> k & 1u, z = zone && k < 7, zh = ui.zkeys >> k & 1u;
-            uint16_t col = lit ? mix565(on, GREY(8), fa * 3u / 4u) : GREY(8);
+            int z = zone && k < 7, zh = ui.zkeys >> k & 1u;
+            uint16_t col = mix565(on, GREY(8), (uint32_t)((float)(fa * 3u / 4u) * h2.nkf[k]));
             if (zh) col = zc;
             cv_rect(kx + wi * 7 - 3, ky, 5, 11, col);
             if (z) cv_rect(kx + wi * 7 - 3, ky + 9, 5, 2, zh ? K_FG : zc);
@@ -911,7 +979,7 @@ static void h2_noteband(void)
 static void home_draw(const float *mon, int pf)
 {
     int i, j, n = h2.ns;
-    int32_t pyc = h2.py + H_PH / 2, x;
+    int32_t pyc = h2.py + H_PH / 2;
     (void)mon; (void)pf;
     /* the path's line and its dots (hidden under the tiles) */
     if (h2_vis(pyc - 3, 7) && n) {
@@ -924,8 +992,7 @@ static void home_draw(const float *mon, int pf)
         if (h2.lev > 0.02f)
             for (j = 0; j < 8; j++) {
                 float u = h2.ph * 0.06f + (float)j * 0.125f;
-                x = 4 + (int32_t)((u - fm_floorf(u)) * 226.0f);
-                h2_dot(x, pyc, K_SRC, 60u + (uint32_t)(h2.lev * 195.0f));
+                h2_dotf(4.0f + (u - fm_floorf(u)) * 226.0f, (float)pyc, K_SRC, 60u + (uint32_t)(h2.lev * 195.0f));
             }
     }
     /* the mods row: the feeds first (under the tiles) */
@@ -990,7 +1057,15 @@ static void home_text(void)
 static void home_readouts(void)
 {
     uint32_t now = plat_ms(), tl = plat_ticks24();
+    static uint32_t ro_at;
+    static float live_s[4] = {-1.0f, -1.0f, -1.0f, -1.0f};                   /* (update 45) the via source's mark, eased and drawn between two columns */
+    float rk = 0.0f;
     int k, key = PG_HOME << 4;
+    {   uint32_t d = ro_at ? now - ro_at : 0u;
+        d = d > 100u ? 100u : d;
+        ro_at = now;
+        rk = (float)d / ((float)d + 45.0f);
+    }
     const float *mon = rk_monitor(RS_AMP);
     cv_begin(240, H_RH, K_BG);
     cp.a_lcd += plat_ticks24() - tl;
@@ -1039,10 +1114,19 @@ static void home_readouts(void)
         for (q = 0; q < 5; q++)
             cv_rect(hx + q * HS_W / 4, ty - 1, 1, 3, mix565(K_FAINT, K_BG, 190));
         if (live >= 0.0f) {                                            /* the via source's hold on it */
-            int32_t lx = hx + (int32_t)(live * (float)HS_W), a = lx < tx ? lx : tx, b = lx < tx ? tx : lx;
+            float lf, fr;
+            int32_t lx, a, b;
+            live_s[k] = live_s[k] < 0.0f ? live : live_s[k] + (live - live_s[k]) * rk;
+            lf = (float)hx + live_s[k] * (float)HS_W;
+            lx = (int32_t)(lf + 0.5f);
+            fr = lf - fm_floorf(lf);
+            a = lx < tx ? lx : tx; b = lx < tx ? tx : lx;
             rrect(a, ty - 2, b - a + 1, 5, mix565(mc, K_BG, 70), 2);
-            cv_rect(lx, ty - 4, 1, 9, mc);
+            cv_rect((int32_t)lf, ty - 4, 1, 9, mix565(mc, K_BG, (uint32_t)((1.0f - fr) * 256.0f)));   /* the mark between two columns */
+            cv_rect((int32_t)lf + 1, ty - 4, 1, 9, mix565(mc, K_BG, (uint32_t)(fr * 256.0f)));
             cv_rect(lx - 1, ty - 3, 3, 1, mc);
+        } else {
+            live_s[k] = -1.0f;
         }
         if (tx > hx) {                                                 /* the fill, a hairline with its halo */
             cv_rect(hx, ty, tx - hx, 1, kc);
