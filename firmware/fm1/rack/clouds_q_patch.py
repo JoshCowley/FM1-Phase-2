@@ -24,6 +24,7 @@ def apply(gp, _sub):
 unsigned rack_cl_q = 0;               // update 42: the CLQ_* switches (engine/rack.cc sets them from RENDER)
 static float* df_buf_;                // the diffuser's memory (CLQ_SKIPDIF clears it when the diffuser comes back)
 static int df_idle_ = 0;
+static int flt_idle_ = 0;            // update 44: LOOPDLY's filters skipped (CLQ_SKIPFLT)
 void GranularProcessor::Init(""")
     gp = _sub(gp, "    float sr = sample_rate();\n", """    // update 44 (CLQ_16K, LIGHT): Clouds at 16 kHz in half the memory: the audio 12,288 samples a channel (stereo: 0.77 s) or 24,576 (mono), the workspace 24,576 B
     // (diffuser 1024 floats, reverb 8192 words, shifter 2048 words: each the same tank at half the delay lengths), the spectral mode's FFT 2048 (the same 128 ms)
@@ -40,11 +41,21 @@ void GranularProcessor::Init(""")
     float sr = sample_rate();
 """)
     gp = _sub(gp, "    diffuser_.Init(allocator.Allocate<float>(2048));",
-              "    diffuser_.set_half(half);\n    df_buf_ = allocator.Allocate<float>(half ? 1024 : 2048);\n    diffuser_.Init(df_buf_);\n    df_idle_ = 0;")
+              "    diffuser_.set_half(half);\n    df_buf_ = allocator.Allocate<float>(half ? 1024 : 2048);\n    diffuser_.Init(df_buf_);\n    df_idle_ = 0; flt_idle_ = 0;")
     gp = _sub(gp, "    pitch_shifter_.Init((uint16_t*)correlator_data);", "    pitch_shifter_.set_half(half);\n    pitch_shifter_.Init((uint16_t*)correlator_data);")
     gp = _sub(gp, "          lut_sine_window_4096, 4096,", "          lut_sine_window_4096, half ? 2048 : 4096,")
+    gp = _sub(gp, "    CONSTRAIN(lp_cutoff, 0.0f, 0.499f);\n", "    if (rack_cl_q & CLQ_16K) { lp_cutoff *= 2.0f; hp_cutoff *= 2.0f; }   // update 44: TEXTURE's cut-offs in Hz as at 32 kHz\n    CONSTRAIN(lp_cutoff, 0.0f, 0.499f);\n")
+    gp = _sub(gp, "    float cutoff = parameters_.texture;\n", """    float cutoff = parameters_.texture;
+    if ((rack_cl_q & CLQ_SKIPFLT) && cutoff >= 0.5f && cutoff <= 0.55f) {
+      flt_idle_ = 1;                                      // (update 44) the low-pass sits at the Nyquist and the high-pass under 30 Hz: the filters are not run
+    } else {
+    if (flt_idle_) { for (int i = 0; i < 2; ++i) { lp_filter_[i].Init(); hp_filter_[i].Init(); } flt_idle_ = 0; }
+""")
+    gp = _sub(gp, "        &out_[0].r, &out_[0].r, size, 2);\n  }\n  \n  // This is what is fed back.", "        &out_[0].r, &out_[0].r, size, 2);\n    }\n  }\n  \n  // This is what is fed back.")
     gp = _sub(gp, FB_OLD, FB_NEW)
+    gp = _sub(gp, "  float cutoff = (20.0f + 100.0f * feedback * feedback) / sample_rate();", "  float cutoff = (20.0f + 100.0f * feedback * feedback) / ((rack_cl_q & CLQ_16K) ? 16000.0f : sample_rate());   // (update 44: in Hz)")
     gp = _sub(gp, "    diffuser_.set_amount(diffusion);\n    diffuser_.Process(out_, size);", """    diffuser_.set_amount(diffusion);
+    diffuser_.set_lite((rack_cl_q & CLQ_DIFLITE) != 0);
     if ((rack_cl_q & CLQ_SKIPDIF) && diffusion <= 0.0f) {
       df_idle_ = 1;                                       // amount 0: out_ += 0 * (wet - out_) leaves out_ as it is
     } else {

@@ -73,10 +73,10 @@ int main()
         double step_ok = 2 * PI * (f <= 8000 ? f : fa) / 48000.0 * 0.5 * 1.1 + 1e-3;
         printf("%8.0f %9.1f %10.5f %10.5f%s\n", f, gain, f <= 5000 ? maxerr : 0.0, edge, f >= 9000 ? "   (all that comes out: the alias)" : "");
         if (f <= 3000 && fabs(gain) > 1.5) bad++;
-        if (f <= 3000 && maxerr > 0.005) bad++;
+        if (f <= 2000 && maxerr > 0.01) bad++;
         if (f <= 8000 && edge > step_ok * 1.5) bad++;
-        if (f >= 9000 && f <= 10000 && gain > -28.0) bad++;
-        if (f >= 11000 && gain > -50.0) bad++;
+        if (f >= 9000 && f <= 10000 && gain > -24.0) bad++;
+        if (f >= 11000 && gain > -40.0) bad++;
     }
     printf("%s\n", bad ? "FAIL" : "resampler check passed");
     return bad ? 1 : 0;

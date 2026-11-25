@@ -49,6 +49,7 @@ class Diffuser {
     if (half_) engine8_.Init(buffer); else engine_.Init(buffer);
   }
   inline void set_half(bool half) { half_ = half; }   // before Init (update 44)
+  inline void set_lite(bool lite) { lite_ = lite; }   // update 44 (CLQ_DIFLITE): two allpasses a side, not four (the third and fourth are not run)
 
   void Process(FloatFrame* in_out, size_t size) {
     if (half_) Run<E8, 2>(engine8_, in_out, size); else Run<E, 1>(engine_, in_out, size);
@@ -84,10 +85,12 @@ class Diffuser {
       c.WriteAllPass(apl1, -kap);
       c.Read(apl2 TAIL, kap);
       c.WriteAllPass(apl2, -kap);
-      c.Read(apl3 TAIL, kap);
-      c.WriteAllPass(apl3, -kap);
-      c.Read(apl4 TAIL, kap);
-      c.WriteAllPass(apl4, -kap);
+      if (!lite_) {
+        c.Read(apl3 TAIL, kap);
+        c.WriteAllPass(apl3, -kap);
+        c.Read(apl4 TAIL, kap);
+        c.WriteAllPass(apl4, -kap);
+      }
       c.Write(wet, 0.0f);
       in_out->l += amount_ * (wet - in_out->l);
       
@@ -96,10 +99,12 @@ class Diffuser {
       c.WriteAllPass(apr1, -kap);
       c.Read(apr2 TAIL, kap);
       c.WriteAllPass(apr2, -kap);
-      c.Read(apr3 TAIL, kap);
-      c.WriteAllPass(apr3, -kap);
-      c.Read(apr4 TAIL, kap);
-      c.WriteAllPass(apr4, -kap);
+      if (!lite_) {
+        c.Read(apr3 TAIL, kap);
+        c.WriteAllPass(apr3, -kap);
+        c.Read(apr4 TAIL, kap);
+        c.WriteAllPass(apr4, -kap);
+      }
       c.Write(wet, 0.0f);
       in_out->r += amount_ * (wet - in_out->r);
 
@@ -118,6 +123,7 @@ class Diffuser {
   E engine_;
   E8 engine8_;
   bool half_ = false;
+  bool lite_ = false;
   
   float amount_;
   DISALLOW_COPY_AND_ASSIGN(Diffuser);

@@ -866,6 +866,26 @@ static CL_NOINL void cl_mixout(const float* w0, const float* w1, const float* g0
     dfi = (Interpolate(clouds::lut_xfade_in, user_mix, 16.0f) - fi) / (float)(BLOCK - 1);
     dfo = (Interpolate(clouds::lut_xfade_out, user_mix, 16.0f) - fo) / (float)(BLOCK - 1);
   }
+  if (fast && tone == 0.0f && (cl_q_ & CLQ_16K)) {   // update 44 (LIGHT): the same sums with the constants folded in (the gains carry norm and the 0.5), the dry line walked in runs, one division for the pair's limiter
+    const float k = 0.5f * norm;
+    float gi = fi * k, go = fo * 0.5f; const float dgi = dfi * k, dgo = dfo * 0.5f;
+    int n = 0;
+    while (n < BLOCK) {
+      int run = cl_dryd_ - cl_dry_at_; if (run > BLOCK - n) run = BLOCK - n;
+      float* d0 = cl_dry_[0] + cl_dry_at_; float* d1 = cl_dry_[1] + cl_dry_at_;
+      for (int j = 0; j < run; ++j, ++n) {
+        const float xl = d0[j] * go + w0[n] * gi, xr = d1[j] * go + w1[n] * gi;
+        d0[j] = g0[n]; d1[j] = g1[n];
+        const float yl = xl * (27.0f + xl * xl), yr = xr * (27.0f + xr * xr), dl = 27.0f + 9.0f * xl * xl, dr = 27.0f + 9.0f * xr * xr;
+        const float r = 1.0f / (dl * dr);
+        o0[n] = yl * dr * r; o1[n] = yr * dl * r;
+        gi += dgi; go += dgo;
+      }
+      cl_dry_at_ += run; if (cl_dry_at_ == cl_dryd_) cl_dry_at_ = 0;
+    }
+    cl_mixs_ = user_mix;
+    return;
+  }
   for (int n = 0; n < BLOCK; ++n) {
     if (fast) { if (n) { fi += dfi; fo += dfo; } }
     else { cl_mixs_ += dm; fi = Interpolate(clouds::lut_xfade_in, cl_mixs_, 16.0f); fo = Interpolate(clouds::lut_xfade_out, cl_mixs_, 16.0f); }
@@ -890,7 +910,7 @@ static void cl_set_q(unsigned q) {
 }
 // update 44: the page's list is 0 LIGHT (the default), 1 HIGH, 2 NORMAL (2.41's; LITE is retired: LIGHT is lighter than it was and not bolder in the same way)
 #ifndef CLQ_LIGHT_MASK
-#define CLQ_LIGHT_MASK (CLQ_NORMAL_MASK | CLQ_16K | CLQ_RVALL)
+#define CLQ_LIGHT_MASK (CLQ_NORMAL_MASK | CLQ_16K | CLQ_RVALL | CLQ_SKIPFLT | CLQ_CAP16 | CLQ_DIFLITE)
 #endif
 static unsigned cl_level_mask(int lvl) { return lvl == 1 ? 0u : lvl >= 2 ? (unsigned)CLQ_NORMAL_MASK : (unsigned)CLQ_LIGHT_MASK; }
 static void cl_set_level(int lvl) { cl_set_q(cl_level_mask(lvl)); }

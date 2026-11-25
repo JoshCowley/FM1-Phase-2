@@ -5,9 +5,8 @@
 One Kaiser-windowed sinc (43 taps at the 96 kHz common rate, cutoff 14.5 kHz, beta 6: -0.7 dB at 12 kHz, -4 dB at 14 kHz,
 -22 dB at 17 kHz, -36 dB at 18 kHz, -75 dB from 19 kHz), cut into polyphase rows: 48 -> 32 (up 2, down 3: two rows of 22 taps)
 and 32 -> 48 (up 3, down 2: three rows of 15 taps). Each row is scaled to a gain of exactly 1 at DC.
-Update 44: the 16 kHz pair (Cl16Down / Cl16Up) is one 25-tap Kaiser sinc at 48 kHz (cutoff 6.5 kHz, beta 5: -1.4 dB at 5 kHz, -4 dB at 6 kHz,
--17 dB at 8 kHz, -31 dB at 9 kHz, -60 dB from 10 kHz), used both ways: down 3 (13 multiplies an output, the taps folded), up 3 (8 or 9 taps an output).
-Total delay 24 frames at 48 kHz (CL16_DELAY). The sums are written out, no loops.
+Update 44: the 16 kHz pair (Cl16Down / Cl16Up): Kaiser sincs at 48 kHz, cutoff 6.5 kHz, beta 5: down 25 taps (-1.4 dB at 5 kHz, -4 dB at 6 kHz, -17 dB at 8 kHz, -31 dB at 9 kHz,
+-60 dB from 10 kHz; 13 multiplies an output, the taps folded), up 17 taps (5 or 6 an output). Total delay 20 frames at 48 kHz (CL16_DELAY). The sums are written out, no loops.
   python3 make_cl_resample.py            (from this folder; the header is committed)"""
 import numpy as np
 from pathlib import Path
@@ -143,17 +142,21 @@ struct Cl32Up {      // 32 frames in, 48 out; 16 frames of history
   }
 };
 '''
-# ---- update 44: the 16 kHz pair
-G16 = np.sinc(2 * 6500.0 / 48000 * (np.arange(25) - 12)) * (2 * 6500.0 / 48000) * np.kaiser(25, 5.0)
-G16 = G16 / G16.sum()
+# ---- update 44: the 16 kHz pair. Down: 25 taps (the alias that folds into the band: -31 dB at 9 kHz, -60 from 10); up: 17 taps (the images of a signal that Clouds
+# has already band-limited: -27 dB at 10 kHz, -45 dB from 11)
+def kais(n, fc, beta):
+    g = np.sinc(2 * fc / 48000 * (np.arange(n) - (n - 1) / 2)) * (2 * fc / 48000) * np.kaiser(n, beta)
+    return g / g.sum()
+G25 = kais(25, 6500.0, 5.0); G17 = kais(17, 6500.0, 5.0)
+UC = 10   # the up filter's centre, in 48 kHz frames after the frame it belongs to (causal: 3 x 15 + 2 + 8 - 10 <= 3 x 15 + 2 + 10 ... see Cl16Up)
 def c16():
-    L = ["// update 44 (CLQ_16K): 48 kHz <-> 16 kHz, one 25-tap filter both ways (make_cl_resample.py). Delay: 24 frames at 48 kHz in all (the dry line's length, CL16_DELAY).",
-         "#define CL16_DELAY 24",
-         "static const float CL_G16[13] = {" + ", ".join(num(v) for v in G16[12:]) + "};   // the centre tap, then 12 pairs outwards",
-         "static const float CL_U16[3][9] = {   // up: three phases of the same filter x 3 (taps by distance in 16 kHz frames; the first phase has 8, the second 8, the third 9)"]
+    L = ["// update 44 (CLQ_16K): 48 kHz <-> 16 kHz (make_cl_resample.py): down a 25-tap filter, up a 17-tap one, both of cutoff 6.5 kHz. Delay: 20 frames at 48 kHz in all (the dry line's length).",
+         "#define CL16_DELAY 20",
+         "static const float CL_G16[13] = {" + ", ".join(num(v) for v in G25[12:]) + "};   // down: the centre tap, then 12 pairs outwards",
+         "static const float CL_U16[3][6] = {   // up: three phases of the 17-tap filter x 3, by distance in 16 kHz frames (6, 5 and 6 taps)"]
     rows = []
     for ph in range(3):
-        r = [3 * G16[3 * d + ph - 14 + 12] if 0 <= 3 * d + ph - 14 + 12 < 25 else 0.0 for d in range(9)]
+        r = [3 * G17[3 * d + ph - UC + 8] if 0 <= 3 * d + ph - UC + 8 < 17 else 0.0 for d in range(6)]
         rows.append("  {" + ", ".join(num(v) for v in r) + "}")
     L.append(",\n".join(rows)); L.append("};")
     L.append("struct Cl16Down {    // 48 frames in, 16 out (one channel); 24 frames of history")
@@ -170,17 +173,17 @@ def c16():
     L.append("    for (int n = 0; n < 24; ++n) h[n] = h[n + 48];")
     L.append("  }")
     L.append("};")
-    L.append("struct Cl16Up {      // 16 frames in, 48 out; 8 frames of history")
-    L.append("  float h[8 + 16];")
+    L.append("struct Cl16Up {      // 16 frames in, 48 out; 6 frames of history")
+    L.append("  float h[6 + 16];")
     L.append("  void run(const float* y, float* x) {")
-    L.append("    for (int m = 0; m < 16; ++m) h[8 + m] = y[m];")
+    L.append("    for (int m = 0; m < 16; ++m) h[6 + m] = y[m];")
     L.append("    for (int g = 0; g < 16; ++g) {")
-    L.append("      const float* s = h + 8 + g;   // s[-d] is the frame d before g")
+    L.append("      const float* s = h + 6 + g;   // s[-d] is the frame d before g")
     for ph in range(3):
-        ds = [d for d in range(9) if rows and (0 <= 3 * d + ph - 14 + 12 < 25)]
+        ds = [d for d in range(6) if 0 <= 3 * d + ph - UC + 8 < 17]
         L.append("      x[3 * g + %d] = " % ph + " + ".join(f"CL_U16[{ph}][{d}] * s[-{d}]" for d in ds) + ";")
     L.append("    }")
-    L.append("    for (int n = 0; n < 8; ++n) h[n] = h[n + 16];")
+    L.append("    for (int n = 0; n < 6; ++n) h[n] = h[n + 16];")
     L.append("  }")
     L.append("};")
     return "\n".join(L)
