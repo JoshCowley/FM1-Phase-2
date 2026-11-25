@@ -49,6 +49,8 @@ void set_rv_mono(int on);             // the benchmark's A/B of the reverb tank 
 void set_quality(unsigned mask);       // the 2.38 quality trims as a mask (QB_* in rack.cc: 1 reverb sum, 2 short halfband, 4 lighter reverb diffusion; 0 = the 2.37 sound; -DRACK_BENCH_AB only)
 unsigned quality_default(void);        // the build's own mask (-DRACK_BENCH_AB only)
 void set_lim_fast(int on);            // the benchmark's A/B of the limiter's block-wise peak (1) or the falling queue (0: 2.35) (-DRACK_BENCH_AB only)
+void set_rv_post(int on);              // 2.43: the reverb's wet job after its slot on the second core (1) or the first core's early work (0: 2.42); the benchmark's A/B
+void set_split_learn(int on);         // 2.43: the voices' learnt split on (1) or the table's alone (0)
 void set_clouds_mask(unsigned m);   // update 42: the Clouds quality bits (CLQ_* in shim/clouds/dsp/rack_cl_q.h) as a mask for the benchmark; ~0u = the page's RENDER
 void set_clouds_opts(int k32, int skip_rev, int grains);   // update 8: the Clouds changes' runtime switches (the benchmark's comparison cases only)
 void set_voices(int n);          // 1-6; the FM-1 build caps this at what fits

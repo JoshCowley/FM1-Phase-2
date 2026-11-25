@@ -19,6 +19,8 @@ void rk_set_macro_target(int k, int idx, int slot, int param, int depth, int sta
 void rk_modsum_precompute(int on) { set_modsum_precompute(on); }
 void rk_rv_mono(int on) { set_rv_mono(on); }
 void rk_lim_fast(int on) { set_lim_fast(on); }
+void rk_rv_post(int on) { set_rv_post(on); }
+void rk_split_learn(int on) { set_split_learn(on); }
 void rk_quality(unsigned m) { set_quality(m); }
 unsigned rk_quality_default(void) { return quality_default(); }
 void rk_set_master(float v) { set_master(v); }

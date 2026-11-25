@@ -17,8 +17,10 @@
 #include "bench.c"
 #ifdef BENCH_IR
 #include <valgrind/callgrind.h>
+void rk_rv_post(int on);
+void rk_split_learn(int on);
 static int ir_mode, ir_on;     /* bench_ir: 0 both cores, 1 the first core only, 2 the second core's job only (callgrind collects when asked) */
-#define IR_JOB(call) do { if (ir_on && ir_mode) CALLGRIND_TOGGLE_COLLECT; call; if (ir_on && ir_mode) CALLGRIND_TOGGLE_COLLECT; } while (0)
+#define IR_JOB(call) do { if (ir_on && ir_mode && ir_mode <= 2) CALLGRIND_TOGGLE_COLLECT; call; if (ir_on && ir_mode && ir_mode <= 2) CALLGRIND_TOGGLE_COLLECT; } while (0)
 #else
 #define IR_JOB(call) call
 #endif
@@ -43,6 +45,7 @@ static int host_cl_piped(const bcase_t *c)
  * numbers in the same order as on one core and the sound differs only by the order the voices are added in (on the
  * FM-1 the cores run at once, so voices that use random numbers, drift or noise, draw them in another order) */
 static void (*host_job)(uint32_t);
+static int host_pre_on;
 static uint32_t host_arg;
 /* update 9: with Clouds on the second core (rk_fx_core2_active) the job runs when it is handed over, where one core would have run the same work
  * (Clouds' random numbers in the one-core order: the output is then one core's, a block later); the voices' job still waits for the join */
@@ -50,11 +53,28 @@ static int host_cpu2_run(void (*fn)(uint32_t), uint32_t arg)
 {
     if (rk_fx_core2_active()) { IR_JOB(fn(arg)); host_job = 0; return 1; }
     host_job = fn; host_arg = arg;
+#ifdef BENCH_IR
+    if (ir_on && ir_mode == 3 && arg == 0) { CALLGRIND_TOGGLE_COLLECT; host_pre_on = 1; }   /* mode 3: the first core's own voices, from the hand-over to the join */
+#endif
     return 1;
 }
 static void host_cpu2_sync(void) { __sync_synchronize(); }
 static int host_cpu2_on(void) { return 1; }
-static int host_cpu2_wait(void) { if (host_job) { IR_JOB(host_job(host_arg)); host_job = 0; } return 0; }
+static int host_cpu2_wait(void)
+{
+#ifdef BENCH_IR
+    if (ir_on && ir_mode == 3 && host_pre_on) { CALLGRIND_TOGGLE_COLLECT; host_pre_on = 0; }
+    if (host_job && ir_mode >= 4) {   /* mode 4: only the reverb's job (arg 1); mode 5: only the voices' job (arg 0) */
+        int sel = ir_mode == 4 ? host_arg == 1 : host_arg == 0;
+        if (ir_on && sel) CALLGRIND_TOGGLE_COLLECT;
+        host_job(host_arg);
+        if (ir_on && sel) CALLGRIND_TOGGLE_COLLECT;
+        host_job = 0;
+        return 0;
+    }
+#endif
+    if (host_job) { IR_JOB(host_job(host_arg)); host_job = 0; } return 0;
+}
 
 static uint32_t host_ticks(void)   /* 24 ticks a microsecond, as the FM-1's plat_ticks24 */
 {
@@ -158,13 +178,15 @@ int main(int argc, char **argv)
         if (argc > 4 && (!strcmp(argv[4], "REV") || !strcmp(argv[4], "BOTH"))) rk_rv_mono(1);   /* bench_ir NAME MODE [REV|LIM|BOTH]: REV = the summed reverb input (not bit-identical), LIM = the 2.35 limiter */
         if (argc > 4 && (!strcmp(argv[4], "LIM") || !strcmp(argv[4], "BOTH"))) rk_lim_fast(0);
         if (getenv("IR_Q")) rk_quality((unsigned)atoi(getenv("IR_Q")));   /* bench_ir: the quality mask (0 = 2.37's sound), else the engine's own */
+        rk_split_learn(0);   /* the host's instruction counts follow the table's split, not a clock */
+        if (getenv("IR_RVPOST")) rk_rv_post(atoi(getenv("IR_RVPOST")));   /* 0: the reverb's job on the first core, as 2.42 */
         for (i = 0; i < bench_warm_steps(k); i++) bench_warm(k, i + 1);
         CALLGRIND_START_INSTRUMENTATION;
-        if (ir_mode != 2) CALLGRIND_TOGGLE_COLLECT;
+        if (ir_mode < 2 || ir_mode == 0) CALLGRIND_TOGGLE_COLLECT;
         ir_on = 1;
         for (i = 0; i < 20; i++) bench_run(k, host_ticks);
         ir_on = 0;
-        if (ir_mode != 2) CALLGRIND_TOGGLE_COLLECT;
+        if (ir_mode < 2 || ir_mode == 0) CALLGRIND_TOGGLE_COLLECT;
         CALLGRIND_STOP_INSTRUMENTATION;
         return 0;
     }
