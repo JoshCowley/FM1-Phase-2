@@ -371,8 +371,9 @@ static bool split_learn_ = true;                     // 2.43: the learnt split i
 // 2.46 (the cores' balance, measured): the learner looks at what each core really did (ticks) and moves one voice, or the reverb's job, to the idler core
 static uint8_t rv_want_ = 0;                        // the learner's choice: the reverb's wet job after its slot, on the second core (1), or early on the first (0, as 2.42)
 static uint8_t arr_old_ = 0;                        // the benchmark's A/B (RACK_BENCH_AB): 1 = 2.45's learner and reverb job (arrangement 2)
-static uint32_t lv_c1_ = 0, lv_c2_ = 0, lv_u_ = 0, lv_rv_ = 0;   // smoothed over 16 blocks, ticks: the first core's busy time, the second core's, one voice's, the reverb's
-static uint32_t lv_c1_now_ = 0, lv_u_now_ = 0, rv_t_now_ = 0, rv_wait_now_ = 0; static uint8_t lv_a1_ = 0, rv_t_core2_ = 0;
+static uint32_t lv_a1_t_ = 0, lv_a2_t_ = 0, lv_c1_ = 0, lv_c2_ = 0, lv_blk_ = 0; static float lv_prev_busy_ = 0.0f, lv_prev_blk_ = 0.0f; static int8_t lv_last_ = 0; static uint8_t lv_tabu_[5];
+static uint32_t lv_u_ = 0, lv_rv_ = 0;   // smoothed over 16 blocks, ticks: one voice's cost on the first core, the reverb's
+static uint32_t lv_u_now_ = 0, rv_t_now_ = 0, rv_wait_now_ = 0; static uint8_t lv_a1_ = 0, rv_t_core2_ = 0;
 static int8_t drum_bias_ = 0;                       // voices the first core takes more (+) or fewer (-) than the table says, while drums sound: learnt from c1 against c2
 static uint8_t bal_shared_ = 0;                      // 2.43: this block's job ran on the second core (with or without drums)
 static uint8_t drum_shared_ = 0, drum_cnt_ = 0;     // this block's job ran on the second core with drums in it; blocks since the last look at the balance
@@ -1468,7 +1469,7 @@ static void fm1_layout() {
   nalloc_ = nv;
 #ifdef HAVE_DRUMS
   drum_ok_[0] = drum_ok_[1] = 0; drum_pending_ = drum_in_job_ = 0;
-  drum_bias_ = 0; rv_want_ = arr_old_ ? 1 : 0; lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = 0; drum_slow_ = 0; drum_shared_ = 0; drum_cnt_ = 0; drum_c1_avg_ = drum_c2_avg_ = drum_wait_avg_ = drum_blk_avg_ = 0;
+  drum_bias_ = 0; rv_want_ = arr_old_ ? 1 : 0; lv_a1_t_ = lv_a2_t_ = lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = lv_blk_ = 0; lv_prev_busy_ = lv_prev_blk_ = 0.0f; lv_last_ = 0; memset(lv_tabu_, 0, sizeof(lv_tabu_)); drum_slow_ = 0; drum_shared_ = 0; drum_cnt_ = 0; drum_c1_avg_ = drum_c2_avg_ = drum_wait_avg_ = drum_blk_avg_ = 0;
   if (drum_) { new (drum_) DrumBus(); for (int i = 0; i < DR_N; ++i) { drum_->v[i].osc.Init(); drum_->v[i].active = 0; } }
 #endif
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
@@ -3384,7 +3385,7 @@ EXPORT void set_split_learn(int on) { split_learn_ = on != 0; if (!on) drum_bias
 // 2.46 (the benchmark's A/B; the firmware never calls it): the arrangement of the two cores. 0 = the engine's (the table, then the measured balance), 1 = 2.42's (the table alone, the reverb early on the first core),
 // 2 = 2.45's (the table with the reverb's job after its slot, and 2.43's learner; only in a build with RACK_BENCH_AB)
 EXPORT void set_arrangement(int m) {
-  split_learn_ = m != 1; rv_post_opt_ = m != 1; drum_bias_ = 0; drum_cnt_ = 0; lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = 0;
+  split_learn_ = m != 1; rv_post_opt_ = m != 1; drum_bias_ = 0; drum_cnt_ = 0; lv_a1_t_ = lv_a2_t_ = lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = lv_blk_ = 0; lv_prev_busy_ = lv_prev_blk_ = 0.0f; lv_last_ = 0; memset(lv_tabu_, 0, sizeof(lv_tabu_));
 #ifdef RACK_BENCH_AB
   arr_old_ = m == 2;
 #endif
@@ -3546,34 +3547,55 @@ static void split_learn_old() {
   }
 }
 #endif
-// 2.46: the balance of the two cores from what each really did. The first core's busy time is the block less its waits (it also runs the effects chain and the master after the
-// join: 2.43's learner weighed the job only against the work before the join, which left the first core the busier by that chain); the second core's is the voices' job and the reverb's, when
-// the reverb runs there. Every 32 blocks the one move that brings them closest (a voice, or the reverb's job, from the busier core to the other) is made, when it gains at least a
-// quarter of its own size. A voice is the first core's measured cost of one sounding voice; the reverb's is its own time wherever it ran.
+// 2.46: the balance of the two cores from what each really did. The busier core's load is what is to come down, and the block's length (the CPU figure, the deadline) is not to go up: the block is
+// the first core's work before the join (the early work, its voices), or the second core's job where that is longer, then the effects chain and the master after it (they cannot start before
+// the voices are summed). Every 32 blocks the one move is made that most lowers the busier core's load (a voice, by its measured cost on the first core, to the other core or back; the reverb's
+// job out to the second core, where the chain after its slot hides it, or back) among those that leave the block no more than 2 % longer, and when it gains at least a quarter of its size.
+// The next round looks at what it did, smoothed: a move that did not lower the busier core by 1.5 %, or lengthened the block by more than 2 %, is undone and not tried again for eight rounds.
+// (2.43's learner weighed the job against the first core's work before the join, moved a voice only past the average cost of one with a job's fixed cost in it, and counted the reverb on neither core.)
 static void split_learn(uint32_t blk_ticks) {
   if (!split_learn_ || !ticks_ || cl_due_ || !par_run_ || (par_on_ && !par_on_())) return;
   const bool rvc2 = rv_out_was_ != 0;
   const uint32_t w = (bal_shared_ ? drum_wait_now_ : 0u) + rv_wait_now_;
   const uint32_t c1 = blk_ticks > w ? blk_ticks - w : 0u;
-  const uint32_t c2 = (bal_shared_ ? drum_job_now_ : 0u) + (rvc2 ? rv_t_now_ : 0u);
+  const uint32_t a2 = bal_shared_ ? drum_job_now_ : 0u;
+  const uint32_t c2 = a2 + (rvc2 ? rv_t_now_ : 0u);
+  lv_a1_t_ = (uint32_t)((int32_t)lv_a1_t_ + ((int32_t)drum_c1_now_ - (int32_t)lv_a1_t_) / 16);
+  lv_a2_t_ = (uint32_t)((int32_t)lv_a2_t_ + ((int32_t)a2 - (int32_t)lv_a2_t_) / 16);
   lv_c1_ = (uint32_t)((int32_t)lv_c1_ + ((int32_t)c1 - (int32_t)lv_c1_) / 16);
   lv_c2_ = (uint32_t)((int32_t)lv_c2_ + ((int32_t)c2 - (int32_t)lv_c2_) / 16);
+  lv_blk_ = (uint32_t)((int32_t)lv_blk_ + ((int32_t)blk_ticks - (int32_t)lv_blk_) / 16);
   if (lv_a1_ > 0) { uint32_t u = lv_u_now_ / lv_a1_; lv_u_ = (uint32_t)((int32_t)lv_u_ + ((int32_t)u - (int32_t)lv_u_) / 16); }
-  if (rv_early_ >= 0 && rv_t_now_) lv_rv_ = (uint32_t)((int32_t)lv_rv_ + ((int32_t)rv_t_now_ - (int32_t)lv_rv_) / 16);
+  if (rv_early_ >= 0 && rv_t_now_ && !rv_t_core2_) lv_rv_ = (uint32_t)((int32_t)lv_rv_ + ((int32_t)rv_t_now_ - (int32_t)lv_rv_) / 16);
   if (++drum_cnt_ < 32) return;
   drum_cnt_ = 0;
-  const float d = (float)lv_c1_ - (float)lv_c2_;   // the first core's busy time over the second's
-  const float u = (float)lv_u_, r = (float)lv_rv_;
-  float best = 0.0f; int act = 0;                  // act: 1 a voice to the second core, 2 a voice back, 3 the reverb out, 4 the reverb back
-  const float ad = d < 0.0f ? -d : d;
-  if (d > 0.0f) {
-    if (par_from_ > 0 && drum_bias_ > -6 && u > 0.0f) { float g = ad - fabsf(d - 2.0f * u); if (g > 0.25f * u && g > best) { best = g; act = 1; } }
-    if (!rv_want_ && rv_early_ >= 0 && rv_post_opt_ && r > 0.0f) { float g = ad - fabsf(d - 2.0f * r); if (g > 0.25f * r && g > best) { best = g; act = 3; } }
-  } else {
-    if (par_from_ < nvoices_ && drum_bias_ < 6 && u > 0.0f) { float g = ad - fabsf(d + 2.0f * u); if (g > 0.25f * u && g > best) { best = g; act = 2; } }
-    if (rv_want_ && rv_early_ >= 0 && r > 0.0f) { float g = ad - fabsf(d + 2.0f * r); if (g > 0.25f * r && g > best) { best = g; act = 4; } }
+  for (int i = 1; i < 5; ++i) if (lv_tabu_[i]) --lv_tabu_[i];
+  const float busy = (float)(lv_c1_ > lv_c2_ ? lv_c1_ : lv_c2_), blk = (float)lv_blk_;
+  if (lv_last_) {                                          // look at the last move
+    const int m = lv_last_; lv_last_ = 0;
+    if (busy > lv_prev_busy_ * 0.985f || blk > lv_prev_blk_ * 1.02f) {
+      if (m == 1) ++drum_bias_; else if (m == 2) --drum_bias_; else if (m == 3) rv_want_ = 0; else rv_want_ = 1;
+      lv_tabu_[m] = 8;
+      return;
+    }
+  }
+  const float a1 = (float)lv_a1_t_, a2f = (float)lv_a2_t_, c1f = (float)lv_c1_, c2f = (float)lv_c2_, u = (float)lv_u_, r = (float)lv_rv_;
+  const float post = blk - (a1 > a2f ? a1 : a2f);          // what the first core does after the join
+  float best = busy; int act = 0;
+  for (int m = 1; m <= 4; ++m) {
+    float s, d1, d2;                                       // the move's size, and what it adds to the first core's work before the join (d1) and the second's (d2)
+    if (m == 1) { if (!(par_from_ > 0 && drum_bias_ > -6 && u > 0.0f)) continue; s = u; d1 = -u; d2 = u; }
+    else if (m == 2) { if (!(par_from_ < nvoices_ && drum_bias_ < 6 && u > 0.0f)) continue; s = u; d1 = u; d2 = -u; }
+    else if (m == 3) { if (!(!rv_want_ && rv_early_ >= 0 && rv_post_opt_ && r > 0.0f)) continue; s = r; d1 = -r; d2 = 0.0f; }
+    else { if (!(rv_want_ && rv_early_ >= 0 && r > 0.0f)) continue; s = r; d1 = r; d2 = 0.0f; }
+    if (lv_tabu_[m]) continue;
+    const float n1 = a1 + d1, n2 = a2f + d2, nT = (n1 > n2 ? n1 : n2) + post;
+    const float nc1 = c1f + d1, nc2 = c2f + (m == 3 ? r : m == 4 ? -r : d2), nb = nc1 > nc2 ? nc1 : nc2;
+    if (nT > blk * 1.02f || nb > busy - 0.25f * s || nb >= best) continue;
+    best = nb; act = m;
   }
   if (act == 1) --drum_bias_; else if (act == 2) ++drum_bias_; else if (act == 3) rv_want_ = 1; else if (act == 4) rv_want_ = 0;
+  if (act) { lv_last_ = (int8_t)act; lv_prev_busy_ = busy; lv_prev_blk_ = blk; }
 }
 static void drum_account(uint32_t blk_ticks, bool had_drums) {
   drum_shared_ = drum_shared_ && had_drums;
