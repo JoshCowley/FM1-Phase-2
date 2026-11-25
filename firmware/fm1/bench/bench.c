@@ -151,7 +151,7 @@ typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, e
 #elif defined(BENCH_MSALL)
 #define NCASE_MAX 700
 #elif defined(BENCH_AB42)
-#define NCASE_MAX 240
+#define NCASE_MAX 320   /* 2.46: the three arrangements of every preset (about 300 cases; 240 before) */
 #else
 #define NCASE_MAX 660
 #endif
