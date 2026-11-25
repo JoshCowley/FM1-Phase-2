@@ -16,7 +16,15 @@ enum {
   CLQ_16K = 256,      // update 44 (LIGHT): Clouds runs at 16 kHz (a 3:1 pair of 25-tap filters, engine/cl_resample.h), blocks of 16 frames; the grain sizes, the FFT, the reverb, diffuser and shifter lengths and the buffers follow it
   CLQ_RVALL = 512,    // update 44: Clouds' own reverb with all four of its trims (no smear, two input allpasses, no modulated read of the second delay, one tank allpass less each side)
   CLQ_SKIPFLT = 1024, // update 44: LOOPDLY's LP and HP (TEXTURE 0.5 to 0.55: the low-pass at the Nyquist, the high-pass under 30 Hz) are not run; they start again, emptied, when TEXTURE leaves that range
-  CLQ_DIFLITE = 2048  // update 44: Clouds' diffuser (LOOPDLY's, and GRANULR's TEXTURE over 0.75) with two allpasses a side, not four
+  CLQ_DIFLITE = 2048, // update 44: Clouds' diffuser (LOOPDLY's, and GRANULR's TEXTURE over 0.75) with two allpasses a side, not four
+  // update 45 (ECO, with CLQ_16K and CLQ_CAP16 and the rest of LIGHT): one bit a change, so the bench can add them one at a time
+  CLQ_E_MONO = 4096,  // the mix of the two channels goes through Clouds as one: a mono buffer, one feedback path, one diffuser, shifter and filter pair; the grains' pan makes the stereo
+  CLQ_E_RS = 8192,    // the cheap resamplers (engine/cl_eco.h): a 15-tap down, a cubic up (needs CLQ_E_MONO)
+  CLQ_E_MIX = 16384,  // the output stage with a cubic soft limit (no division) and no dry line while BLEND is full wet (needs CLQ_E_MONO)
+  CLQ_E_FLT = 32768,  // the engine and Clouds swap floats (no 16-bit frames, no SoftConvert), the feedback's high-pass one pole (needs CLQ_E_MONO)
+  CLQ_E_RV = 65536,   // Clouds' own reverb: a small float tank (two delays, two allpasses a side) instead of the Dattorro one
+  CLQ_E_GR = 131072,  // at most 8 grains, each one read of a mono buffer, linear, the window a polynomial; no read at all when the pitch is 0 (needs CLQ_E_MONO)
+  CLQ_E_SPEC = 262144 // SPECTRL at 8 kHz (a half-rate pair round the phase vocoder)
 };
-namespace clouds { extern unsigned rack_cl_q; }
+namespace clouds { extern unsigned rack_cl_q; extern float rack_eco_in[32], rack_eco_out[2][32]; }
 #endif

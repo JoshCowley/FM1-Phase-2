@@ -40,6 +40,7 @@
 #include "stmlib/stmlib.h"
 
 #include "clouds/dsp/fx/fx_engine.h"
+#include "clouds/dsp/rack_cl_q.h"
 
 namespace clouds {
 
@@ -49,6 +50,8 @@ class Reverb {
   ~Reverb() { }
   
   void Init(uint16_t* buffer) {
+    eco_ = (rack_cl_q & CLQ_E_RV) != 0 && half_;   // update 45 (ECO): the small float tank in the same 16 KB
+    if (eco_) { InitEco(reinterpret_cast<float*>(buffer)); lp_ = 0.7f; diffusion_ = 0.625f; lite_ = 0; return; }
     if (half_) {
       engine8_.Init(buffer);
       engine8_.SetLFOFrequency(LFO_1, 0.5f / 16000.0f);
@@ -66,7 +69,44 @@ class Reverb {
   inline void set_lite(int lite) { lite_ = lite; }   // bit 0: 2.38's trims; bit 1 (update 42): no modulated read of the second delay, three input allpasses become two; bit 2: one allpass less in each loop; bit 3: one input allpass
   
   void Process(FloatFrame* in_out, size_t size) {
+    if (eco_) { RunEco(in_out, size); return; }
     if (half_) Run<E8, 2>(engine8_, in_out, size); else Run<E, 1>(engine_, in_out, size);
+  }
+
+  // update 45 (CLQ_E_RV, ECO): a small reverb in floats. The input (the two sides summed) goes through two allpasses, then two delays that feed each other through a
+  // one-pole low-pass and an allpass each (the same tank as Dattorro's, with its lengths at about half and no modulation), the two taken out as left and right; the
+  // gains, TIME, damping and amount as the full one's (set_time, set_lp, set_diffusion, set_amount), the wet at the same level. 3,660 floats of the 4,096.
+  static const int kE1 = 61, kE2 = 89, kEA = 307, kEB = 359, kED1 = 1321, kED2 = 1523, kETotal = kE1 + kE2 + kEA + kEB + kED1 + kED2;
+  void InitEco(float* b) {
+    for (int i = 0; i < 4096; ++i) b[i] = 0.0f;
+    e_ap1_ = b; e_ap2_ = e_ap1_ + kE1; e_apa_ = e_ap2_ + kE2; e_apb_ = e_apa_ + kEA; e_d1_ = e_apb_ + kEB; e_d2_ = e_d1_ + kED1;
+    e_i1_ = e_i2_ = e_ia_ = e_ib_ = e_id1_ = e_id2_ = 0;
+    lp_decay_1_ = lp_decay_2_ = 0.0f;
+  }
+  static inline float EAp(float* b, int* i, int n, float x, float k) {
+    const float z = b[*i], w = x + k * z;
+    b[*i] = w; if (++*i == n) *i = 0;
+    return z - k * w;
+  }
+  void RunEco(FloatFrame* io, size_t size) {
+    const float kap = diffusion_ * 0.85f, klp = lp_, krt = reverb_time_, amount = amount_, gain = input_gain_;
+    float lp1 = lp_decay_1_, lp2 = lp_decay_2_;
+    while (size--) {
+      float x = (io->l + io->r) * gain;
+      x = EAp(e_ap1_, &e_i1_, kE1, x, kap);
+      x = EAp(e_ap2_, &e_i2_, kE2, x, kap);
+      const float d1 = e_d1_[e_id1_], d2 = e_d2_[e_id2_];
+      lp1 += klp * (x + krt * d2 - lp1);
+      const float y1 = EAp(e_apa_, &e_ia_, kEA, lp1, -kap);
+      lp2 += klp * (x + krt * d1 - lp2);
+      const float y2 = EAp(e_apb_, &e_ib_, kEB, lp2, kap);
+      e_d1_[e_id1_] = y1; if (++e_id1_ == kED1) e_id1_ = 0;
+      e_d2_[e_id2_] = y2; if (++e_id2_ == kED2) e_id2_ = 0;
+      io->l += (2.0f * y1 - io->l) * amount;
+      io->r += (2.0f * y2 - io->r) * amount;
+      ++io;
+    }
+    lp_decay_1_ = lp1; lp_decay_2_ = lp2;
   }
 
  private:
@@ -202,6 +242,9 @@ class Reverb {
   E engine_;
   E8 engine8_;
   bool half_ = false;
+  bool eco_ = false;
+  float *e_ap1_, *e_ap2_, *e_apa_, *e_apb_, *e_d1_, *e_d2_;
+  int e_i1_, e_i2_, e_ia_, e_ib_, e_id1_, e_id2_;
   
   float amount_;
   float input_gain_;

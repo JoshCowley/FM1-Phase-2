@@ -47,7 +47,7 @@ void rk_set_vintage(float v);
 void rk_set_ext_slew(int i, float s);
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
-unsigned rk_clouds_level_mask(int lvl);   /* update 44: RENDER's 0 LIGHT, 1 HIGH, 2 NORMAL as a mask */
+unsigned rk_clouds_level_mask(int lvl);   /* update 44: RENDER's page 0 ECO, 1 LIGHT, 2 NORMAL, 3 HIGH as a mask (update 45) */
 void rk_clouds_mask(unsigned m);   /* update 42: the Clouds quality bits (rack_cl_q.h); ~0u = the page's RENDER */
 void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (this benchmark's comparison cases only) */
 void rk_note_on(float note, float vel);
@@ -198,7 +198,7 @@ static void bc_change(int k, int i, int fn, int slot, int param, float v)
 /* update 8: no32 = 1 runs Clouds at 48 kHz (RACK_CLOUDS_32K off), noskip = 1 keeps Clouds' internal reverb running at REVERB 0, cap: the grain
  * ceiling (0 the build's own, 40; 1 none: Mutable's own count, 32 stereo 16-bit, 45 stereo 8-bit, 57 mono 8-bit; n the ceiling n), revz = 1 REVERB 0.
  * They are set per case (rk_clouds_opts in bench_setup); the firmware itself never changes them. */
-typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz, q; } clc_t;   /* q (update 42): 0 and 1 the Clouds quality HIGH (2.40's, every older row), 2 NORMAL, 3 LITE, 4 LIGHT (update 44) */
+typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz, q; } clc_t;   /* q (update 42): 0 and 1 the Clouds quality HIGH (2.40's, every older row), 2 NORMAL, 3 LITE, 4 LIGHT (update 44), 5 ECO (update 45) */
 enum { CM_GRAN, CM_LOOP, CM_SPEC };                       /* the firmware's MODE list (STRETCH is out) */
 enum { CQ_16ST, CQ_16MO, CQ_8ST, CQ_8MO };                /* the page's QUALITY list */
 static const clc_t CLC[] = {
@@ -257,6 +257,9 @@ static const clc_t CLC[] = {
     /* 59 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 2},
     {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 1},
     /* 64 */ {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 2}, {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 1},   /* Clouds + the reverb: LIGHT, NORMAL, HIGH */
+    /* update 45 (ECO, the new default): rows 67 to 74: GRANULR D0.7 and D1.0, LOOPDLY D0.7 and D1.0, SPECTRL D0.7 and D1.0, GRANULR FREEZE (D0.7), GRANULR with the reverb in FX 2 (D0.9) */
+    /* 67 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 5}, {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 5}, {1, CM_LOOP, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 5}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 5},
+    /* 71 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 5}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 5}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 5}, {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 5},
 };
 #define CL_REF 0
 #define CL_ON(c) ((c)->cl && CLC[(c)->cl - 1].on)       /* the case has Clouds in FX 1 (cl is its CLC row + 1: row 0 is Braids alone) */
@@ -323,14 +326,14 @@ static void bc_qpairs(void)
                     bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
                 }
             }
-        {   /* update 44: Clouds and the drums on two cores (4 voices), at each quality: LIGHT (the new default), 2.43's NORMAL and HIGH */
-            static char xn[3][6][32];
+        {   /* update 44: Clouds and the drums on two cores (4 voices), at each quality: LIGHT, 2.43's NORMAL and HIGH, and (update 45) ECO */
+            static char xn[4][6][32];
             static const char *const XN[6] = {"CLOUDS GRAN D1.0", "CLOUDS CL+REVERB", "DRUMS CHEAP x4 D1.0", "DRUMS RICH x4 D1.0", "GRAN FRZ D0.7", "BRAIDS x4"};
-            static const char *const QS[3] = {" LIGHT", " NORMAL", " HIGH"};
-            static const uint8_t XR[3][6] = {{56, 64, 56, 56, 61, 0}, {41, 65, 41, 41, 62, 0}, {40, 66, 40, 40, 63, 0}}, XK[6] = {0, 0, 1, 2, 0, 0};
+            static const char *const QS[4] = {" LIGHT", " NORMAL", " HIGH", " ECO"};
+            static const uint8_t XR[4][6] = {{56, 64, 56, 56, 61, 0}, {41, 65, 41, 41, 62, 0}, {40, 66, 40, 40, 63, 0}, {68, 74, 68, 68, 73, 0}}, XK[6] = {0, 0, 1, 2, 0, 0};
             int x, q;
             for (x = 0; x < 6; x++)
-                for (q = 0; q < 3; q++) {
+                for (q = 0; q < 4; q++) {
                     int k;
                     { const char *a = XN[x], *b = x == 5 ? "" : QS[q]; char *d = xn[q][x]; while (*a) *d++ = *a++; while (*b) *d++ = *b++; *d = 0; }
                     if (x == 5 && q) continue;
@@ -342,6 +345,7 @@ static void bc_qpairs(void)
             int k = bc_cl(G_CORES2, 4, CL_REF, "DRUMS CHEAP x4", -1);
             bcases[k].kit = 1; bcases[k].dv = 4;
             bcases[bc_cl(G_CORES2, 4, 56, "GRAN D1.0 MOVING LIGHT x4", -1)].mov = 1;
+            bcases[bc_cl(G_CORES2, 4, 68, "GRAN D1.0 MOVING ECO x4", -1)].mov = 1;   /* update 45 */
         }
     }
 }
@@ -363,11 +367,16 @@ static void bench_cases(void)
                                               "GRAN FRZ LIGHT", "GRAN FRZ NORMAL", "GRAN FRZ HIGH"};
             for (i = 0; i < 9; i++) bc_cl(G_CLOUDS, 4, 55 + i, LN[i], r4);
         }
+        {   /* update 45: ECO, the new default (rows 67 to 73; own = minus BRAIDS x4) */
+            static const char *const EN[7] = {"GRAN D0.7 ECO", "GRAN D1.0 ECO", "LOOP D0.7 ECO", "LOOP D1.0 ECO", "SPEC D0.7 ECO", "SPEC D1.0 ECO", "GRAN FRZ ECO"};
+            for (i = 0; i < 7; i++) bc_cl(G_CLOUDS, 4, 67 + i, EN[i], r4);
+        }
         {   /* update 44: Clouds' grain controls moving (WINDOW, SPEED, JITTER), GRANULR D1.0 at LIGHT, NORMAL, HIGH (rows 56, 41, 40) */
             static const char *const MN[3] = {"GRAN D1.0 MOVING LIGHT", "GRAN D1.0 MOVING NORMAL", "GRAN D1.0 MOVING HIGH"};
             static const uint8_t MR[3] = {56, 41, 40};
             for (i = 0; i < 3; i++) bcases[bc_cl(G_CLOUDS, 4, MR[i], MN[i], r4)].mov = 1;
         }
+        bcases[bc_cl(G_CLOUDS, 4, 68, "GRAN D1.0 MOVING ECO", r4)].mov = 1;   /* update 45 */
         bc_qpairs();
         return;
     }
@@ -498,6 +507,10 @@ static void bench_cases(void)
             static const char *const LN[9] = {"GRAN D0.7 LIGHT", "GRAN D1.0 LIGHT", "LOOP D0.7 LIGHT", "LOOP D1.0 LIGHT", "SPEC D0.7 LIGHT", "SPEC D1.0 LIGHT",
                                               "GRAN FRZ LIGHT", "GRAN FRZ NORMAL", "GRAN FRZ HIGH"};
             for (i = 0; i < 9; i++) bc_cl(G_CLOUDS, 4, 55 + i, LN[i], r4);
+        }
+        {   /* update 45: ECO, the new default (rows 67 to 73; own = minus BRAIDS x4) */
+            static const char *const EN[7] = {"GRAN D0.7 ECO", "GRAN D1.0 ECO", "LOOP D0.7 ECO", "LOOP D1.0 ECO", "SPEC D0.7 ECO", "SPEC D1.0 ECO", "GRAN FRZ ECO"};
+            for (i = 0; i < 7; i++) bc_cl(G_CLOUDS, 4, 67 + i, EN[i], r4);
         }
         }
         bc_cl(G_CLOUDS, 4, 27, "8MO D1.0", r4);
@@ -741,7 +754,10 @@ static void run_ops_to_fx2(const bop_t *o, int n)
 static void cl_setup(const clc_t *r)
 {
     int p;
-    rk_clouds_mask(r->q == 4 ? rk_clouds_level_mask(0) : r->q == 3 ? 191u : r->q == 2 ? 15u : 0u);   /* update 42: every older row runs Clouds as 2.40 did (HIGH) */
+    rk_clouds_mask(r->q == 5 ? rk_clouds_level_mask(0) : r->q == 4 ? rk_clouds_level_mask(1) : r->q == 3 ? 191u : r->q == 2 ? 15u : 0u);   /* update 42: every older row runs Clouds as 2.40 did (HIGH) */
+#ifdef BENCH_FULL
+    if (getenv("CL_Q")) rk_clouds_mask((unsigned)strtoul(getenv("CL_Q"), 0, 0));   /* update 45 (the host only): the mask by hand, over the row's, to add ECO's changes one at a time */
+#endif
     rk_clouds_opts(!r->no32, !r->noskip, r->cap == 0 ? 40 : r->cap == 1 ? 0 : r->cap);   /* cap 0: 2.34's ceiling, 40 (at 16 ST it changes nothing: 32 grains), so the older rows stay comparable; the firmware itself is 24 from 2.35 */
     if (r->fx2) {
         const bpreset_t *fx = &PRESETS[r->fx2 == 1 ? P_CH_GLASS_PNO : P_LD_SQUARE_CHIP];
@@ -778,6 +794,9 @@ static void bench_setup(int k)
     const bpreset_t *p = c->ms ? &MSPRESETS[c->preset] : &PRESETS[c->preset];
     int i;
     rk_seed(0x21u);
+#ifdef BENCH_FULL
+    if (getenv("IR_SEED")) rk_seed((unsigned)strtoul(getenv("IR_SEED"), 0, 0));   /* update 45 (the host only): another seed, to average the grain-driven cases (DENSITY 0.7 has about one grain: it is there in some blocks and not in others) */
+#endif
     rk_clouds_opts(1, 1, 40);                  /* (update 8: the build's own Clouds settings, unless a case's row changes them) */
     rk_set_worker(c->group == G_CORES2 ? bench_cpu2_run : 0, bench_cpu2_wait);
     rk_set_worker_ex(c->group == G_CORES2 ? bench_cpu2_sync : 0, c->group == G_CORES2 ? bench_cpu2_on : 0);

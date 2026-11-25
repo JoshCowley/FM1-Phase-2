@@ -49,6 +49,7 @@ class Diffuser {
     if (half_) engine8_.Init(buffer); else engine_.Init(buffer);
   }
   inline void set_half(bool half) { half_ = half; }   // before Init (update 44)
+  inline void set_mono(bool mono) { mono_ = mono; }   // update 45 (ECO): the two sides are the same (LOOPDLY on a mono buffer): the left is run and copied
   inline void set_lite(bool lite) { lite_ = lite; }   // update 44 (CLQ_DIFLITE): two allpasses a side, not four (the third and fourth are not run)
 
   void Process(FloatFrame* in_out, size_t size) {
@@ -93,6 +94,7 @@ class Diffuser {
       }
       c.Write(wet, 0.0f);
       in_out->l += amount_ * (wet - in_out->l);
+      if (mono_) { in_out->r = in_out->l; ++in_out; continue; }
       
       c.Read(in_out->r);
       c.Read(apr1 TAIL, kap);
@@ -124,6 +126,7 @@ class Diffuser {
   E8 engine8_;
   bool half_ = false;
   bool lite_ = false;
+  bool mono_ = false;
   
   float amount_;
   DISALLOW_COPY_AND_ASSIGN(Diffuser);

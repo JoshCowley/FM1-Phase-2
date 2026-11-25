@@ -329,7 +329,7 @@ static int check_clouds_pitch(void)
             rk_clouds_opts(k32, 1, RACK_CLOUDS_MAX_GRAINS);
             cl_patch(30, 0, 0);
             s = cl_clouds_slot();
-            cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.2f); cl_set(s, P_BLEND, 1.0f);
+            cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.2f); cl_set(s, P_BLEND, 1.0f); cl_set(s, 25, 1.0f);   /* update 45: LIGHT (the default is ECO, mono) */
             cl_set(s, P_PITCH, oct ? 0.5f : 0.0f);
             rk_set_voices(1);
             for (ms = 0; ms < 2500; ms += 10) {
@@ -367,7 +367,7 @@ static cg_track_t cg_track(int q, float pos, float win, float sp, float jit, int
     cl_patch(30, 0, 0);
     s = cl_clouds_slot();
     cl_set(s, P_POS, pos); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 1.0f);
-    cl_set(s, P_QUAL, (float)q); cl_set(s, GP_WIN, win); cl_set(s, GP_SPEED, sp); cl_set(s, GP_JIT, jit);
+    cl_set(s, P_QUAL, (float)q); cl_set(s, 25, 1.0f); /* update 45: LIGHT, not the ECO default */ cl_set(s, GP_WIN, win); cl_set(s, GP_SPEED, sp); cl_set(s, GP_JIT, jit);
     rk_set_voices(4);
     for (ms = 0; ms < secs * 1000; ms += 10) {
         if (ms == 0) cl_chord(0);
@@ -408,7 +408,7 @@ static void rh_run0(int which, unsigned mask, int page, int mode, float tex, flo
     rk_set_voices(4);
     for (ms = 0; ms < 2000; ms++) {
         if (ms == 0) cl_chord(0);
-        if (switches && ms % 600 == 0) rk_clouds_mask(ms == 600 ? RM_LITE : ms == 1200 ? RM_NORMAL : ms == 1800 ? rk_clouds_level_mask(0) : mask);
+        if (switches && ms % 600 == 0) rk_clouds_mask(ms == 600 ? RM_LITE : ms == 1200 ? RM_NORMAL : ms == 1800 ? rk_clouds_level_mask(1) : mask);
         rk_render(48);
         for (i = 0; i < 48 && n < RH_N; i++) rh_out[which][n++] = rk_out_l()[i];
     }
@@ -438,7 +438,7 @@ static int check_clouds_render(void)
         rh_run(0, RM_HIGH, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); r0 = rh_rms(0);
         rh_run(0, RM_NORMAL, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rn = rh_rms(0);
         rh_run(0, RM_LITE, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rl = rh_rms(0);
-        rh_run(0, rk_clouds_level_mask(0), -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rg = rh_rms(0);   /* update 44: LIGHT */
+        rh_run(0, rk_clouds_level_mask(1), -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rg = rh_rms(0);   /* update 44: LIGHT */
         for (i = 0; i < RH_N; i++) if (rh_out[0][i] != rh_out[0][i] || fabsf(rh_out[0][i]) > 4.0f) nan++;
         nd = 20.0 * log10(rn / r0); ld = 20.0 * log10(rl / r0); gd = 20.0 * log10(rg / r0);
         ok = fabs(nd) < 0.5 && fabs(ld) < 2.0 && fabs(gd) < 3.0 && !nan && r0 > 0.001;
@@ -528,7 +528,7 @@ static int check_clouds_grain_run(void)
         int v;
         double var[2];
         int lv6;
-        for (lv6 = 2; lv6 >= 0; lv6 -= 2)   /* update 44: NORMAL (2: the limit as it was) and LIGHT (0) */
+        for (lv6 = 2; lv6 >= 0; lv6--)   /* update 44/45: NORMAL (2: the limit as it was), LIGHT (1) and ECO (0) */
         {
         for (v = 0; v < 2; v++) {
             int s, ms, bin = 0, i;
@@ -540,7 +540,7 @@ static int check_clouds_grain_run(void)
             rk_set_voices(4);
             for (ms = 0; ms < 5000; ms += 10) {
                 if (ms == 0) cl_chord(0);
-                if (ms == 300) rk_all_off();
+                if (ms == (lv6 ? 300 : 1100)) rk_all_off();   /* ECO: its mono buffer is twice as long, so the chord is held until just before the freeze */
                 if (ms == 1200) cl_set(s, P_FREEZE, 1.0f);
                 rk_render(480);
                 if (ms >= 2000) {
@@ -550,8 +550,8 @@ static int check_clouds_grain_run(void)
             }
             var[v] = mx > 0 ? (mx - mn) / mx : 0;
         }
-        printf("6g FREEZE + SPEED, %s: level of the frozen sound (loudest 100 ms against quietest, as a share of the loudest): playhead still %.2f, swept at +0.5 %.2f%s\n", lv6 ? "NORMAL" : "LIGHT", var[0], var[1], var[1] > var[0] + (lv6 ? 0.15 : 0.05) ? "" : "   FAIL");
-        fails += !(var[1] > var[0] + (lv6 ? 0.15 : 0.05));
+        printf("6g FREEZE + SPEED, %s: level of the frozen sound (loudest 100 ms against quietest, as a share of the loudest): playhead still %.2f, swept at +0.5 %.2f%s\n", lv6 == 2 ? "NORMAL" : lv6 ? "LIGHT" : "ECO", var[0], var[1], var[1] > var[0] + (lv6 == 2 ? 0.15 : 0.05) ? "" : "   FAIL");
+        fails += !(var[1] > var[0] + (lv6 == 2 ? 0.15 : 0.05));
         }
     }
     return fails;

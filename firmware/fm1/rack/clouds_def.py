@@ -13,15 +13,16 @@ KINDS = ["n", "n", "b", "n",              # POSITION SIZE PITCH DENSITY
          "n", "n", 4, "n",                # SPRAY PITCH RND PITCH QNT SIZE RND
          "b", "b",                        # SCAN TONE
          "n", "b", "n",                   # WINDOW SPEED JITTER (update 27, the GR-1 style grain controls; the firmware's own, not on the page)
-         3]                               # RENDER (update 42: HIGH NORMAL LITE, how much of Clouds' CPU to spend; the firmware's own, not on the page)
+         4]                               # RENDER (update 42, 45: ECO LIGHT NORMAL HIGH, how much of Clouds' CPU to spend; the firmware's own, not on the page)
 
 # update 27: the firmware's CLOUDS pages, as lists of parameter numbers. The parameters keep their numbers (so every saved preset and
 # route still points where it did); only the order of the pages changes: the grain-shaping set first (GRAIN 1: POSITION WINDOW SPEED
 # JITTER, GRAIN 2: SIZE DENSITY RND PAN FREEZE), then the rest in the order they had. SCAN stays (older presets use it) on the last page.
 GRAIN_PAGE = [{"l": "WINDOW", "t": "num", "def": 0.0}, {"l": "SPEED", "t": "bip", "def": 0.0}, {"l": "JITTER", "t": "num", "def": 0.0}]
-# update 42: RENDER (parameter 25) shares the last page with SCAN. Update 44: LIGHT (0, the default: a preset or save that says nothing has it) is Clouds at 16 kHz in half
-# the CPU and memory of 2.43's NORMAL; HIGH (1) is 2.40's Clouds exactly; NORMAL (2) is 2.41's default (2.40's sound for 35 % less CPU). LITE (2.41) is retired.
-RENDER_PAGE = [{"l": "RENDER", "t": "list", "opts": ["LIGHT", "HIGH", "NORMAL"], "def": 0}]
+# update 42: RENDER (parameter 25) shares the last page with SCAN. Update 45: ECO (0, the default: a preset or save that says nothing has it) is Clouds at 16 kHz, one channel in and out
+# of the buffer, 8 grains, a small reverb, the cheap resamplers: about half of LIGHT's CPU; LIGHT (1) is 2.44's default (half of NORMAL's); NORMAL (2) is 2.41's (2.40's sound for 35 %
+# less CPU); HIGH (3) is 2.40's Clouds exactly. (The save file keeps its own codes, 0 ECO, 1 HIGH, 2 NORMAL, 3 LIGHT: save.c.) LITE (2.41) is retired.
+RENDER_PAGE = [{"l": "RENDER", "t": "list", "opts": ["ECO", "LIGHT", "NORMAL", "HIGH"], "def": 0}]
 LAYOUT = [[0, 22, 23, 24], [1, 3, 6, 10], [2, 4, 5, 7], [8, 9, 11, 12], [13, 14, 15, 21], [16, 17, 18, 19], [20, 25]]
 
 

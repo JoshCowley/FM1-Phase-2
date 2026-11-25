@@ -190,10 +190,10 @@ static void snapshot(upatch_t *u, const char *name, int cat)
                 v = v < -127.0f ? -127.0f : v > 127.0f ? 127.0f : v;
                 u->clx[i] = (int8_t)(v < 0.0f ? v - 0.5f : v + 0.5f);
             }
-    for (s = 0; s < 6; s++)                   /* (update 42) CLOUDS' RENDER (its parameter 25: 0 LIGHT, 1 HIGH, 2 NORMAL; an older save has 0 here, and so gets LIGHT; update 44) */
+    for (s = 0; s < 6; s++)                   /* (update 42) CLOUDS' RENDER (its parameter 25: the page's 0 ECO, 1 LIGHT, 2 NORMAL, 3 HIGH; saved as 0 ECO, 1 HIGH, 2 NORMAL, 3 LIGHT, update 45: a 2.44 save's HIGH and NORMAL are still those, and the 0 it kept for LIGHT is ECO now) */
         if (rc_patch.mod[s] == 30) {
             int r = (int)(rk_get_param(s, 25) + 0.5f);
-            u->pad2 = (uint8_t)(r < 0 ? 0 : r > 2 ? 2 : r);
+            u->pad2 = (uint8_t)(r == 1 ? 3 : r == 3 ? 1 : r < 0 ? 0 : r > 3 ? 1 : r);
         }
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         u->amp[i] = q_param(&UI_AMP.p[i], rk_get_param(RS_AMP, i));
@@ -254,9 +254,9 @@ static void apply(const upatch_t *u)
         if (rc_patch.mod[s] == 30)
             for (i = 0; i < 3; i++)
                 rk_set_param(s, 22 + i, u->pad & 8 ? (float)u->clx[i] / 127.0f : 0.0f);
-    for (s = 0; s < 6; s++)                   /* (update 42) RENDER: as saved (older saves hold 0: LIGHT now, update 44) */
+    for (s = 0; s < 6; s++)                   /* (update 42) RENDER: as saved, the codes of the save (above) back to the page's (older saves hold 0: ECO now, update 45; a code over 3 is ECO) */
         if (rc_patch.mod[s] == 30)
-            rk_set_param(s, 25, u->pad2 > 2 ? 0.0f : (float)u->pad2);
+            rk_set_param(s, 25, u->pad2 > 3 ? 0.0f : (float)(u->pad2 == 1 ? 3 : u->pad2 == 3 ? 1 : u->pad2));
     for (i = 0; i < UI_AMP.nparams && i < 24; i++)
         rc_set(RS_AMP, i, dq_param(&UI_AMP.p[i], u->amp[i]));
     for (i = 0; i < UI_LFO.nparams && i < 24; i++)

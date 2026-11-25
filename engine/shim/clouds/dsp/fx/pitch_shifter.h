@@ -38,6 +38,7 @@
 
 #include "clouds/dsp/frame.h"
 #include "clouds/dsp/fx/fx_engine.h"
+#include "clouds/dsp/rack_cl_q.h"
 
 namespace clouds {
 
@@ -47,13 +48,17 @@ class PitchShifter {
   ~PitchShifter() { }
   
   void Init(uint16_t* buffer) {
-    if (half_) engine8_.Init(buffer); else engine_.Init(buffer);
+    eco_ = (rack_cl_q & CLQ_E_MONO) != 0 && half_;   // update 45 (ECO): one float line (1,024 of the 4 KB), read at two points with a linear interpolation
+    if (eco_) { line_ = reinterpret_cast<float*>(buffer); for (int i = 0; i < 1024; ++i) line_[i] = 0.0f; wp_ = 0; }
+    else if (half_) engine8_.Init(buffer); else engine_.Init(buffer);
     phase_ = 0;
     size_ = half_ ? 1023.0f : 2047.0f;
   }
   inline void set_half(bool half) { half_ = half; }   // before Init (update 44)
+  inline void set_mono(bool mono) { mono_ = mono; }   // update 45 (ECO): the two sides are the same: the left is run and copied
 
   void Clear() {
+    if (eco_) { for (int i = 0; i < 1024; ++i) line_[i] = 0.0f; return; }
     if (half_) engine8_.Clear(); else engine_.Clear();
   }
 
@@ -65,7 +70,29 @@ class PitchShifter {
   }
   
   void Process(FloatFrame* input_output) {
+    if (eco_) { RunEco(input_output); return; }
     if (half_) Run<E8, 1023>(engine8_, input_output); else Run<E, 2047>(engine_, input_output);
+  }
+
+  // update 45 (ECO, LOOPDLY on a mono buffer): the same two crossfaded read points on one float line, a linear interpolation each
+  void RunEco(FloatFrame* io) {
+    phase_ += (1.0f - ratio_) / size_;
+    if (phase_ >= 1.0f) phase_ -= 1.0f;
+    if (phase_ <= 0.0f) phase_ += 1.0f;
+    const float tri = 2.0f * (phase_ >= 0.5f ? 1.0f - phase_ : phase_);
+    const float d1 = phase_ * size_;
+    float d2 = d1 + size_ * 0.5f;
+    if (d2 >= size_) d2 -= size_;
+    line_[wp_] = io->l;
+    const float y = tri * Tap(d1) + (1.0f - tri) * Tap(d2);
+    wp_ = (wp_ + 1) & 1023;
+    io->l = io->r = y;
+  }
+  inline float Tap(float d) const {   // d samples behind the write point, 0 <= d < 1024 (the point itself is the newest sample, d = 0)
+    const int di = static_cast<int>(d);
+    const float f = d - static_cast<float>(di);
+    const float a = line_[(wp_ - di) & 1023], b = line_[(wp_ - di - 1) & 1023];
+    return a + (b - a) * f;
   }
 
  private:
@@ -96,6 +123,7 @@ class PitchShifter {
     c.Interpolate(left, phase, tri);
     c.Interpolate(left, half, 1.0f - tri);
     c.Write(input_output->l, 0.0f);
+    if (mono_) { input_output->r = input_output->l; return; }
 
     c.Read(input_output->r, 1.0f);
     c.Write(right, 0.0f);
@@ -120,6 +148,10 @@ class PitchShifter {
   E engine_;
   E8 engine8_;
   bool half_ = false;
+  bool mono_ = false;
+  bool eco_ = false;
+  float* line_ = 0;
+  int wp_ = 0;
   float phase_;
   float ratio_;
   float size_;

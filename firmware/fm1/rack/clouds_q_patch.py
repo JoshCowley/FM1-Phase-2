@@ -16,7 +16,20 @@ FB_OLD = """  float cutoff = (20.0f + 100.0f * feedback * feedback) / sample_rat
         SoftLimit(fb_gain * 1.4f * fb_[i].r + in_[i].r) - in_[i].r);
   }
 """
-FB_NEW = "  if (!((rack_cl_q & CLQ_SKIPFB) && feedback <= 0.0f)) {   // (FEEDBACK 0: its gain is 0, the sum below adds nothing)\n" + FB_OLD + "  }\n"
+FB_ECO = """  if (e_flt) {   // update 45 (CLQ_E_FLT): mono, the high-pass one pole (the mix of last block's two sides)
+    const float fbc = 6.2831853f * (20.0f + 100.0f * feedback * feedback) / 16000.0f;
+    const float fbg = feedback * (1.0f - freeze_lp_);
+    for (size_t i = 0; i < size; ++i) {
+      const float x = (fb_[i].l + fb_[i].r) * 0.5f;
+      fb_eco_lp_ += fbc * (x - fb_eco_lp_);
+      const float u = in_[i].l;
+      float t = fbg * 1.4f * (x - fb_eco_lp_) + u; t = t > 1.5f ? 1.5f : t < -1.5f ? -1.5f : t;   // (a cubic soft limit: no division)
+      const float v = u + fbg * (t * (1.0f - t * t * (1.0f / 6.75f)) - u);
+      in_[i].l = v; in_[i].r = v;
+    }
+  } else {
+"""
+FB_NEW = "  if (!((rack_cl_q & CLQ_SKIPFB) && feedback <= 0.0f)) {   // (FEEDBACK 0: its gain is 0, the sum below adds nothing)\n" + FB_ECO + FB_OLD + "  }\n  }\n"
 
 
 def apply(gp, _sub):
@@ -25,6 +38,9 @@ unsigned rack_cl_q = 0;               // update 42: the CLQ_* switches (engine/r
 static float* df_buf_;                // the diffuser's memory (CLQ_SKIPDIF clears it when the diffuser comes back)
 static int df_idle_ = 0;
 static int flt_idle_ = 0;            // update 44: LOOPDLY's filters skipped (CLQ_SKIPFLT)
+float rack_eco_in[32], rack_eco_out[2][32];   // update 45 (CLQ_E_FLT): the mono input and the wet stereo output as floats (engine/rack.cc)
+static float fb_eco_lp_ = 0.0f;      // the ECO feedback high-pass's state
+static float sp8_x_ = 0.0f, sp8_y_ = 0.0f;   // CLQ_E_SPEC: the last input and output sample of the 8 kHz pair
 void GranularProcessor::Init(""")
     gp = _sub(gp, "    float sr = sample_rate();\n", """    // update 44 (CLQ_16K, LIGHT): Clouds at 16 kHz in half the memory: the audio 12,288 samples a channel (stereo: 0.77 s) or 24,576 (mono), the workspace 24,576 B
     // (diffuser 1024 floats, reverb 8192 words, shifter 2048 words: each the same tank at half the delay lengths), the spectral mode's FFT 2048 (the same 128 ms)
@@ -43,7 +59,7 @@ void GranularProcessor::Init(""")
     gp = _sub(gp, "    diffuser_.Init(allocator.Allocate<float>(2048));",
               "    diffuser_.set_half(half);\n    df_buf_ = allocator.Allocate<float>(half ? 1024 : 2048);\n    diffuser_.Init(df_buf_);\n    df_idle_ = 0; flt_idle_ = 0;")
     gp = _sub(gp, "    pitch_shifter_.Init((uint16_t*)correlator_data);", "    pitch_shifter_.set_half(half);\n    pitch_shifter_.Init((uint16_t*)correlator_data);")
-    gp = _sub(gp, "          lut_sine_window_4096, 4096,", "          lut_sine_window_4096, half ? 2048 : 4096,")
+    gp = _sub(gp, "          lut_sine_window_4096, 4096,", "          lut_sine_window_4096, (rack_cl_q & CLQ_E_SPEC) ? 1024 : half ? 2048 : 4096,")
     gp = _sub(gp, "    CONSTRAIN(lp_cutoff, 0.0f, 0.499f);\n", "    if (rack_cl_q & CLQ_16K) { lp_cutoff *= 2.0f; hp_cutoff *= 2.0f; }   // update 44: TEXTURE's cut-offs in Hz as at 32 kHz\n    CONSTRAIN(lp_cutoff, 0.0f, 0.499f);\n")
     gp = _sub(gp, "    float cutoff = parameters_.texture;\n", """    float cutoff = parameters_.texture;
     if ((rack_cl_q & CLQ_SKIPFLT) && cutoff >= 0.5f && cutoff <= 0.55f) {
@@ -83,4 +99,87 @@ void GranularProcessor::Init(""")
   ParameterInterpolator dry_wet_mod(&dry_wet_, parameters_.dry_wet, size);
   for (size_t i = 0; i < size; ++i) {
     float dry_wet = dry_wet_mod.Next();""")
+
+    # ---- update 45 (ECO): the mono path, the float hand-over, SPECTRL at 8 kHz, the small reverb, mono diffuser / shifter / filters
+    gp = _sub(gp, """  // Convert input buffers to float, and mixdown for mono processing.
+  for (size_t i = 0; i < size; ++i) {
+    in_[i].l = static_cast<float>(input[i].l) / 32768.0f;
+    in_[i].r = static_cast<float>(input[i].r) / 32768.0f;
+  }
+  if (num_channels_ == 1) {
+    for (size_t i = 0; i < size; ++i) {
+      in_[i].l = (in_[i].l + in_[i].r) * 0.5f;
+      in_[i].r = in_[i].l;
+    }
+  }
+""", """  // Convert input buffers to float, and mixdown for mono processing.
+  const bool e_mono = (rack_cl_q & CLQ_E_MONO) != 0 && num_channels_ == 1;   // update 45 (ECO)
+  const bool e_flt = e_mono && (rack_cl_q & CLQ_E_FLT) != 0;                  // (the engine hands over the mono mix as floats, and takes the wet back as floats)
+  if (e_flt) {
+    for (size_t i = 0; i < size; ++i) { in_[i].l = rack_eco_in[i]; in_[i].r = rack_eco_in[i]; }
+  } else {
+  for (size_t i = 0; i < size; ++i) {
+    in_[i].l = static_cast<float>(input[i].l) / 32768.0f;
+    in_[i].r = static_cast<float>(input[i].r) / 32768.0f;
+  }
+  if (num_channels_ == 1) {
+    for (size_t i = 0; i < size; ++i) {
+      in_[i].l = (in_[i].l + in_[i].r) * 0.5f;
+      in_[i].r = in_[i].l;
+    }
+  }
+  }
+""")
+    gp = _sub(gp, """  } else {
+    ProcessGranular(in_, out_, size);
+  }
+""", """  } else if ((rack_cl_q & CLQ_E_SPEC) && playback_mode_ == PLAYBACK_MODE_SPECTRAL && num_channels_ == 1) {
+    // update 45 (CLQ_E_SPEC): the phase vocoder at 8 kHz (FFT 1024, the same 64 ms hop): a 1-2-1 low-pass and every other sample in, a linear interpolation out
+    const size_t hn = size >> 1;
+    for (size_t i = 0; i < hn; ++i) {
+      const float a = in_[2 * i].l, b = in_[2 * i + 1].l;
+      in_downsampled_[i].l = in_downsampled_[i].r = 0.25f * sp8_x_ + 0.5f * a + 0.25f * b;
+      sp8_x_ = b;
+    }
+    ProcessGranular(in_downsampled_, out_downsampled_, hn);
+    for (size_t i = 0; i < hn; ++i) {
+      const float y = out_downsampled_[i].l;
+      out_[2 * i].l = out_[2 * i].r = 0.5f * (sp8_y_ + y);
+      out_[2 * i + 1].l = out_[2 * i + 1].r = y;
+      sp8_y_ = y;
+    }
+  } else {
+    ProcessGranular(in_, out_, size);
+  }
+""")
+    gp = _sub(gp, "    diffuser_.set_lite((rack_cl_q & CLQ_DIFLITE) != 0);\n", "    diffuser_.set_lite((rack_cl_q & CLQ_DIFLITE) != 0);\n    diffuser_.set_mono(e_mono && playback_mode_ == PLAYBACK_MODE_LOOPING_DELAY);   // (update 45: LOOPDLY's two sides are the same)\n")
+    gp = _sub(gp, "    pitch_shifter_.set_ratio(SemitonesToRatio(parameters_.pitch));\n", "    pitch_shifter_.set_mono(e_mono);   // (update 45)\n    pitch_shifter_.set_ratio(SemitonesToRatio(parameters_.pitch));\n")
+    gp = _sub(gp, """    lp_filter_[1].set(lp_filter_[0]);
+    lp_filter_[1].Process<FILTER_MODE_LOW_PASS>(
+        &out_[0].r, &out_[0].r, size, 2);
+""", """    if (!e_mono) {   // update 45: one side only (the two are the same), copied after the high-pass
+    lp_filter_[1].set(lp_filter_[0]);
+    lp_filter_[1].Process<FILTER_MODE_LOW_PASS>(
+        &out_[0].r, &out_[0].r, size, 2);
+    }
+""")
+    gp = _sub(gp, """    hp_filter_[1].set(hp_filter_[0]);
+    hp_filter_[1].Process<FILTER_MODE_HIGH_PASS>(
+        &out_[0].r, &out_[0].r, size, 2);
+""", """    if (e_mono) {
+      for (size_t i = 0; i < size; ++i) out_[i].r = out_[i].l;
+    } else {
+    hp_filter_[1].set(hp_filter_[0]);
+    hp_filter_[1].Process<FILTER_MODE_HIGH_PASS>(
+        &out_[0].r, &out_[0].r, size, 2);
+    }
+""")
+    gp = _sub(gp, "  reverb_.set_lite((rack_cl_q & CLQ_RVALL) ? 15 : (rack_cl_q & CLQ_CLRV) != 0);", "  reverb_.set_lite(((rack_cl_q & CLQ_E_RV) ? 16 : 0) | ((rack_cl_q & CLQ_RVALL) ? 15 : (rack_cl_q & CLQ_CLRV) != 0));")
+    gp = _sub(gp, "  const float post_gain = 1.2f;\n", """  const float post_gain = 1.2f;
+  if (e_flt) {   // update 45 (CLQ_E_FLT): the wet alone, as floats, with the gain the 16-bit path gave it (its SoftConvert's limit is the engine's output stage now)
+    const float wg = 0.5f * post_gain * Interpolate(lut_xfade_in, 1.0f, 16.0f);   // (the 0.5 is SoftConvert's)
+    for (size_t i = 0; i < size; ++i) { rack_eco_out[0][i] = out_[i].l * wg; rack_eco_out[1][i] = out_[i].r * wg; }
+    return;
+  }
+""")
     return gp

@@ -109,7 +109,7 @@ class GranularSamplePlayer {
     overlap = overlap * overlap * overlap;
     // update 42 (RENDER): CLQ_CAP16 / CLQ_CAP12 keep new grains to the first 16 / 12 slots (the ones above finish as they are) and the target to that many: the
     // target grain count is what DENSITY asked for (max x overlap^3) up to the cap, so below it the density is untouched (at 24 slots DENSITY 0.7 asks for 1.1 grains)
-    const int32_t cap = (rack_cl_q & CLQ_CAP12) && max_num_grains_ > 12 ? 12 : (rack_cl_q & CLQ_CAP16) && max_num_grains_ > 16 ? 16 : max_num_grains_;
+    const int32_t cap = (rack_cl_q & CLQ_E_GR) && max_num_grains_ > 8 ? 8 : (rack_cl_q & CLQ_CAP12) && max_num_grains_ > 12 ? 12 : (rack_cl_q & CLQ_CAP16) && max_num_grains_ > 16 ? 16 : max_num_grains_;
     const int32_t midfi = cap == max_num_grains_ ? num_midfi_grains_ : 3 * cap / 4;
     float target_num_grains = max_num_grains_ * overlap;
     if (target_num_grains > static_cast<float>(cap)) target_num_grains = static_cast<float>(cap);
@@ -179,6 +179,10 @@ class GranularSamplePlayer {
     float* e = envelope_buffer_;
     for (int32_t i = 0; i < max_num_grains_; ++i) {
       Grain* g = &grains_[i];
+      if ((rack_cl_q & CLQ_E_GR) && num_channels_ == 1) {   // update 45 (ECO): the cheap grain
+        if (g->active()) g->OverlapAddEco(buffer, out, size);
+        continue;
+      }
       if (g->recommended_quality() == GRAIN_QUALITY_HIGH) {
         if (num_channels_ == 1) {
           g->OverlapAdd<1, GRAIN_QUALITY_HIGH>(buffer, out, e, size);
@@ -285,6 +289,7 @@ class GranularSamplePlayer {
       gain_l = Interpolate(lut_sin, pan, 256.0f);
       gain_r = Interpolate(lut_sin + 256, pan, 256.0f);
 #endif
+      if (rack_cl_q & CLQ_E_MONO) { gain_l *= 1.4142136f; gain_r *= 1.4142136f; }   // update 45 (ECO): a grain at the centre as loud as the stereo buffers' (their gains are 1 and 1 there)
     } else {
       if (pan < 0.5f) {
         gain_l = 1.0f;
