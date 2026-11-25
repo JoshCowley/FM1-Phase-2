@@ -17,8 +17,13 @@ both leave every sample the firmware makes exactly as it was:
 
 HEADERS = {
     "braids/analog_oscillator.h": [("  static RenderFn fn_table_[];", "  static const RenderFn fn_table_[];")],
-    "braids/macro_oscillator.h": [("  static RenderFn fn_table_[];", "  static const RenderFn fn_table_[];")],
+    "braids/macro_oscillator.h": [("  static RenderFn fn_table_[];", "  static const RenderFn fn_table_[];"),
+                                  ("  inline void set_pitch(int16_t pitch) {\n    pitch_ = pitch;\n  }\n",
+                                   "  inline void set_pitch(int16_t pitch) {\n    pitch_ = pitch;\n  }\n#ifdef RACK_BRAIDS_TRIM\n  inline void set_comb_buffer(int16_t* p) { digital_oscillator_.set_comb_buffer(p); }   // 2.43: SAW COMB's delay line\n#endif\n")],
     "braids/digital_oscillator.h": [("  static RenderFn fn_table_[];", "  static const RenderFn fn_table_[];"),
+                                    ('  union {\n    int16_t comb[kCombDelayLength];\n    int16_t ks[1025 * 4];\n    struct {\n      int8_t bridge[kWGBridgeLength];\n      int8_t neck[kWGNeckLength];\n    } bowed;\n    int16_t bore[kWGBoreLength];\n    struct {\n      int8_t jet[kWGJetLength];\n      int8_t bore[kWGFBoreLength];\n    } fluted;\n  } delay_lines_;\n', "#ifdef RACK_BRAIDS_TRIM\n  int16_t* comb_;   // (2.43: the comb's delay line, kCombDelayLength samples: only SAW COMB reads it now (the other delay-line shapes are withdrawn), so it is the host's, and a patch that cannot reach SAW COMB has none; NULL: the comb is skipped, the saw passes through)\n#else\n  union {\n    int16_t comb[kCombDelayLength];\n    int16_t ks[1025 * 4];\n    struct {\n      int8_t bridge[kWGBridgeLength];\n      int8_t neck[kWGNeckLength];\n    } bowed;\n    int16_t bore[kWGBoreLength];\n    struct {\n      int8_t jet[kWGJetLength];\n      int8_t bore[kWGFBoreLength];\n    } fluted;\n  } delay_lines_;\n#endif\n"),
+                                    ("  inline void set_shape(DigitalOscillatorShape shape) {\n    shape_ = shape;\n  }\n",
+                                     "  inline void set_shape(DigitalOscillatorShape shape) {\n    shape_ = shape;\n  }\n#ifdef RACK_BRAIDS_TRIM\n  inline void set_comb_buffer(int16_t* p) { comb_ = p; }   // 2.43\n#endif\n"),
                                     ("  // void RenderYourAlgo(const uint8_t*, int16_t*, size_t);",
                                      "  void RenderNone(const uint8_t*, int16_t*, size_t);   // (2.42: where a withdrawn shape's function was)")],
     "braids/resources.h": [("extern const int16_t* waveform_table[];", "extern const int16_t* const waveform_table[];")],
@@ -115,6 +120,7 @@ def _digital(c):
         i = j + 1
     assert seen == set(GONE) | set(GONE_DRUM), "make_mutable_slim: functions missing: %s" % ((set(GONE) | set(GONE_DRUM)) - seen)
     c = "\n".join(out)
+    c = _sub(c, "  int16_t* dl = delay_lines_.comb;\n", "#ifdef RACK_BRAIDS_TRIM\n  int16_t* dl = comb_;\n  if (!dl) return;   // 2.43: no delay line (a patch that cannot reach SAW COMB has none: engine/rack.cc fm1_fit): the saw passes through\n#else\n  int16_t* dl = delay_lines_.comb;\n#endif\n", "RenderComb's delay line")
     for f in GONE:
         e = "  &DigitalOscillator::%s,\n" % f
         if c.count(e) == 0:   # (the table's last entry has no comma)

@@ -15,7 +15,7 @@ usb_audio_in = true
 usb_audio_out = true
 cpu2 = true
 cpu2_fallback = true
-# RACK_ARENA_KB 304 (update 58, was 308): 4 KB of the pool for the USB recording's deeper ring (app.h FM1B_UAC_DEEP);
+# RACK_ARENA_KB 256 (2.43: was 304: the voice's comb memory halved, 8 KB less a voice; update 58: was 308): 4 KB of the pool for the USB recording's deeper ring (app.h FM1B_UAC_DEEP);
 # the heaviest factory preset uses 300 KB (rack_host's arena column)
 # the engine and the Mutable modules as C++ units, at -O2 (for speed: -Os was 36 KB smaller but about 15 % slower, measured 4 Nov 2026; back to -O2 on 8 Nov) with -fdata-sections (unused tables dropped: 46 KB, same code); the rest (unity_opt below) at -Oz, with the FM-1's float flags (build.py adds -mcpu=r3
 # -mfprev1 -ffp-contract=off): units/ is written by make_units.py before each build (gen below)

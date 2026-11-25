@@ -189,6 +189,8 @@ static int cl_expect(const char *what, int fx1, int fx2, int shp, int h1, int h2
     char t[32];
     int d, v, u;
     cl_patch(fx1, fx2, shp);
+    rk_set_param(RS_SRC, 0, 15.0f);          /* SAW COMB (2.43): the voice keeps its 16 KB delay line, as every voice did before, so these cases are sized as they were */
+    rk_fm1_fit();
     cl_heavy(RS_FX1, h1);
     cl_heavy(RS_FX2, h2);
     d = rk_fm1_status(4); v = rk_fm1_status(2); u = rk_fm1_status(0);

@@ -502,6 +502,10 @@ static_assert(RACK_CLOUDS_SMALL >= 49148 && RACK_CLOUDS_SMALL % 16 == 0, "Clouds
 #else
 static const int CL_LARGE = 118784, CL_SMALL = 65536 - 128, DLEN_MAX = 96000;
 #endif
+static const size_t COMB_LEN = 8192;   // SAW COMB's delay line, samples (Braids' kCombDelayLength)
+#ifdef RACK_BRAIDS_TRIM
+static_assert(braids::kCombDelayLength == COMB_LEN, "SAW COMB's delay line length");
+#endif
 // delay and chorus lines: floats in the browser, 16-bit on the FM-1
 #ifdef RACK_FM1
 typedef int16_t dsamp_t;
@@ -1270,9 +1274,10 @@ static size_t arena_used_ = 0;
 // pre-delay lines (a power of two), the shimmer's line, Rings' reverb (STR+VERB only). A parameter that a matrix row
 // can move counts at its full range, so nothing a patch can do outgrows its buffer.
 static int fit_dlen_ = DLEN, fit_pre_mask_ = 8191;
-static bool fit_shim_ = true, fit_rings_rev_ = true;
+static bool fit_shim_ = true, fit_rings_rev_ = true, fit_comb_ = true;   // (2.43: fit_comb_: SAW COMB's delay line, 16 KB a voice, only for a patch that can reach that shape)
+static uint8_t* comb_mem_ = nullptr;
 static void fm1_layout();
-static void fit_reset() { fit_dlen_ = DLEN; fit_pre_mask_ = 8191; fit_shim_ = true; fit_rings_rev_ = true; }
+static void fit_reset() { fit_dlen_ = DLEN; fit_pre_mask_ = 8191; fit_shim_ = true; fit_rings_rev_ = true; fit_comb_ = true; }
 static size_t carve(const int* eff, int nv, bool commit) {
   size_t at = 0;
   auto take = [&](size_t n) -> uint8_t* { at = (at + 15) & ~(size_t)15; uint8_t* p = arena_ + at; at += n; return p; };
@@ -1294,7 +1299,14 @@ static size_t carve(const int* eff, int nv, bool commit) {
 #ifndef RACK_NO_PLAITS
     if (eff[S_SRC] == M_PLAITS) { uint8_t* a = take(nv * sizeof(plaits::Voice)); uint8_t* b = take(nv * 16384); if (commit) { plaits_ = (plaits::Voice*)a; plaits_buf_ = (char (*)[16384])b; } }
 #endif
-    if (eff[S_SRC] == M_BRAIDS) { uint8_t* a = take(nv * sizeof(braids::MacroOscillator)); if (commit) braids_ = (braids::MacroOscillator*)a; }
+    if (eff[S_SRC] == M_BRAIDS) { uint8_t* a = take(nv * sizeof(braids::MacroOscillator));
+#ifdef RACK_FM1
+                                  uint8_t* cb = fit_comb_ ? take((size_t)nv * 2 * COMB_LEN) : nullptr;   // 2.43: SAW COMB's delay line, one per voice, when the patch can reach the shape
+                                  if (commit) { braids_ = (braids::MacroOscillator*)a; comb_mem_ = cb; }
+#else
+                                  if (commit) braids_ = (braids::MacroOscillator*)a;
+#endif
+                                }
 #ifdef RACK_WITH_GRAIN
     if (eff[S_SRC] == M_GRAIN) { uint8_t* a = take(GRAIN_LEN); uint8_t* b = take(nv * sizeof(grain::Voice));
                                  if (commit) { grain_buf_ = a; grain_v_ = (grain::Voice*)b; } }
@@ -1352,7 +1364,11 @@ static void fm1_layout() {
 #ifndef RACK_NO_PLAITS
     if (eff[S_SRC] == M_PLAITS) new (&plaits_[i]) plaits::Voice();
 #endif
-    if (eff[S_SRC] == M_BRAIDS) new (&braids_[i]) braids::MacroOscillator();
+    if (eff[S_SRC] == M_BRAIDS) { new (&braids_[i]) braids::MacroOscillator();
+#ifdef RACK_FM1
+      braids_[i].set_comb_buffer(comb_mem_ ? (int16_t*)(comb_mem_ + (size_t)i * 2 * COMB_LEN) : nullptr);
+#endif
+    }
 #ifndef RACK_LITE
     if (eff[S_SRC] == M_ELEMENTS) new (&elements_[i]) elements::Part();
 #endif
@@ -1404,8 +1420,10 @@ static void fm1_fit_calc() {
     }
   }
   if (req_[S_SHP] == M_RINGS && (routed(S_SHP, 0) || PI(S_SHP, 0, 0) == 5)) rrev = true;
+  bool comb = false;   // 2.43: SAW COMB reachable (the shape set to it, or a route, macro or knob that can move the shape)
+  if (req_[S_SRC] == M_BRAIDS && (routed(S_SRC, 0) || list_norm(M_BRAIDS, PI(S_SRC, 0, 0)) == braids::MACRO_OSC_SHAPE_SAW_COMB)) comb = true;
   int mask = 63; while (mask < pre) mask = mask * 2 + 1;
-  fit_dlen_ = dl ? dl : DLEN; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev;
+  fit_dlen_ = dl ? dl : DLEN; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb;
 }
 EXPORT void fm1_fit() {
   fm1_fit_calc();
@@ -1416,10 +1434,10 @@ EXPORT void fm1_fit() {
 // 1 when the parameters and routes now reach past what fm1_fit sized (a longer delay, more pre-delay, SHIMMER,
 // STR+VERB): the platform then fits again, between renders
 EXPORT int fm1_fit_needed() {
-  int dl = fit_dlen_, mask = fit_pre_mask_; bool shim = fit_shim_, rrev = fit_rings_rev_;
+  int dl = fit_dlen_, mask = fit_pre_mask_; bool shim = fit_shim_, rrev = fit_rings_rev_, comb = fit_comb_;
   fm1_fit_calc();
-  bool more = fit_dlen_ > dl || fit_pre_mask_ > mask || (fit_shim_ && !shim) || (fit_rings_rev_ && !rrev);
-  fit_dlen_ = dl; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev;
+  bool more = fit_dlen_ > dl || fit_pre_mask_ > mask || (fit_shim_ && !shim) || (fit_rings_rev_ && !rrev) || (fit_comb_ && !comb);
+  fit_dlen_ = dl; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb;
   return more ? 1 : 0;
 }
 // what the platform layer shows: 0 arena bytes used, 1 arena size, 2 voices that fit, 3 voices playing,
