@@ -367,7 +367,14 @@ static const float DM_COST[DM_N] = {1.05f, 1.34f, 1.38f, 1.03f, 1.12f, 0.84f, 0.
 #define DRUM_END 1.0e-3f        // a voice below this (-60 dB: its own T60) is done: it is not rendered any more
 static uint32_t drum_wait_avg_ = 0, drum_blk_avg_ = 0, drum_wait_now_ = 0;   // ticks, smoothed over 16 blocks: the first core's wait at the join, and the block
 static uint32_t drum_c1_avg_ = 0, drum_c2_avg_ = 0, drum_c1_now_ = 0, drum_job_now_ = 0;   // ticks: the first core's work before the join (voices, early work), the job's own time (second core), each smoothed over 16 blocks
-static bool split_learn_ = true;                     // 2.43: the learnt split is on (set_split_learn)
+// 2.47: the learner (split_learn, 2.46) and the reverb's job on the second core are OFF by default: the bench of 25 Nov 2026 (q46) measured 2.42's table alone as the best arrangement on the device
+// (busier core mean 46.0 against 46.9 with the learner, 47.2 with 2.45's; the learner beat 2.42 in 3 of 77 cases and lost in 71). Build with -DRACK_LEARNER to have them on again (to bench them again).
+#ifdef RACK_LEARNER
+#define LEARN_DEFAULT 1
+#else
+#define LEARN_DEFAULT 0
+#endif
+static bool split_learn_ = LEARN_DEFAULT != 0;       // 2.43: the learnt split is on (set_split_learn); 2.47: off unless RACK_LEARNER
 // 2.46 (the cores' balance, measured): the learner looks at what each core really did (ticks) and moves one voice, or the reverb's job, to the idler core
 static uint8_t rv_want_ = 0;                        // the learner's choice: the reverb's wet job after its slot, on the second core (1), or early on the first (0, as 2.42)
 static uint8_t arr_old_ = 0;                        // the benchmark's A/B (RACK_BENCH_AB): 1 = 2.45's learner and reverb job (arrangement 2)
@@ -2193,7 +2200,7 @@ static int rv_early_ = -1;                 // the slot whose reverb runs a block
 static uint8_t rv_post_ = 0;               // this block: the job goes out at the slot
 static uint8_t rv_out_ = 0;                // a reverb job is out on the second core
 static uint8_t rv_out_was_ = 0;            // 2.46: this block's reverb job went to the second core (rv_out_ is cleared at the join)
-static uint8_t rv_post_opt_ = 1;           // run-time switch (the benchmark's A/B: 0 = the first core's early work, as 2.42)
+static uint8_t rv_post_opt_ = LEARN_DEFAULT;   // 2.47: off unless RACK_LEARNER; run-time switch (the benchmark's A/B: 0 = the first core's early work, as 2.42)
 static float rings_dry_g_ = 1.0f;          // what the voices keep of their dry signal (1 - MIX)
 static int rings_last_ = 0;                // the voice struck last: Rings' parameters are read with it
 static float rings_note_ = 60.0f;
@@ -3382,10 +3389,10 @@ EXPORT uint32_t worker_blocks() { return par_blocks_; }
 // the voices' learnt split on (1, the default) or the table's alone (0: the host's instruction counts need a split that does not follow a clock)
 EXPORT void set_rv_post(int on) { rv_post_opt_ = on != 0; if (!on) rv_want_ = 0; }
 EXPORT void set_split_learn(int on) { split_learn_ = on != 0; if (!on) drum_bias_ = 0; }
-// 2.46 (the benchmark's A/B; the firmware never calls it): the arrangement of the two cores. 0 = the engine's (the table, then the measured balance), 1 = 2.42's (the table alone, the reverb early on the first core),
+// 2.46 (the benchmark's A/B; the firmware never calls it): the arrangement of the two cores. 0 = the engine's (since 2.47 the table alone, as 1; with RACK_LEARNER the table, then the measured balance), 1 = 2.42's (the table alone, the reverb early on the first core),
 // 2 = 2.45's (the table with the reverb's job after its slot, and 2.43's learner; only in a build with RACK_BENCH_AB)
 EXPORT void set_arrangement(int m) {
-  split_learn_ = m != 1; rv_post_opt_ = m != 1; drum_bias_ = 0; drum_cnt_ = 0; lv_a1_t_ = lv_a2_t_ = lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = lv_blk_ = 0; lv_prev_busy_ = lv_prev_blk_ = 0.0f; lv_last_ = 0; memset(lv_tabu_, 0, sizeof(lv_tabu_));
+  split_learn_ = m == 0 ? LEARN_DEFAULT != 0 : m != 1; rv_post_opt_ = m == 0 ? LEARN_DEFAULT : (m != 1); drum_bias_ = 0; drum_cnt_ = 0; lv_a1_t_ = lv_a2_t_ = lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = lv_blk_ = 0; lv_prev_busy_ = lv_prev_blk_ = 0.0f; lv_last_ = 0; memset(lv_tabu_, 0, sizeof(lv_tabu_));
 #ifdef RACK_BENCH_AB
   arr_old_ = m == 2;
 #endif
