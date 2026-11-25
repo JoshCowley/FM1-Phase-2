@@ -36,6 +36,8 @@ static int ir_notes(void)   /* bench_ir only: the voices and notes held (4, or 6
     return e && atoi(e) >= 1 && atoi(e) <= 6 ? atoi(e) : 4;
 }
 #endif   /* the mask every case runs with: all ones = the engine's own default */
+void rk_rv_post(int on);        /* 2.43: the reverb's wet job on the second core (1: the engine as it is) or on the first (0: 2.42) */
+void rk_split_learn(int on);    /* 2.43: the learnt split of the voices between the cores for every preset (1) or the drums' only (0: 2.42) */
 void rk_lim_fast(int on);      /* the limiters peak block-wise (1) or by the falling queue (0, as 2.35) */
 void rk_modsum_precompute(int on);   /* 23 Nov 2026: the engine's mod_sum sums ahead (on) or scans as 2.32 did (off): the MODSUM cases' A/B (RACK_BENCH_AB) */
 void rk_set_master(float v);
@@ -306,7 +308,7 @@ static void bc_qpairs(void)
             for (nv = 0; nv < 2; nv++) {   /* update 42: at six voices and at four (a mono preset: one note, once) */
                 if (nv && PRESETS[i].mode) continue;
                 for (q = 0; q < 2; q++) {
-                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = " OLDQ";
+                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = " 2.42";
                     char *d = qn[nv * 2 + q][i];
                     while (*src) *d++ = *src++;
                     while (*suf) *d++ = *suf++;
@@ -315,6 +317,20 @@ static void bc_qpairs(void)
                     bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
                 }
             }
+        {   /* 2.43: Clouds (NORMAL) and the drums on two cores, 2.42's arrangement and the new one */
+            static char xn[2][6][24];
+            static const char *const XN[6] = {"CLOUDS GRAN D1.0", "CLOUDS CL+REVERB", "DRUMS CHEAP x4 D1.0", "DRUMS RICH x4 D1.0", "DRUMS CHEAP x4", "BRAIDS x4"};
+            static const uint8_t XR[6] = {14, 17, 14, 14, 0, 0}, XK[6] = {0, 0, 1, 2, 1, 0};
+            int x;
+            for (x = 0; x < 6; x++)
+                for (q = 0; q < 2; q++) {
+                    int k;
+                    { const char *a = XN[x], *b = q ? " 2.42" : ""; char *d = xn[q][x]; while (*a) *d++ = *a++; while (*b) *d++ = *b++; *d = 0; }
+                    k = bc_cl(G_CORES2, 4, XR[x] ? XR[x] : CL_REF, xn[q][x], -1);
+                    bcases[k].qold = (uint8_t)q;
+                    if (XK[x]) { bcases[k].kit = XK[x]; bcases[k].dv = 4; }
+                }
+        }
     }
 }
 
@@ -750,7 +766,7 @@ static void bench_setup(int k)
     if (c->grains)
         grain_setup(c->grains);
 #endif
-    rk_clouds_mask(c->qold ? 0u : ~0u);          /* update 42: a preset's Clouds follows its page's RENDER (NORMAL by default); the OLDQ twin runs 2.40's (HIGH) */
+    rk_clouds_mask(~0u);          /* update 42: a preset's Clouds follows its page's RENDER (NORMAL by default); the OLDQ twin runs 2.40's (HIGH) */
     if (c->cl)
         cl_setup(&CLC[c->cl - 1]);
     for (i = 0; i < 4; i++) {
@@ -766,7 +782,8 @@ static void bench_setup(int k)
     for (i = 0; i < c->notes; i++)
         rk_note_on(CHORD[i], 0.8f);
     rk_drum_run(c->kit != 0);
-    rk_quality(c->qold ? (rk_quality_default() & 7u) : bench_q == 0xFFFFFFFFu ? rk_quality_default() : bench_q);
+    rk_quality(bench_q == 0xFFFFFFFFu ? rk_quality_default() : bench_q);
+    rk_rv_post(!c->qold); rk_split_learn(!c->qold);   /* 2.43: the old twin runs 2.42's arrangement of the two cores */
     if (c->rvs) rk_rv_mono(1);                 /* (ENGINE cases: the summed reverb input or the 2.35 limiter; every other case runs the engine as it is) */
     rk_lim_fast(!c->limold);
     rk_modsum_precompute(c->ab != 2);          /* (MODSUM: OLD scans; every other case runs the engine as it is) */

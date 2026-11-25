@@ -19,8 +19,8 @@ for src in (ENG / "sources.txt").read_text().split():
         want["mi_" + src.replace("/", "_")] = f'#include "{src}"\n'
 want["rack.cc"] = '#include "../../../../engine/rack.cc"\n'
 want["grids_nodes.cc"] = '#include "../../../../engine/grids_nodes.cc"\n'
-want["rt.cc"] = '#include "../../common/rt.cc"\n'
-want["rk.cc"] = '#include "../../common/rk.cc"\n'
+want["rt.cc"] = '#include "../rt.cc"\n'
+want["rk.cc"] = '#include "../rk.cc"\n'
 # Rings' chord table is never written but isn't declared const, so it sits in RAM (1.4 KB): the unit carries a copy of
 # part.cc with the table made const (the same numbers, in flash). The Mutable source itself is left as it is.
 import os
