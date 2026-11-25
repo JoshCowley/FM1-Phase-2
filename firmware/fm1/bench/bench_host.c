@@ -19,6 +19,7 @@
 #include <valgrind/callgrind.h>
 void rk_rv_post(int on);
 void rk_split_learn(int on);
+void rk_arrangement(int m);
 static int ir_mode, ir_on;     /* bench_ir: 0 both cores, 1 the first core only, 2 the second core's job only (callgrind collects when asked) */
 #define IR_JOB(call) do { if (ir_on && ir_mode && ir_mode <= 2) CALLGRIND_TOGGLE_COLLECT; call; if (ir_on && ir_mode && ir_mode <= 2) CALLGRIND_TOGGLE_COLLECT; } while (0)
 #else
@@ -191,6 +192,21 @@ int main(int argc, char **argv)
         return 0;
     }
 #endif
+    if (argc >= 2 && !strcmp(argv[1], "--arr")) {   /* the arrangement of each 2 CORES case: voices, the second core's first voice, the reverb job, the reverb's slot (one line a case) */
+        bench_cpu2_run = host_cpu2_run;
+        bench_cpu2_wait = host_cpu2_wait;
+        bench_cpu2_sync = host_cpu2_sync;
+        bench_cpu2_on = host_cpu2_on;
+        bench_cases();
+        for (k = 1; k < bncases; k++) {
+            if (bcases[k].group != G_CORES2) continue;
+            bench_setup(k);
+            for (i = 0; i < 4; i++) bench_warm(k, i + 1);
+            printf("%s\t%d\t%d\t%d\t%d\n", bcases[k].name, rk_fm1_status(3), rk_fm1_status(10), rk_fm1_status(11), rk_fm1_status(12));
+            bench_done(k);
+        }
+        return 0;
+    }
     if (argc >= 2 && !strcmp(argv[1], "--proxy")) {   /* update 10: each core's own work on this computer, a PROXY (not the FM-1's cores): the 2 CORES cases named, best of 400 runs of 10 ms */
         bench_cpu2_run = host_cpu2_run;
         bench_cpu2_wait = host_cpu2_wait;
@@ -218,7 +234,7 @@ int main(int argc, char **argv)
                 if (job < c2) c2 = job;
             }
             bench_done(k);
-            printf("%-18s %10.2f %10.2f %10.2f\n", bcases[k].name, c1 / 24.0 / 10.0, c2 / 24.0 / 10.0, (c1 > c2 ? c1 : c2) / 24.0 / 10.0);
+            printf("%-22s %10.2f %10.2f %10.2f   first of core 2: %d of %d, reverb job after its slot: %d, in Clouds' job: %d\n", bcases[k].name, c1 / 24.0 / 10.0, c2 / 24.0 / 10.0, (c1 > c2 ? c1 : c2) / 24.0 / 10.0, rk_fm1_status(10), rk_fm1_status(3), rk_fm1_status(11), rk_fm1_status(13));
         }
         return 0;
     }

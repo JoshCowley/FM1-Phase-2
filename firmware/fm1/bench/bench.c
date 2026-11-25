@@ -38,6 +38,7 @@ static int ir_notes(void)   /* bench_ir only: the voices and notes held (4, or 6
 #endif   /* the mask every case runs with: all ones = the engine's own default */
 void rk_rv_post(int on);        /* 2.43: the reverb's wet job on the second core (1: the engine as it is) or on the first (0: 2.42) */
 void rk_split_learn(int on);    /* 2.43: the learnt split of the voices between the cores for every preset (1) or the drums' only (0: 2.42) */
+void rk_arrangement(int m);     /* 2.46: the cores' arrangement: 0 the engine's, 1 2.42's, 2 2.45's (the benchmark's A/B) */
 void rk_lim_fast(int on);      /* the limiters peak block-wise (1) or by the falling queue (0, as 2.35) */
 void rk_modsum_precompute(int on);   /* 23 Nov 2026: the engine's mod_sum sums ahead (on) or scans as 2.32 did (off): the MODSUM cases' A/B (RACK_BENCH_AB) */
 void rk_set_master(float v);
@@ -146,14 +147,13 @@ static const char *const RINGS_MODEL[6] = {"MODAL", "SYMPATH", "STRING", "FM VOI
 /* kit, dv, ease (step 1 of the drum track): a DRUMS case: the kit struck every step (1 cheap, 2 rich), its voices (3 or 4), IF BUSY = CLOUD on (the guard: Clouds' DENSITY held at 0.9) */
 typedef struct { uint8_t group, preset, notes, grains, cl, c2off, v1, kit, dv, ease, ab, mov, ms, kmax, rvs, limold, qold; int8_t minus; uint8_t ch[4][3]; float chv[4]; const char *name; } bcase_t;
 
-#ifdef BENCH_MSALL
+#ifdef NCASE_MAX
+#elif defined(BENCH_MSALL)
 #define NCASE_MAX 700
-#else
-#ifdef BENCH_AB42
+#elif defined(BENCH_AB42)
 #define NCASE_MAX 240
 #else
-#define NCASE_MAX 480
-#endif
+#define NCASE_MAX 660
 #endif
 static bcase_t bcases[NCASE_MAX];
 static int bncases;
@@ -311,19 +311,19 @@ static void bc_qpairs(void)
          * update 42: also at four voices (NAME x4) and OLDQ now is 2.40's (the quality mask 7, Clouds HIGH): only the quality trims differ within a pair, the engine's exact savings are in both. Only the pairs differ by the quality trims; the engine's exact
          * savings (the SRC level once a block) are in both. A worst block over 90 % of the core is where the overload guard, when switched ON, would shed a voice; OFF (the
          * default) it plays on and may glitch. */
-        static char qn[4][NPRESETS][24];
+        static char qn[6][NPRESETS][24];
         int q, nv;
         for (i = P_PLAYED; i < NPRESETS; i++)
             for (nv = 0; nv < 2; nv++) {   /* update 42: at six voices and at four (a mono preset: one note, once) */
                 if (nv && PRESETS[i].mode) continue;
-                for (q = 0; q < 2; q++) {
-                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = " 2.42";
-                    char *d = qn[nv * 2 + q][i];
+                for (q = 0; q < 3; q++) {   /* 2.46: the engine's arrangement, 2.42's and 2.45's (the A/B) */
+                    const char *src = PRESETS[i].name, *suf = PRESETS[i].mode ? " x1" : nv ? " x4" : " x6", *old = q == 1 ? " 2.42" : " 2.45";
+                    char *d = qn[nv * 3 + q][i];
                     while (*src) *d++ = *src++;
                     while (*suf) *d++ = *suf++;
                     if (q) for (; *old; ) *d++ = *old++;
                     *d = 0;
-                    bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
+                    bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 3 + q][i])].qold = (uint8_t)q;
                 }
             }
         {   /* update 44: Clouds and the drums on two cores (4 voices), at each quality: LIGHT, 2.43's NORMAL and HIGH, and (update 45) ECO */
@@ -829,7 +829,7 @@ static void bench_setup(int k)
         rk_note_on(CHORD[i], 0.8f);
     rk_drum_run(c->kit != 0);
     rk_quality(bench_q == 0xFFFFFFFFu ? rk_quality_default() : bench_q);
-    rk_rv_post(!c->qold); rk_split_learn(!c->qold);   /* 2.43: the old twin runs 2.42's arrangement of the two cores */
+    rk_arrangement(c->qold);   /* 2.46: the twins run 2.42's (qold 1) and 2.45's (qold 2) arrangement of the two cores, the case itself the engine's */
     if (c->rvs) rk_rv_mono(1);                 /* (ENGINE cases: the summed reverb input or the 2.35 limiter; every other case runs the engine as it is) */
     rk_lim_fast(!c->limold);
     rk_modsum_precompute(c->ab != 2);          /* (MODSUM: OLD scans; every other case runs the engine as it is) */
