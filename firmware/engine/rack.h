@@ -50,6 +50,7 @@ void set_quality(unsigned mask);       // the 2.38 quality trims as a mask (QB_*
 unsigned quality_default(void);        // the build's own mask (-DRACK_BENCH_AB only)
 void set_lim_fast(int on);            // the benchmark's A/B of the limiter's block-wise peak (1) or the falling queue (0: 2.35) (-DRACK_BENCH_AB only)
 void set_rv_post(int on);              // 2.43: the reverb's wet job after its slot on the second core (1) or the first core's early work (0: 2.42); the benchmark's A/B
+void set_arrangement(int m);          // 2.46: the cores' arrangement (the benchmark's A/B): 0 the engine's, 1 2.42's, 2 2.45's
 void set_split_learn(int on);         // 2.43: the voices' learnt split on (1) or the table's alone (0)
 unsigned clouds_level_mask(int lvl);   // update 44: the mask of the page's RENDER 0 LIGHT, 1 HIGH, 2 NORMAL
 void set_clouds_mask(unsigned m);   // update 42: the Clouds quality bits (CLQ_* in shim/clouds/dsp/rack_cl_q.h) as a mask for the benchmark; ~0u = the page's RENDER

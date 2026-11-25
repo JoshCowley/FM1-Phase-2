@@ -368,6 +368,11 @@ static const float DM_COST[DM_N] = {1.05f, 1.34f, 1.38f, 1.03f, 1.12f, 0.84f, 0.
 static uint32_t drum_wait_avg_ = 0, drum_blk_avg_ = 0, drum_wait_now_ = 0;   // ticks, smoothed over 16 blocks: the first core's wait at the join, and the block
 static uint32_t drum_c1_avg_ = 0, drum_c2_avg_ = 0, drum_c1_now_ = 0, drum_job_now_ = 0;   // ticks: the first core's work before the join (voices, early work), the job's own time (second core), each smoothed over 16 blocks
 static bool split_learn_ = true;                     // 2.43: the learnt split is on (set_split_learn)
+// 2.46 (the cores' balance, measured): the learner looks at what each core really did (ticks) and moves one voice, or the reverb's job, to the idler core
+static uint8_t rv_want_ = 0;                        // the learner's choice: the reverb's wet job after its slot, on the second core (1), or early on the first (0, as 2.42)
+static uint8_t arr_old_ = 0;                        // the benchmark's A/B (RACK_BENCH_AB): 1 = 2.45's learner and reverb job (arrangement 2)
+static uint32_t lv_c1_ = 0, lv_c2_ = 0, lv_u_ = 0, lv_rv_ = 0;   // smoothed over 16 blocks, ticks: the first core's busy time, the second core's, one voice's, the reverb's
+static uint32_t lv_c1_now_ = 0, lv_u_now_ = 0, rv_t_now_ = 0, rv_wait_now_ = 0; static uint8_t lv_a1_ = 0, rv_t_core2_ = 0;
 static int8_t drum_bias_ = 0;                       // voices the first core takes more (+) or fewer (-) than the table says, while drums sound: learnt from c1 against c2
 static uint8_t bal_shared_ = 0;                      // 2.43: this block's job ran on the second core (with or without drums)
 static uint8_t drum_shared_ = 0, drum_cnt_ = 0;     // this block's job ran on the second core with drums in it; blocks since the last look at the balance
@@ -1463,7 +1468,7 @@ static void fm1_layout() {
   nalloc_ = nv;
 #ifdef HAVE_DRUMS
   drum_ok_[0] = drum_ok_[1] = 0; drum_pending_ = drum_in_job_ = 0;
-  drum_bias_ = 0; drum_slow_ = 0; drum_shared_ = 0; drum_cnt_ = 0; drum_c1_avg_ = drum_c2_avg_ = drum_wait_avg_ = drum_blk_avg_ = 0;
+  drum_bias_ = 0; rv_want_ = arr_old_ ? 1 : 0; lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = 0; drum_slow_ = 0; drum_shared_ = 0; drum_cnt_ = 0; drum_c1_avg_ = drum_c2_avg_ = drum_wait_avg_ = drum_blk_avg_ = 0;
   if (drum_) { new (drum_) DrumBus(); for (int i = 0; i < DR_N; ++i) { drum_->v[i].osc.Init(); drum_->v[i].active = 0; } }
 #endif
   for (int i = 0; i < nv; ++i) {   // construct the module objects in place
@@ -1553,10 +1558,12 @@ EXPORT int fm1_fit_needed() {
 // what the platform layer shows: 0 arena bytes used, 1 arena size, 2 voices that fit, 3 voices playing,
 // 4 unloaded slots (bit per slot: 0 SRC, 1 SHP, 4 FX1, 5 FX2), 8 voices not yet silent (sounding, fading or releasing), 9 voices whose key is
 // still held (their gate on): rack_host's check 9 counts them after the keys are up
+static int arr_info(int what);
 EXPORT int fm1_status(int what) {
   switch (what) { case 0: return (int)arena_used_; case 1: return (int)sizeof(arena_); case 2: return nalloc_; case 3: return nvoices_; case 4: return dropped_;
     case 8: { int n = 0; for (int i = 0; i < MAXV; ++i) n += vs_[i].active ? 1 : 0; return n; }
     case 9: { int n = 0; for (int i = 0; i < MAXV; ++i) n += vs_[i].gate ? 1 : 0; return n; }
+    case 10: case 11: case 12: case 13: return arr_info(what);   // the arrangement of the two cores, as the last block used it (the benchmark's --arr, the checks)
 #ifdef RACK_CLOUDS_32K
     case 5: return cl32_on_;   // update 8: Clouds runs at 32 kHz (the picture's buffer times are 1.5 x longer)
 #endif
@@ -2184,6 +2191,7 @@ static int rv_early_ = -1;                 // the slot whose reverb runs a block
 // block's end, beside the first core's rest of the chain and the master (it was the first core's early work, in the second core's idle time before). The same samples.
 static uint8_t rv_post_ = 0;               // this block: the job goes out at the slot
 static uint8_t rv_out_ = 0;                // a reverb job is out on the second core
+static uint8_t rv_out_was_ = 0;            // 2.46: this block's reverb job went to the second core (rv_out_ is cleared at the join)
 static uint8_t rv_post_opt_ = 1;           // run-time switch (the benchmark's A/B: 0 = the first core's early work, as 2.42)
 static float rings_dry_g_ = 1.0f;          // what the voices keep of their dry signal (1 - MIX)
 static int rings_last_ = 0;                // the voice struck last: Rings' parameters are read with it
@@ -2921,6 +2929,7 @@ static float drums_load() {
 //     32-bit word, a lost update at worst; the voice job on the second core already shares it with the first)
 //   first core, in the same time: the voices, the other effect, the master; never clouds_, cl_in32_, cl_out32_
 //   first core, outside the job (before the hand-over, after the join): everything above, with plat_cpu2_sync() on each side
+static uint8_t rv_clj_ = 0;   // 2.46: this block's reverb job rides in Clouds' (Clouds' slot before the reverb's: the join there has it done by the time the chain reaches the reverb)
 static void cl_job(uint32_t) {
   uint32_t t0 = ticks_ ? ticks_() : 0;
   // update 10: the whole of Clouds' slot's work is the second core's: the staged block's 3:2 down (IN GAIN and the clamp first), Clouds, the 2:3 up, the
@@ -2936,6 +2945,9 @@ static void cl_job(uint32_t) {
     memset(par_l_, 0, sizeof(par_l_)); memset(par_r_, 0, sizeof(par_r_));
     for (int i = CL_V1; i < cl_vn_; ++i) render_voice(i, par_l_, par_r_, 1);
   }
+#ifdef RACK_FM1
+  if (rv_clj_) reverb_wet(rv_early_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_);   // 2.46: the reverb's wet job (last block's input, as early_work makes it) on this core, before Clouds
+#endif
   const float ig = cl_igain_;
   if (cl_q_ & CLQ_E_MONO) {   // update 45 (ECO)
     clouds_->Prepare();
@@ -2973,11 +2985,15 @@ static bool cl_voices_ride() {
 // the panel, or no second core taking jobs: no job; the voices may then use the worker as before
 static void cl_fork() {
   cl_forked_ = 0; cl_due_ = 0; cl_vjob_ = 0; cl_wait_now_ = 0;
+  rv_clj_ = 0;
   if (!cl_pipe_ || fx_off_[cl_slot_ - S_FX1]) return;
   cl_due_ = 1;                                    // (even with nothing staged yet: the voices never split in this arrangement, so their sum is one order)
   if (!cl_primed_) return;
   cl_vn_ = nvoices_;
   cl_vjob_ = cl_voices_ride() ? 1 : 0;
+#ifdef RACK_FM1
+  rv_clj_ = (rv_early_ >= 0 && cl_slot_ < rv_early_ && rv_post_opt_ && !arr_old_ && par_run_) ? 1 : 0;   // (2.46: the first core's early reverb is the second core's, where Clouds is there with room)
+#endif
 #ifdef HAVE_DRUMS
   drum_in_job_ = drum_pending_;                   // the drums ride in this job (it is done on one core or the other, always)
 #endif
@@ -3021,23 +3037,27 @@ static void cl_pipe_decide() {
 #endif
 #ifdef RACK_FM1
 static int rv_job_slot_ = -1;
-static void rv_job(uint32_t) { reverb_wet(rv_job_slot_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_); }
+static void rv_job(uint32_t) {
+  uint32_t t0 = ticks_ ? ticks_() : 0;
+  reverb_wet(rv_job_slot_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_);
+  if (ticks_) { rv_t_now_ = ticks_() - t0; if (rv_t_core2_) st_job_ += rv_t_now_; }   // 2.46: the reverb's own time (the benchmark's C2 has it)
+}
 static void rv_fork() {
   rv_job_slot_ = rv_early_;
-  rv_out_ = 0;
+  rv_out_ = 0; rv_t_core2_ = 1;
   if (par_run_) {
     if (par_sync_) par_sync_();                 // rv_in_ written, before the second core reads it
     rv_out_ = par_run_(rv_job, 1) ? 1 : 0;   // (arg 1: the benchmark tells this job from the voices')
   }
-  if (!rv_out_) rv_job(0);                      // not taken: done here (the first core's early work, as before)
+  if (!rv_out_) { rv_t_core2_ = 0; rv_job(0); }   // not taken: done here (the first core's early work, as before)
 }
 // the block's end: wait for the job (given up: done here); rv_wet_ is then the next block's
 static void rv_join() {
   if (!rv_out_) return;
-  rv_out_ = 0;
+  rv_out_ = 0; rv_out_was_ = 1;
   uint32_t t0 = ticks_ ? ticks_() : 0;
   int rc = par_wait_();
-  if (ticks_) st_wait_ += ticks_() - t0;
+  if (ticks_) { rv_wait_now_ = ticks_() - t0; st_wait_ += rv_wait_now_; }
   if (par_sync_) par_sync_();                   // the job's output written, before this core reads it
   if (rc != 0) rv_job(0);
 }
@@ -3305,6 +3325,7 @@ static void run_fx(int slot, float* l, float* r) {
 // scratch; stmlib's Random is shared, so its numbers may repeat across cores); the parameters, routes and
 // modulators they read only change between blocks.
 static int par_from_ = 0;
+static int arr_info(int what) { return what == 10 ? par_from_ : what == 11 ? (int)rv_post_ : what == 13 ? (int)rv_clj_ : rv_early_; }   // 10: the second core's first voice, 11: the reverb's job after its slot (1) or early on the first core (0), 12: the slot of the reverb run a block behind (-1: none), 13: the reverb's job rides in Clouds' (1)
 EXPORT void set_worker(rack_run_fn run, rack_wait_fn wait) {
   par_run_ = run; par_wait_ = wait;
 #ifdef FXC2
@@ -3358,8 +3379,17 @@ EXPORT int shed_helps() {
 EXPORT uint32_t worker_blocks() { return par_blocks_; }
 // 2.43 run-time switches (the benchmark's A/B; the firmware never calls them): the reverb's job after its slot on the second core (1, the default) or the first core's early work (0, 2.42);
 // the voices' learnt split on (1, the default) or the table's alone (0: the host's instruction counts need a split that does not follow a clock)
-EXPORT void set_rv_post(int on) { rv_post_opt_ = on != 0; }
+EXPORT void set_rv_post(int on) { rv_post_opt_ = on != 0; if (!on) rv_want_ = 0; }
 EXPORT void set_split_learn(int on) { split_learn_ = on != 0; if (!on) drum_bias_ = 0; }
+// 2.46 (the benchmark's A/B; the firmware never calls it): the arrangement of the two cores. 0 = the engine's (the table, then the measured balance), 1 = 2.42's (the table alone, the reverb early on the first core),
+// 2 = 2.45's (the table with the reverb's job after its slot, and 2.43's learner; only in a build with RACK_BENCH_AB)
+EXPORT void set_arrangement(int m) {
+  split_learn_ = m != 1; rv_post_opt_ = m != 1; drum_bias_ = 0; drum_cnt_ = 0; lv_c1_ = lv_c2_ = lv_u_ = lv_rv_ = 0;
+#ifdef RACK_BENCH_AB
+  arr_old_ = m == 2;
+#endif
+  rv_want_ = m == 2 ? 1 : 0;
+}
 // what the cores did since the last reset: ticks the jobs took (summed where they ran), ticks the first core waited for one, blocks
 // in which Clouds' job was done on the first core instead of the second
 EXPORT void core_stats(uint32_t* job, uint32_t* wait, uint32_t* inl) {
@@ -3399,7 +3429,9 @@ static void render_voices() {
   // core's half: six 2OP FM voices with a reverb were 3 + reverb against 3; now 2 + reverb against 4)
   float early = 0.0f;
   if (mod_id_[S_SHP] == M_RINGS) early += PI(S_SHP, 0, 0) == 5 ? 2.2f : 1.85f;
-  if (rv_early_ >= 0 && !rv_post_) early += 1.4f;   // (2.43: with the reverb's job after its slot, on the second core, it is not the first core's early work)
+  // 2.46: the table counts the reverb as the first core's early work wherever it runs (2.42's split, and the one core's sum order of 2.45): where the reverb really runs
+  // is the learner's (rv_want_), and so is the rest: a voice's worth up or down from this table, from what each core measured
+  if (rv_early_ >= 0 && (!rv_post_ || !arr_old_)) early += 1.4f;
 #ifdef HAVE_DRUMS
   if (drum_pending_) early -= drums_load();   // the drums are the second core's: each sounding one counts as the voices its model costs (DM_COST), so the first core takes that many more
 #endif
@@ -3429,7 +3461,9 @@ static void render_voices() {
   bool shared = par_run_ && par_from_ < nvoices_ && par_run_(par_job, 0);
 #endif
   early_work();
+  uint32_t tv0 = ticks_ ? ticks_() : 0;
   for (int i = 0; i < par_from_; ++i) render_voice(i, blk_l_, blk_r_);
+  if (ticks_) { lv_u_now_ = ticks_() - tv0; int a = 0; for (int i = 0; i < par_from_; ++i) a += (vs_[i].active || vs_[i].stage) ? 1 : 0; lv_a1_ = (uint8_t)a; }   // 2.46: what the first core's own voices took
   if (shared) {
     uint32_t t0 = ticks_ ? ticks_() : 0;
 #ifdef HAVE_DRUMS
@@ -3482,7 +3516,12 @@ static void run_rings_shared() {
 #ifdef RACK_FM1
 static void early_work() {
   if (mod_id_[S_SHP] == M_RINGS) run_rings_shared();
-  if (rv_early_ >= 0 && !rv_post_) reverb_wet(rv_early_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_);
+  if (rv_early_ >= 0 && !rv_post_ && !rv_clj_) {
+    uint32_t t0 = ticks_ ? ticks_() : 0;
+    reverb_wet(rv_early_, rv_in_l_, rv_in_r_, rv_wet_l_, rv_wet_r_);
+    if (ticks_) rv_t_now_ = ticks_() - t0;
+    rv_t_core2_ = 0;
+  }
 }
 #endif
 static void process_block_();
@@ -3492,7 +3531,8 @@ static void process_block_();
 // the extra work is shed at the hits, 8 ms fades, and the first core is not asked to wait for what it can do without.
 // 2.43: the split of the voices, learnt with or without drums (it was only with drums sounding): the second core's job against the first core's own work before the join; a voice's
 // worth apart or more moves one voice. A voice's worth is the two cores' work over the voices sounding (a sparse chord is not spread over the idle ones).
-static void split_learn() {
+#ifdef RACK_BENCH_AB
+static void split_learn_old() {
   if (!split_learn_ || !bal_shared_ || !ticks_) return;
   drum_c1_avg_ = (uint32_t)((int32_t)drum_c1_avg_ + ((int32_t)drum_c1_now_ - (int32_t)drum_c1_avg_) / 16);
   drum_c2_avg_ = (uint32_t)((int32_t)drum_c2_avg_ + ((int32_t)drum_job_now_ - (int32_t)drum_c2_avg_) / 16);
@@ -3504,6 +3544,36 @@ static void split_learn() {
     if (d > unit && drum_bias_ < 6) ++drum_bias_;
     else if (d < -unit && drum_bias_ > -6) --drum_bias_;
   }
+}
+#endif
+// 2.46: the balance of the two cores from what each really did. The first core's busy time is the block less its waits (it also runs the effects chain and the master after the
+// join: 2.43's learner weighed the job only against the work before the join, which left the first core the busier by that chain); the second core's is the voices' job and the reverb's, when
+// the reverb runs there. Every 32 blocks the one move that brings them closest (a voice, or the reverb's job, from the busier core to the other) is made, when it gains at least a
+// quarter of its own size. A voice is the first core's measured cost of one sounding voice; the reverb's is its own time wherever it ran.
+static void split_learn(uint32_t blk_ticks) {
+  if (!split_learn_ || !ticks_ || cl_due_ || !par_run_ || (par_on_ && !par_on_())) return;
+  const bool rvc2 = rv_out_was_ != 0;
+  const uint32_t w = (bal_shared_ ? drum_wait_now_ : 0u) + rv_wait_now_;
+  const uint32_t c1 = blk_ticks > w ? blk_ticks - w : 0u;
+  const uint32_t c2 = (bal_shared_ ? drum_job_now_ : 0u) + (rvc2 ? rv_t_now_ : 0u);
+  lv_c1_ = (uint32_t)((int32_t)lv_c1_ + ((int32_t)c1 - (int32_t)lv_c1_) / 16);
+  lv_c2_ = (uint32_t)((int32_t)lv_c2_ + ((int32_t)c2 - (int32_t)lv_c2_) / 16);
+  if (lv_a1_ > 0) { uint32_t u = lv_u_now_ / lv_a1_; lv_u_ = (uint32_t)((int32_t)lv_u_ + ((int32_t)u - (int32_t)lv_u_) / 16); }
+  if (rv_early_ >= 0 && rv_t_now_) lv_rv_ = (uint32_t)((int32_t)lv_rv_ + ((int32_t)rv_t_now_ - (int32_t)lv_rv_) / 16);
+  if (++drum_cnt_ < 32) return;
+  drum_cnt_ = 0;
+  const float d = (float)lv_c1_ - (float)lv_c2_;   // the first core's busy time over the second's
+  const float u = (float)lv_u_, r = (float)lv_rv_;
+  float best = 0.0f; int act = 0;                  // act: 1 a voice to the second core, 2 a voice back, 3 the reverb out, 4 the reverb back
+  const float ad = d < 0.0f ? -d : d;
+  if (d > 0.0f) {
+    if (par_from_ > 0 && drum_bias_ > -6 && u > 0.0f) { float g = ad - fabsf(d - 2.0f * u); if (g > 0.25f * u && g > best) { best = g; act = 1; } }
+    if (!rv_want_ && rv_early_ >= 0 && rv_post_opt_ && r > 0.0f) { float g = ad - fabsf(d - 2.0f * r); if (g > 0.25f * r && g > best) { best = g; act = 3; } }
+  } else {
+    if (par_from_ < nvoices_ && drum_bias_ < 6 && u > 0.0f) { float g = ad - fabsf(d + 2.0f * u); if (g > 0.25f * u && g > best) { best = g; act = 2; } }
+    if (rv_want_ && rv_early_ >= 0 && r > 0.0f) { float g = ad - fabsf(d + 2.0f * r); if (g > 0.25f * r && g > best) { best = g; act = 4; } }
+  }
+  if (act == 1) --drum_bias_; else if (act == 2) ++drum_bias_; else if (act == 3) rv_want_ = 1; else if (act == 4) rv_want_ = 0;
 }
 static void drum_account(uint32_t blk_ticks, bool had_drums) {
   drum_shared_ = drum_shared_ && had_drums;
@@ -3549,11 +3619,18 @@ static void process_block() {
 #ifdef HAVE_DRUMS
   drum_wait_now_ = 0;
 #endif
+  rv_wait_now_ = 0; rv_t_now_ = 0; rv_out_was_ = 0;
 #ifdef FXC2
   uint32_t tb0 = ticks_ ? ticks_() : 0;
   process_block_();
 #ifdef HAVE_DRUMS
-  if (ticks_ && drum_) { split_learn(); drum_account(ticks_() - tb0, drum_pending_ != 0); }
+  if (ticks_ && drum_) {
+#ifdef RACK_BENCH_AB
+    if (arr_old_) split_learn_old(); else
+#endif
+    split_learn(ticks_() - tb0);
+    drum_account(ticks_() - tb0, drum_pending_ != 0);
+  }
 #endif
   if (ticks_ && cl_pipe_ && cl_due_) {   // update 10: the first core's wait for the job, and the block, each smoothed over 16 blocks (shed_helps)
     cl_wait_avg_ = (uint32_t)((int32_t)cl_wait_avg_ + ((int32_t)cl_wait_now_ - (int32_t)cl_wait_avg_) / 16);
@@ -3595,7 +3672,7 @@ static void process_block_() {
 #endif
   rv_post_ = 0;
 #ifdef FXC2
-  if (rv_early_ >= 0 && rv_post_opt_ && par_run_ && !cl_due_ && (!par_on_ || par_on_())) rv_post_ = 1;
+  if (rv_early_ >= 0 && rv_post_opt_ && rv_want_ && par_run_ && !cl_due_ && (!par_on_ || par_on_())) rv_post_ = 1;
 #endif
   render_voices();
   pump_apply(false);
