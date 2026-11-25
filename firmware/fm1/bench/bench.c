@@ -256,6 +256,7 @@ static const clc_t CLC[] = {
     /* 55 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4}, {1, CM_LOOP, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4},
     /* 59 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 2},
     {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 1},
+    /* 64 */ {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 2}, {1, CM_GRAN, CQ_16ST, 1, 0, 0.9f, 0, 0, 24, 0, 1},   /* Clouds + the reverb: LIGHT, NORMAL, HIGH */
 };
 #define CL_REF 0
 #define CL_ON(c) ((c)->cl && CLC[(c)->cl - 1].on)       /* the case has Clouds in FX 1 (cl is its CLC row + 1: row 0 is Braids alone) */
@@ -322,19 +323,25 @@ static void bc_qpairs(void)
                     bcases[bc_add(G_CORES2, i, PRESETS[i].mode ? 1 : nv ? 4 : 6, qn[nv * 2 + q][i])].qold = (uint8_t)q;
                 }
             }
-        {   /* 2.43: Clouds (NORMAL) and the drums on two cores, 2.42's arrangement and the new one */
-            static char xn[2][6][24];
-            static const char *const XN[6] = {"CLOUDS GRAN D1.0", "CLOUDS CL+REVERB", "DRUMS CHEAP x4 D1.0", "DRUMS RICH x4 D1.0", "DRUMS CHEAP x4", "BRAIDS x4"};
-            static const uint8_t XR[6] = {14, 17, 14, 14, 0, 0}, XK[6] = {0, 0, 1, 2, 1, 0};
-            int x;
+        {   /* update 44: Clouds and the drums on two cores (4 voices), at each quality: LIGHT (the new default), 2.43's NORMAL and HIGH */
+            static char xn[3][6][32];
+            static const char *const XN[6] = {"CLOUDS GRAN D1.0", "CLOUDS CL+REVERB", "DRUMS CHEAP x4 D1.0", "DRUMS RICH x4 D1.0", "GRAN FRZ D0.7", "BRAIDS x4"};
+            static const char *const QS[3] = {" LIGHT", " NORMAL", " HIGH"};
+            static const uint8_t XR[3][6] = {{56, 64, 56, 56, 61, 0}, {41, 65, 41, 41, 62, 0}, {40, 66, 40, 40, 63, 0}}, XK[6] = {0, 0, 1, 2, 0, 0};
+            int x, q;
             for (x = 0; x < 6; x++)
-                for (q = 0; q < 2; q++) {
+                for (q = 0; q < 3; q++) {
                     int k;
-                    { const char *a = XN[x], *b = q ? " 2.42" : ""; char *d = xn[q][x]; while (*a) *d++ = *a++; while (*b) *d++ = *b++; *d = 0; }
-                    k = bc_cl(G_CORES2, 4, XR[x] ? XR[x] : CL_REF, xn[q][x], -1);
-                    bcases[k].qold = (uint8_t)q;
+                    { const char *a = XN[x], *b = x == 5 ? "" : QS[q]; char *d = xn[q][x]; while (*a) *d++ = *a++; while (*b) *d++ = *b++; *d = 0; }
+                    if (x == 5 && q) continue;
+                    k = bc_cl(G_CORES2, 4, XR[q][x] ? XR[q][x] : CL_REF, xn[q][x], -1);
                     if (XK[x]) { bcases[k].kit = XK[x]; bcases[k].dv = 4; }
                 }
+        }
+        {   /* the drums alone, without Clouds, and Clouds' grain controls moving, on two cores */
+            int k = bc_cl(G_CORES2, 4, CL_REF, "DRUMS CHEAP x4", -1);
+            bcases[k].kit = 1; bcases[k].dv = 4;
+            bcases[bc_cl(G_CORES2, 4, 56, "GRAN D1.0 MOVING LIGHT x4", -1)].mov = 1;
         }
     }
 }
@@ -355,6 +362,11 @@ static void bench_cases(void)
             static const char *const LN[9] = {"GRAN D0.7 LIGHT", "GRAN D1.0 LIGHT", "LOOP D0.7 LIGHT", "LOOP D1.0 LIGHT", "SPEC D0.7 LIGHT", "SPEC D1.0 LIGHT",
                                               "GRAN FRZ LIGHT", "GRAN FRZ NORMAL", "GRAN FRZ HIGH"};
             for (i = 0; i < 9; i++) bc_cl(G_CLOUDS, 4, 55 + i, LN[i], r4);
+        }
+        {   /* update 44: Clouds' grain controls moving (WINDOW, SPEED, JITTER), GRANULR D1.0 at LIGHT, NORMAL, HIGH (rows 56, 41, 40) */
+            static const char *const MN[3] = {"GRAN D1.0 MOVING LIGHT", "GRAN D1.0 MOVING NORMAL", "GRAN D1.0 MOVING HIGH"};
+            static const uint8_t MR[3] = {56, 41, 40};
+            for (i = 0; i < 3; i++) bcases[bc_cl(G_CLOUDS, 4, MR[i], MN[i], r4)].mov = 1;
         }
         bc_qpairs();
         return;
@@ -825,6 +837,15 @@ static void bench_knob(int k)
     }
     if (!bcases[k].mov)
         return;
+    if (bcases[k].cl) {                        /* update 44: a Clouds case "moving": WINDOW, SPEED and JITTER each travel up and down (a triangle, a different period each) */
+        for (j = 0; j < 3; j++) {
+            int per = 20 + 7 * j, ph = (bench_knob_step + 5 * j) % per;
+            float t = (float)(ph < per / 2 ? ph : per - ph) / (float)(per / 2);
+            rk_set_param(S_FX1, 22 + j, j == 1 ? 2.0f * t - 1.0f : t);
+        }
+        bench_knob_step++;
+        return;
+    }
     for (j = 0; j < 4; j++) {
         int per = 20 + 7 * j, ph = (bench_knob_step + 5 * j) % per;
         float t = (float)(ph < per / 2 ? ph : per - ph) / (float)(per / 2);
