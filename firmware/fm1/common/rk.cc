@@ -41,6 +41,7 @@ void rk_set_tune(int note, float semis) { set_tune(note, semis); }
 void rk_set_voices(int n) { set_voices(n); }
 void rk_clouds_opts(int k32, int skip_rev, int grains) { set_clouds_opts(k32, skip_rev, grains); }
 void rk_clouds_mask(unsigned m) { set_clouds_mask(m); }
+unsigned rk_clouds_level_mask(int lvl) { return clouds_level_mask(lvl); }
 void rk_note_on(float note, float vel) { note_on(note, vel); }
 void rk_note_off(float note) { note_off(note); }
 void rk_set_bend(float semis) { set_bend(semis); }

@@ -411,7 +411,8 @@ static int cl_grid_ = -1;
 #include "cl_resample.h"
 #include "clouds/dsp/rack_cl_q.h"
 #define CL_DRYD_MAX 25      // (update 42: the dry line is 21 frames long with the 3:2 resamplers, 25 with the 24 kHz halfbands: cl_dryd_)
-static Cl32Down cl_dn_[2]; static Cl32Up cl_up_[2];
+union ClDn { Cl32Down a; Cl16Down b; }; union ClUp { Cl32Up a; Cl16Up b; };   // (update 44: the 16 kHz pair shares the 3:2 pair's memory: one is in use at a time)
+static ClDn cl_dn_[2]; static ClUp cl_up_[2];
 static float cl_dry_[2][CL_DRYD_MAX]; static int cl_dry_at_ = 0, cl_dryd_ = 21;
 static float cl_mixs_ = 0.0f; static bool cl_mix_init_ = false;
 static int cl32_on_ = 1;            // runtime: the benchmark switches it per case (the firmware never does)
@@ -820,12 +821,12 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
 #define CLQ_LITE_MASK (CLQ_NORMAL_MASK | CLQ_CLRV | CLQ_CAP16 | CLQ_24K)   // 191
 #endif
 static Half24Down cl_hd_[2]; static Half24Up cl_hu_[2];     // the 24 kHz mode's halfbands (the engine's, as Rings and the reverb use)
-static unsigned cl_q_ = CLQ_NORMAL_MASK;
+static unsigned cl_q_ = CLQ_NORMAL_MASK;   // (update 44: run_fx sets it from the page's RENDER each block, LIGHT by default)
 static int cl_fixed_q_ = 0;                                  // the benchmark's set_clouds_mask: the page's RENDER is not read
 static int cl_nf_ = 32;                                      // frames in Clouds' block: 32 (at 32 kHz), 24 (CLQ_24K)
 static void cl_reset_rs() {
   memset(cl_hd_, 0, sizeof cl_hd_); memset(cl_hu_, 0, sizeof cl_hu_);
-  cl_nf_ = (cl_q_ & CLQ_24K) ? 24 : 32; cl_dryd_ = (cl_q_ & CLQ_24K) ? 25 : 21; cl_dry_at_ = 0;
+  cl_nf_ = (cl_q_ & CLQ_16K) ? 16 : (cl_q_ & CLQ_24K) ? 24 : 32; cl_dryd_ = (cl_q_ & CLQ_16K) ? CL16_DELAY : (cl_q_ & CLQ_24K) ? 25 : 21; cl_dry_at_ = 0;
   clouds::rack_cl_q = cl_q_;
 }
 #ifdef RACK_PROFILE
@@ -834,14 +835,16 @@ static void cl_reset_rs() {
 #define CL_NOINL
 #endif
 static CL_NOINL void cl_down(int ch, const float* x, float* y) {
-  if (cl_q_ & CLQ_24K) cl_hd_[ch].run(x, y);
-  else if (cl_q_ & CLQ_FOLD) cl_dn_[ch].runf(x, y);
-  else cl_dn_[ch].run(x, y);
+  if (cl_q_ & CLQ_16K) cl_dn_[ch].b.run(x, y);
+  else if (cl_q_ & CLQ_24K) cl_hd_[ch].run(x, y);
+  else if (cl_q_ & CLQ_FOLD) cl_dn_[ch].a.runf(x, y);
+  else cl_dn_[ch].a.run(x, y);
 }
 static CL_NOINL void cl_up(int ch, const float* y, float* x) {
-  if (cl_q_ & CLQ_24K) cl_hu_[ch].run(y, x);
-  else if (cl_q_ & CLQ_FOLD) cl_up_[ch].runf(y, x);
-  else cl_up_[ch].run(y, x);
+  if (cl_q_ & CLQ_16K) cl_up_[ch].b.run(y, x);
+  else if (cl_q_ & CLQ_24K) cl_hu_[ch].run(y, x);
+  else if (cl_q_ & CLQ_FOLD) cl_up_[ch].a.runf(y, x);
+  else cl_up_[ch].a.run(y, x);
 }
 // the wet (w0, w1: 48 kHz, all wet out of Clouds) mixed with the dry (g0, g1, delayed cl_dryd_ frames to meet it): BLEND, TONE, the output stage. o0 / o1 may be w0 / w1
 static CL_NOINL void cl_mixout(const float* w0, const float* w1, const float* g0, const float* g1, float* o0, float* o1, float user_mix, float tone) {
@@ -880,7 +883,13 @@ static void cl_set_q(unsigned q) {
   memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_);
   cl_mix_init_ = false;
 }
-static void cl_set_level(int lvl) { cl_set_q(lvl == 1 ? 0u : lvl >= 2 ? (unsigned)CLQ_LITE_MASK : (unsigned)CLQ_NORMAL_MASK); }   // the page's list: 0 NORMAL, 1 HIGH, 2 LITE
+// update 44: the page's list is 0 LIGHT (the default), 1 HIGH, 2 NORMAL (2.41's; LITE is retired: LIGHT is lighter than it was and not bolder in the same way)
+#ifndef CLQ_LIGHT_MASK
+#define CLQ_LIGHT_MASK (CLQ_NORMAL_MASK | CLQ_16K)
+#endif
+static unsigned cl_level_mask(int lvl) { return lvl == 1 ? 0u : lvl >= 2 ? (unsigned)CLQ_NORMAL_MASK : (unsigned)CLQ_LIGHT_MASK; }
+static void cl_set_level(int lvl) { cl_set_q(cl_level_mask(lvl)); }
+EXPORT unsigned clouds_level_mask(int lvl) { return cl_level_mask(lvl); }   // (the benchmark and the host checks)
 #endif
 static inline float randf() { return Random::GetFloat(); }
 

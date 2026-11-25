@@ -47,6 +47,7 @@ void rk_set_vintage(float v);
 void rk_set_ext_slew(int i, float s);
 void rk_set_tune(int note, float semis);
 void rk_set_voices(int n);
+unsigned rk_clouds_level_mask(int lvl);   /* update 44: RENDER's 0 LIGHT, 1 HIGH, 2 NORMAL as a mask */
 void rk_clouds_mask(unsigned m);   /* update 42: the Clouds quality bits (rack_cl_q.h); ~0u = the page's RENDER */
 void rk_clouds_opts(int k32, int skip_rev, int grains);   /* update 8: the Clouds changes as run-time switches (this benchmark's comparison cases only) */
 void rk_note_on(float note, float vel);
@@ -197,7 +198,7 @@ static void bc_change(int k, int i, int fn, int slot, int param, float v)
 /* update 8: no32 = 1 runs Clouds at 48 kHz (RACK_CLOUDS_32K off), noskip = 1 keeps Clouds' internal reverb running at REVERB 0, cap: the grain
  * ceiling (0 the build's own, 40; 1 none: Mutable's own count, 32 stereo 16-bit, 45 stereo 8-bit, 57 mono 8-bit; n the ceiling n), revz = 1 REVERB 0.
  * They are set per case (rk_clouds_opts in bench_setup); the firmware itself never changes them. */
-typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz, q; } clc_t;   /* q (update 42): 0 and 1 the Clouds quality HIGH (2.40's, every older row), 2 NORMAL, 3 LITE */
+typedef struct { uint8_t on, mode, qual, fx2, freeze; float dens; uint8_t no32, noskip, cap, revz, q; } clc_t;   /* q (update 42): 0 and 1 the Clouds quality HIGH (2.40's, every older row), 2 NORMAL, 3 LITE, 4 LIGHT (update 44) */
 enum { CM_GRAN, CM_LOOP, CM_SPEC };                       /* the firmware's MODE list (STRETCH is out) */
 enum { CQ_16ST, CQ_16MO, CQ_8ST, CQ_8MO };                /* the page's QUALITY list */
 static const clc_t CLC[] = {
@@ -251,6 +252,10 @@ static const clc_t CLC[] = {
     /* 46 */ {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 1}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 2}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 3},
     /* 49 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 1}, {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 2}, {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 3},
     /* 52 */ {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 1}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 2}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 3},
+    /* update 44 (LIGHT, the new default): rows 55 to 63: GRANULR D0.7 and D1.0, LOOPDLY D0.7 and D1.0, SPECTRL D0.7 and D1.0, GRANULR FREEZE (D0.7), LOOPDLY and SPECTRL FREEZE */
+    /* 55 */ {1, CM_GRAN, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4}, {1, CM_LOOP, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_LOOP, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4},
+    /* 59 */ {1, CM_SPEC, CQ_16ST, 0, 0, 0.7f, 0, 0, 24, 0, 4}, {1, CM_SPEC, CQ_16ST, 0, 0, 1.0f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 4}, {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 2},
+    {1, CM_GRAN, CQ_16ST, 0, 1, 0.7f, 0, 0, 24, 0, 1},
 };
 #define CL_REF 0
 #define CL_ON(c) ((c)->cl && CLC[(c)->cl - 1].on)       /* the case has Clouds in FX 1 (cl is its CLC row + 1: row 0 is Braids alone) */
@@ -346,6 +351,11 @@ static void bench_cases(void)
                                            "SPEC D0.7 HIGH", "SPEC D0.7 NORMAL", "SPEC D0.7 LITE", "SPEC D1.0 HIGH", "SPEC D1.0 NORMAL", "SPEC D1.0 LITE"};
         int r4 = bc_cl(G_CLOUDS, 4, CL_REF, "BRAIDS x4", -1);
         for (i = 0; i < 18; i++) bc_cl(G_CLOUDS, 4, 37 + i, QN[i], r4);
+        {   /* update 44: LIGHT, the new default (rows 55 to 63; own = minus BRAIDS x4), and FREEZE at each quality */
+            static const char *const LN[9] = {"GRAN D0.7 LIGHT", "GRAN D1.0 LIGHT", "LOOP D0.7 LIGHT", "LOOP D1.0 LIGHT", "SPEC D0.7 LIGHT", "SPEC D1.0 LIGHT",
+                                              "GRAN FRZ LIGHT", "GRAN FRZ NORMAL", "GRAN FRZ HIGH"};
+            for (i = 0; i < 9; i++) bc_cl(G_CLOUDS, 4, 55 + i, LN[i], r4);
+        }
         bc_qpairs();
         return;
     }
@@ -472,6 +482,11 @@ static void bench_cases(void)
                                                "LOOP D0.7 HIGH", "LOOP D0.7 NORMAL", "LOOP D0.7 LITE", "LOOP D1.0 HIGH", "LOOP D1.0 NORMAL", "LOOP D1.0 LITE",
                                                "SPEC D0.7 HIGH", "SPEC D0.7 NORMAL", "SPEC D0.7 LITE", "SPEC D1.0 HIGH", "SPEC D1.0 NORMAL", "SPEC D1.0 LITE"};
             for (i = 0; i < 18; i++) bc_cl(G_CLOUDS, 4, 37 + i, QN[i], r4);
+        {   /* update 44: LIGHT, the new default (rows 55 to 63; own = minus BRAIDS x4), and FREEZE at each quality */
+            static const char *const LN[9] = {"GRAN D0.7 LIGHT", "GRAN D1.0 LIGHT", "LOOP D0.7 LIGHT", "LOOP D1.0 LIGHT", "SPEC D0.7 LIGHT", "SPEC D1.0 LIGHT",
+                                              "GRAN FRZ LIGHT", "GRAN FRZ NORMAL", "GRAN FRZ HIGH"};
+            for (i = 0; i < 9; i++) bc_cl(G_CLOUDS, 4, 55 + i, LN[i], r4);
+        }
         }
         bc_cl(G_CLOUDS, 4, 27, "8MO D1.0", r4);
         bc_cl(G_CLOUDS, 4, 28, "8MO NOCAP", r4);
@@ -714,7 +729,7 @@ static void run_ops_to_fx2(const bop_t *o, int n)
 static void cl_setup(const clc_t *r)
 {
     int p;
-    rk_clouds_mask(r->q == 3 ? 191u : r->q == 2 ? 15u : 0u);   /* update 42: every older row runs Clouds as 2.40 did (HIGH) */
+    rk_clouds_mask(r->q == 4 ? rk_clouds_level_mask(0) : r->q == 3 ? 191u : r->q == 2 ? 15u : 0u);   /* update 42: every older row runs Clouds as 2.40 did (HIGH) */
     rk_clouds_opts(!r->no32, !r->noskip, r->cap == 0 ? 40 : r->cap == 1 ? 0 : r->cap);   /* cap 0: 2.34's ceiling, 40 (at 16 ST it changes nothing: 32 grains), so the older rows stay comparable; the firmware itself is 24 from 2.35 */
     if (r->fx2) {
         const bpreset_t *fx = &PRESETS[r->fx2 == 1 ? P_CH_GLASS_PNO : P_LD_SQUARE_CHIP];

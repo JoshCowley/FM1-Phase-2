@@ -128,3 +128,49 @@ struct Cl32Up {      // 32 frames in, 48 out; 16 frames of history
     for (int n = 0; n < 16; ++n) h[n] = h[n + 32];
   }
 };
+
+// update 44 (CLQ_16K): 48 kHz <-> 16 kHz, one 25-tap filter both ways (make_cl_resample.py). Delay: 24 frames at 48 kHz in all (the dry line's length, CL16_DELAY).
+#define CL16_DELAY 24
+static const float CL_G16[13] = {0.270505035f, 0.235343665f, 0.148065277f, 0.0511057057f, -0.0159493053f, -0.0380873397f, -0.0270642605f, -0.00638617285f, 0.00652145571f, 0.00798747015f, 0.00374072564f, 0.000157998791f, -0.00068773648f};   // the centre tap, then 12 pairs outwards
+static const float CL_U16[3][9] = {   // up: three phases of the same filter x 3 (taps by distance in 16 kHz frames; the first phase has 8, the second 8, the third 9)
+  {0.0f, 0.000473996374f, 0.0195643671f, -0.114262019f, 0.44419583f, 0.706030994f, -0.0478479158f, -0.0191585185f, 0.0112221769f},
+  {0.0f, 0.0112221769f, -0.0191585185f, -0.0478479158f, 0.706030994f, 0.44419583f, -0.114262019f, 0.0195643671f, 0.000473996374f},
+  {-0.00206320944f, 0.0239624105f, -0.0811927814f, 0.153317117f, 0.811515104f, 0.153317117f, -0.0811927814f, 0.0239624105f, -0.00206320944f}
+};
+struct Cl16Down {    // 48 frames in, 16 out (one channel); 24 frames of history
+  float h[24 + 48];
+  void run(const float* x, float* y) {
+    for (int n = 0; n < 48; ++n) h[24 + n] = x[n];
+    for (int m = 0; m < 16; ++m) {
+      const float* s = h + 3 * m + 2;   // 25 taps: s[0] .. s[24], the centre s[12]
+      float v = CL_G16[0] * s[12];
+      v += CL_G16[1] * (s[11] + s[13]);
+      v += CL_G16[2] * (s[10] + s[14]);
+      v += CL_G16[3] * (s[9] + s[15]);
+      v += CL_G16[4] * (s[8] + s[16]);
+      v += CL_G16[5] * (s[7] + s[17]);
+      v += CL_G16[6] * (s[6] + s[18]);
+      v += CL_G16[7] * (s[5] + s[19]);
+      v += CL_G16[8] * (s[4] + s[20]);
+      v += CL_G16[9] * (s[3] + s[21]);
+      v += CL_G16[10] * (s[2] + s[22]);
+      v += CL_G16[11] * (s[1] + s[23]);
+      v += CL_G16[12] * (s[0] + s[24]);
+      y[m] = v;
+    }
+    for (int n = 0; n < 24; ++n) h[n] = h[n + 48];
+  }
+};
+struct Cl16Up {      // 16 frames in, 48 out; 8 frames of history
+  float h[8 + 16];
+  void run(const float* y, float* x) {
+    for (int m = 0; m < 16; ++m) h[8 + m] = y[m];
+    for (int g = 0; g < 16; ++g) {
+      const float* s = h + 8 + g;   // s[-d] is the frame d before g
+      x[3 * g + 0] = CL_U16[0][1] * s[-1] + CL_U16[0][2] * s[-2] + CL_U16[0][3] * s[-3] + CL_U16[0][4] * s[-4] + CL_U16[0][5] * s[-5] + CL_U16[0][6] * s[-6] + CL_U16[0][7] * s[-7] + CL_U16[0][8] * s[-8];
+      x[3 * g + 1] = CL_U16[1][1] * s[-1] + CL_U16[1][2] * s[-2] + CL_U16[1][3] * s[-3] + CL_U16[1][4] * s[-4] + CL_U16[1][5] * s[-5] + CL_U16[1][6] * s[-6] + CL_U16[1][7] * s[-7] + CL_U16[1][8] * s[-8];
+      x[3 * g + 2] = CL_U16[2][0] * s[-0] + CL_U16[2][1] * s[-1] + CL_U16[2][2] * s[-2] + CL_U16[2][3] * s[-3] + CL_U16[2][4] * s[-4] + CL_U16[2][5] * s[-5] + CL_U16[2][6] * s[-6] + CL_U16[2][7] * s[-7] + CL_U16[2][8] * s[-8];
+    }
+    for (int n = 0; n < 8; ++n) h[n] = h[n + 16];
+  }
+};

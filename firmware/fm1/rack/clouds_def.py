@@ -19,9 +19,9 @@ KINDS = ["n", "n", "b", "n",              # POSITION SIZE PITCH DENSITY
 # route still points where it did); only the order of the pages changes: the grain-shaping set first (GRAIN 1: POSITION WINDOW SPEED
 # JITTER, GRAIN 2: SIZE DENSITY RND PAN FREEZE), then the rest in the order they had. SCAN stays (older presets use it) on the last page.
 GRAIN_PAGE = [{"l": "WINDOW", "t": "num", "def": 0.0}, {"l": "SPEED", "t": "bip", "def": 0.0}, {"l": "JITTER", "t": "num", "def": 0.0}]
-# update 42: RENDER (parameter 25) shares the last page with SCAN. NORMAL (0, the default: every older preset and save has it) is 2.40's sound for less CPU;
-# HIGH (1) is 2.40's Clouds exactly; LITE (2) a lighter Clouds (24 kHz, 16 grains, a lighter reverb)
-RENDER_PAGE = [{"l": "RENDER", "t": "list", "opts": ["NORMAL", "HIGH", "LITE"], "def": 0}]
+# update 42: RENDER (parameter 25) shares the last page with SCAN. Update 44: LIGHT (0, the default: a preset or save that says nothing has it) is Clouds at 16 kHz in half
+# the CPU and memory of 2.43's NORMAL; HIGH (1) is 2.40's Clouds exactly; NORMAL (2) is 2.41's default (2.40's sound for 35 % less CPU). LITE (2.41) is retired.
+RENDER_PAGE = [{"l": "RENDER", "t": "list", "opts": ["LIGHT", "HIGH", "NORMAL"], "def": 0}]
 LAYOUT = [[0, 22, 23, 24], [1, 3, 6, 10], [2, 4, 5, 7], [8, 9, 11, 12], [13, 14, 15, 21], [16, 17, 18, 19], [20, 25]]
 
 
