@@ -13,7 +13,8 @@ enum {
   CLQ_CAP16 = 32,     // at most 16 grains
   CLQ_CAP12 = 64,     // at most 12 grains
   CLQ_24K = 128,      // Clouds runs at 24 kHz (a halfband each way, not the 3:2 resamplers)
-  CLQ_16K = 256       // update 44 (LIGHT): Clouds runs at 16 kHz (a 3:1 pair of 25-tap filters, engine/cl_resample.h), blocks of 16 frames; the grain sizes, the FFT, the reverb, diffuser and shifter lengths and the buffers follow it
+  CLQ_16K = 256,      // update 44 (LIGHT): Clouds runs at 16 kHz (a 3:1 pair of 25-tap filters, engine/cl_resample.h), blocks of 16 frames; the grain sizes, the FFT, the reverb, diffuser and shifter lengths and the buffers follow it
+  CLQ_RVALL = 512     // update 44: Clouds' own reverb with all four of its trims (no smear, two input allpasses, no modulated read of the second delay, one tank allpass less each side)
 };
 namespace clouds { extern unsigned rack_cl_q; }
 #endif

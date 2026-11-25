@@ -503,6 +503,10 @@ static_assert(RACK_CLOUDS_SMALL >= 49148 && RACK_CLOUDS_SMALL % 16 == 0, "Clouds
 #else
 static const int CL_LARGE = 118784, CL_SMALL = 65536 - 128, DLEN_MAX = 96000;
 #endif
+// update 44 (LIGHT): Clouds at 16 kHz needs half the buffers: audio 12,288 samples a channel (0.77 s) and a workspace of 24,576 B (clouds_q_patch.py). The arena holds them (fit_cl_full_)
+// unless the patch can reach HIGH or NORMAL (RENDER's list, or a route on it); the layout then keeps the full 98,304 + 49,152 B. cl_large_n_ / cl_small_n_: what the layout gave
+static const int CL_SMALL_L = 24576, CL_LARGE_L = 2 * 24576;
+static int cl_large_n_ = CL_LARGE, cl_small_n_ = CL_SMALL;
 static const size_t COMB_LEN = 8192;   // SAW COMB's delay line, samples (Braids' kCombDelayLength)
 #ifdef RACK_BRAIDS_TRIM
 static_assert(braids::kCombDelayLength == COMB_LEN, "SAW COMB's delay line length");
@@ -823,6 +827,7 @@ struct Half24Up {     // half a block at 24 kHz in, a block at 48 kHz out: each 
 static Half24Down cl_hd_[2]; static Half24Up cl_hu_[2];     // the 24 kHz mode's halfbands (the engine's, as Rings and the reverb use)
 static unsigned cl_q_ = CLQ_NORMAL_MASK;   // (update 44: run_fx sets it from the page's RENDER each block, LIGHT by default)
 static int cl_fixed_q_ = 0;                                  // the benchmark's set_clouds_mask: the page's RENDER is not read
+static unsigned cl_p16_ = 0;                                 // CLQ_16K as the processor last laid its buffers out (run_fx; init_fx)
 static int cl_nf_ = 32;                                      // frames in Clouds' block: 32 (at 32 kHz), 24 (CLQ_24K)
 static void cl_reset_rs() {
   memset(cl_hd_, 0, sizeof cl_hd_); memset(cl_hu_, 0, sizeof cl_hu_);
@@ -885,7 +890,7 @@ static void cl_set_q(unsigned q) {
 }
 // update 44: the page's list is 0 LIGHT (the default), 1 HIGH, 2 NORMAL (2.41's; LITE is retired: LIGHT is lighter than it was and not bolder in the same way)
 #ifndef CLQ_LIGHT_MASK
-#define CLQ_LIGHT_MASK (CLQ_NORMAL_MASK | CLQ_16K)
+#define CLQ_LIGHT_MASK (CLQ_NORMAL_MASK | CLQ_16K | CLQ_RVALL)
 #endif
 static unsigned cl_level_mask(int lvl) { return lvl == 1 ? 0u : lvl >= 2 ? (unsigned)CLQ_NORMAL_MASK : (unsigned)CLQ_LIGHT_MASK; }
 static void cl_set_level(int lvl) { cl_set_q(cl_level_mask(lvl)); }
@@ -1246,11 +1251,11 @@ static void reset_voice_modules(int slot) {
 static void init_fx(int id) {
 #ifdef HAVE_CLOUDS
   if (id == M_CLOUDS) {
-    clouds_->Init(clouds_large_, CL_LARGE, clouds_small_, CL_SMALL);
+    clouds_->Init(clouds_large_, cl_large_n_, clouds_small_, cl_small_n_);
     clouds_->set_num_channels(2); clouds_->set_low_fidelity(false); clouds_quality_ = 0;
     clouds::rack_gr_window = clouds::rack_gr_speed = clouds::rack_gr_jitter = 0.0f; clouds::rack_gr_ph = 0.5f;
 #ifdef RACK_CLOUDS_32K
-    memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_reset_rs(); cl_mix_init_ = false;
+    memset(cl_dn_, 0, sizeof cl_dn_); memset(cl_up_, 0, sizeof cl_up_); memset(cl_dry_, 0, sizeof cl_dry_); cl_dry_at_ = 0; cl_reset_rs(); cl_mix_init_ = false; cl_p16_ = cl_q_ & CLQ_16K;
 #ifdef FXC2
     cl_primed_ = 0;   // nothing staged: its first block out is silence, the next the first in (the dry path with it)
 #endif
@@ -1283,17 +1288,18 @@ static size_t arena_used_ = 0;
 // pre-delay lines (a power of two), the shimmer's line, Rings' reverb (STR+VERB only). A parameter that a matrix row
 // can move counts at its full range, so nothing a patch can do outgrows its buffer.
 static int fit_dlen_ = DLEN, fit_pre_mask_ = 8191;
-static bool fit_shim_ = true, fit_rings_rev_ = true, fit_comb_ = true;   // (2.43: fit_comb_: SAW COMB's delay line, 16 KB a voice, only for a patch that can reach that shape)
+static bool fit_shim_ = true, fit_rings_rev_ = true, fit_comb_ = true, fit_cl_full_ = true;   // (2.44: fit_cl_full_: Clouds' full buffers, for HIGH and NORMAL; LIGHT's are half)   // (2.43: fit_comb_: SAW COMB's delay line, 16 KB a voice, only for a patch that can reach that shape)
 static uint8_t* comb_mem_ = nullptr;
 static void fm1_layout();
-static void fit_reset() { fit_dlen_ = DLEN; fit_pre_mask_ = 8191; fit_shim_ = true; fit_rings_rev_ = true; fit_comb_ = true; }
+static void fit_reset() { fit_dlen_ = DLEN; fit_pre_mask_ = 8191; fit_shim_ = true; fit_rings_rev_ = true; fit_comb_ = true; fit_cl_full_ = true; }
 static size_t carve(const int* eff, int nv, bool commit) {
   size_t at = 0;
   auto take = [&](size_t n) -> uint8_t* { at = (at + 15) & ~(size_t)15; uint8_t* p = arena_ + at; at += n; return p; };
   for (int s = S_FX1; s <= S_FX2; ++s) {
     int id = eff[s];
 #ifdef HAVE_CLOUDS
-    if (id == M_CLOUDS) { uint8_t* a = take(CL_LARGE); uint8_t* b = take(CL_SMALL); uint8_t* c = take(sizeof(clouds::GranularProcessor)); if (commit) { clouds_large_ = a; clouds_small_ = b; clouds_ = (clouds::GranularProcessor*)c; } }
+    if (id == M_CLOUDS) { const int nl = fit_cl_full_ ? CL_LARGE : CL_LARGE_L, ns = fit_cl_full_ ? CL_SMALL : CL_SMALL_L;
+                          uint8_t* a = take(nl); uint8_t* b = take(ns); uint8_t* c = take(sizeof(clouds::GranularProcessor)); if (commit) { clouds_large_ = a; clouds_small_ = b; clouds_ = (clouds::GranularProcessor*)c; cl_large_n_ = nl; cl_small_n_ = ns; } }
 #endif
     if (id == M_REVERB) { uint8_t* a = take(32768); uint8_t* b = fit_shim_ ? take(8192) : nullptr;
                           size_t pl = (size_t)(fit_pre_mask_ + 1) * 2; uint8_t* c = take(pl); uint8_t* d = take(pl);
@@ -1428,11 +1434,15 @@ static void fm1_fit_calc() {
       if (routed(s, 4) || PI(s, 4, 0) == 2) shim = true;
     }
   }
+  bool clfull = false;   // 2.44: Clouds' buffers at LIGHT's size unless HIGH or NORMAL can be reached (the page's RENDER, or a route on it; the bench's mask)
+#if defined(HAVE_CLOUDS) && defined(RACK_CLOUDS_32K)
+  for (int s = S_FX1; s <= S_FX2; ++s) if (req_[s] == M_CLOUDS) clfull = cl_fixed_q_ ? (cl_q_ & CLQ_16K) == 0 : (routed(s, 25) || PI(s, 25, 0) != 0);
+#endif
   if (req_[S_SHP] == M_RINGS && (routed(S_SHP, 0) || PI(S_SHP, 0, 0) == 5)) rrev = true;
   bool comb = false;   // 2.43: SAW COMB reachable (the shape set to it, or a route, macro or knob that can move the shape)
   if (req_[S_SRC] == M_BRAIDS && (routed(S_SRC, 0) || list_norm(M_BRAIDS, PI(S_SRC, 0, 0)) == braids::MACRO_OSC_SHAPE_SAW_COMB)) comb = true;
   int mask = 63; while (mask < pre) mask = mask * 2 + 1;
-  fit_dlen_ = dl ? dl : DLEN; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb;
+  fit_dlen_ = dl ? dl : DLEN; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb; fit_cl_full_ = clfull;
 }
 EXPORT void fm1_fit() {
   fm1_fit_calc();
@@ -1443,10 +1453,10 @@ EXPORT void fm1_fit() {
 // 1 when the parameters and routes now reach past what fm1_fit sized (a longer delay, more pre-delay, SHIMMER,
 // STR+VERB): the platform then fits again, between renders
 EXPORT int fm1_fit_needed() {
-  int dl = fit_dlen_, mask = fit_pre_mask_; bool shim = fit_shim_, rrev = fit_rings_rev_, comb = fit_comb_;
+  int dl = fit_dlen_, mask = fit_pre_mask_; bool shim = fit_shim_, rrev = fit_rings_rev_, comb = fit_comb_, clf = fit_cl_full_;
   fm1_fit_calc();
-  bool more = fit_dlen_ > dl || fit_pre_mask_ > mask || (fit_shim_ && !shim) || (fit_rings_rev_ && !rrev) || (fit_comb_ && !comb);
-  fit_dlen_ = dl; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb;
+  bool more = fit_dlen_ > dl || fit_pre_mask_ > mask || (fit_shim_ && !shim) || (fit_rings_rev_ && !rrev) || (fit_comb_ && !comb) || (fit_cl_full_ && !clf);
+  fit_dlen_ = dl; fit_pre_mask_ = mask; fit_shim_ = shim; fit_rings_rev_ = rrev; fit_comb_ = comb; fit_cl_full_ = clf;
   return more ? 1 : 0;
 }
 // what the platform layer shows: 0 arena bytes used, 1 arena size, 2 voices that fit, 3 voices playing,
@@ -1541,6 +1551,9 @@ EXPORT void set_clouds_mask(unsigned m) {
   if (cl_forked_) cl_join();
 #endif
   cl_fixed_q_ = m != ~0u; if (cl_fixed_q_) cl_set_q(m);
+#ifdef RACK_FM1
+  if (cl_fixed_q_ && !(m & CLQ_16K) && cl_large_n_ < CL_LARGE) fm1_fit();   // update 44: a mask that needs the full buffers (the layout gave LIGHT's): laid out again, as the page's RENDER would be
+#endif
 #ifdef FXC2
   cl_primed_ = 0;
 #endif
@@ -2951,7 +2964,10 @@ static void run_fx(int slot, float* l, float* r) {
     p->stereo_spread = P(slot, 6, 0); p->feedback = P(slot, 7, 0); p->reverb = P(slot, 8, 0);
     int cmode = PI(slot, 9, 0);
 #ifdef RACK_CLOUDS_32K
-    if (!cl_fixed_q_) cl_set_level(PI(slot, 25, 0));   // update 42: RENDER, the page's HIGH / NORMAL / LITE (the benchmark fixes the mask instead)
+    if (!cl_fixed_q_) cl_set_level(cl_large_n_ < CL_LARGE ? 0 : PI(slot, 25, 0));   // (LIGHT's buffers: LIGHT, until the layout is fitted again for the level the page now asks for)   // update 42: RENDER, the page's HIGH / NORMAL / LITE (the benchmark fixes the mask instead)
+    if ((cl_q_ ^ cl_p16_) & CLQ_16K) {   // update 44: LIGHT on or off: Clouds lays its buffers out again (its lengths, FFT and tanks differ; set_low_fidelity twice sets its reset flag and puts the quality back)
+      cl_p16_ = cl_q_ & CLQ_16K; const bool lf = (clouds_->quality() & 2) != 0; clouds_->set_low_fidelity(!lf); clouds_->set_low_fidelity(lf);
+    }
 #endif
 #ifdef RACK_CLOUDS_NO_STRETCH
     // The Lite firmware's MODE list is GRANULR, LOOPDLY, SPECTRL: Clouds' STRETCH is left out, because with the Mutable

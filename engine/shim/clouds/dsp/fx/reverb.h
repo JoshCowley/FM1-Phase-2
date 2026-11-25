@@ -3,6 +3,8 @@
 // FM1 Phase 2's copy of clouds/dsp/fx/reverb.h (pichenettes/eurorack, MIT), found before the original by the include path (engine/shim first). One change (2.38,
 // Josh's request for about 10 % less CPU): set_lite(true) takes out the input diffuser's modulated smear (the first allpass's interpolated read written back) and the
 // fourth input allpass, 3 of the tank's 14 reads and 3 of its 9 writes. The default (false) is Mutable's, sample for sample: Clouds' own reverb is not touched.
+// Update 44 (CLQ_16K, Clouds' LIGHT): set_half(true) before Init runs the same tank at half the delay lengths (and twice the LFO rate a sample) in a buffer of 8192, for
+// Clouds at 16 kHz: the same seconds, in half the memory and half the samples. Off (the default) it is the original, sample for sample.
 //
 // Copyright 2014 Emilie Gillet.
 //
@@ -47,41 +49,54 @@ class Reverb {
   ~Reverb() { }
   
   void Init(uint16_t* buffer) {
-    engine_.Init(buffer);
-    engine_.SetLFOFrequency(LFO_1, 0.5f / 32000.0f);
-    engine_.SetLFOFrequency(LFO_2, 0.3f / 32000.0f);
+    if (half_) {
+      engine8_.Init(buffer);
+      engine8_.SetLFOFrequency(LFO_1, 0.5f / 16000.0f);
+      engine8_.SetLFOFrequency(LFO_2, 0.3f / 16000.0f);
+    } else {
+      engine_.Init(buffer);
+      engine_.SetLFOFrequency(LFO_1, 0.5f / 32000.0f);
+      engine_.SetLFOFrequency(LFO_2, 0.3f / 32000.0f);
+    }
     lp_ = 0.7f;
     diffusion_ = 0.625f;
     lite_ = 0;
   }
+  inline void set_half(bool half) { half_ = half; }   // before Init (update 44)
   inline void set_lite(int lite) { lite_ = lite; }   // bit 0: 2.38's trims; bit 1 (update 42): no modulated read of the second delay, three input allpasses become two; bit 2: one allpass less in each loop; bit 3: one input allpass
   
   void Process(FloatFrame* in_out, size_t size) {
+    if (half_) Run<E8, 2>(engine8_, in_out, size); else Run<E, 1>(engine_, in_out, size);
+  }
+
+ private:
+  template<class EN, int S>
+  void Run(EN& engine, FloatFrame* in_out, size_t size) {
     // This is the Griesinger topology described in the Dattorro paper
     // (4 AP diffusers on the input, then a loop of 2x 2AP+1Delay).
     // Modulation is applied in the loop of the first diffuser AP for additional
     // smearing; and to the two long delays for a slow shimmer/chorus effect.
-    typedef E::Reserve<113,
-      E::Reserve<162,
-      E::Reserve<241,
-      E::Reserve<399,
-      E::Reserve<1653,
-      E::Reserve<2038,
-      E::Reserve<3411,
-      E::Reserve<1913,
-      E::Reserve<1663,
-      E::Reserve<4782> > > > > > > > > > Memory;
-    E::DelayLine<Memory, 0> ap1;
-    E::DelayLine<Memory, 1> ap2;
-    E::DelayLine<Memory, 2> ap3;
-    E::DelayLine<Memory, 3> ap4;
-    E::DelayLine<Memory, 4> dap1a;
-    E::DelayLine<Memory, 5> dap1b;
-    E::DelayLine<Memory, 6> del1;
-    E::DelayLine<Memory, 7> dap2a;
-    E::DelayLine<Memory, 8> dap2b;
-    E::DelayLine<Memory, 9> del2;
-    E::Context c;
+    typedef typename EN::template Reserve<113 / S,
+      typename EN::template Reserve<162 / S,
+      typename EN::template Reserve<241 / S,
+      typename EN::template Reserve<399 / S,
+      typename EN::template Reserve<1653 / S,
+      typename EN::template Reserve<2038 / S,
+      typename EN::template Reserve<3411 / S,
+      typename EN::template Reserve<1913 / S,
+      typename EN::template Reserve<1663 / S,
+      typename EN::template Reserve<(4782 - (S - 1) * 2) / S> > > > > > > > > > Memory;
+    typename EN::template DelayLine<Memory, 0> ap1;
+    typename EN::template DelayLine<Memory, 1> ap2;
+    typename EN::template DelayLine<Memory, 2> ap3;
+    typename EN::template DelayLine<Memory, 3> ap4;
+    typename EN::template DelayLine<Memory, 4> dap1a;
+    typename EN::template DelayLine<Memory, 5> dap1b;
+    typename EN::template DelayLine<Memory, 6> del1;
+    typename EN::template DelayLine<Memory, 7> dap2a;
+    typename EN::template DelayLine<Memory, 8> dap2b;
+    typename EN::template DelayLine<Memory, 9> del2;
+    typename EN::Context c;
 
     const float kap = diffusion_;
     const float klp = lp_;
@@ -96,11 +111,11 @@ class Reverb {
     while (size--) {
       float wet;
       float apout = 0.0f;
-      engine_.Start(&c);
+      engine.Start(&c);
       
       // Smear AP1 inside the loop.
       if (!lite) {
-        c.Interpolate(ap1, 10.0f, LFO_1, 60.0f, 1.0f);
+        c.Interpolate(ap1, 10.0f / S, LFO_1, 60.0f / S, 1.0f);
         c.Write(ap1, 100, 0.0f);
       }
       
@@ -125,7 +140,7 @@ class Reverb {
       
       // Main reverb loop.
       c.Load(apout);
-      if (lite2) c.Read(del2, 4680, krt); else c.Interpolate(del2, 4680.0f, LFO_2, 100.0f, krt);
+      if (lite2) c.Read(del2, 4680 / S, krt); else c.Interpolate(del2, 4680.0f / S, LFO_2, 100.0f / S, krt);
       c.Lp(lp_1, klp);
       c.Read(dap1a TAIL, -kap);
       c.WriteAllPass(dap1a, kap);
@@ -159,7 +174,8 @@ class Reverb {
     lp_decay_1_ = lp_1;
     lp_decay_2_ = lp_2;
   }
-  
+
+ public:
   inline void set_amount(float amount) {
     amount_ = amount;
   }
@@ -182,7 +198,10 @@ class Reverb {
   
  private:
   typedef FxEngine<16384, FORMAT_12_BIT> E;
+  typedef FxEngine<8192, FORMAT_12_BIT> E8;
   E engine_;
+  E8 engine8_;
+  bool half_ = false;
   
   float amount_;
   float input_gain_;

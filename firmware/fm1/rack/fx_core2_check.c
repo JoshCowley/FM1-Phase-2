@@ -59,6 +59,8 @@ static void fc_play(int chain, int mode, int scen, int arr, int giveup, int noru
     s = cl_clouds_slot();
     cl_set(s, P_POS, 0.3f); cl_set(s, P_SIZE, 0.5f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 0.8f);
     cl_set(s, P_SPREAD, 0.5f); cl_set(s, P_FB, 0.3f); cl_set(s, P_REV, 0.3f); cl_set(s, P_MODE, (float)mode);
+    if (getenv("FX2_LEVEL")) cl_set(s, 25, (float)atoi(getenv("FX2_LEVEL")));
+    rk_fm1_fit();   /* (the buffers LIGHT or NORMAL needs; update 44) */
     if (getenv("FX2_NOVOFF")) rk_fx_core2_voices(0);
     rk_set_voices(nv);
     for (i = 0; i < (nv > 4 ? nv : 3); i++)
@@ -81,13 +83,14 @@ static void fc_play(int chain, int mode, int scen, int arr, int giveup, int noru
     if (arr == FM_T && getenv("FX2_STACK")) fprintf(stderr, "STACK %u\n", (unsigned)hc2_stack_used());
 }
 
+static int fc_lvl = 2;                    /* update 44: Clouds' RENDER in the cases below: 2 NORMAL (2.43's default: these checks keep their conditions and limits), 0 LIGHT (7i) */
 static int fc_nv = 4, fc_novoff = 0;      /* the voices of the next case (6: update 10's), and whether the fifth and sixth stay on the first core */
 static int fc_played(const char *self, int chain, int mode, int scen, int arr, int giveup, int norun, float *buf)
 {
     char cmd[512];
     FILE *f;
     size_t n;
-    snprintf(cmd, sizeof cmd, "FX2_VOICES=%d %s'%s' --fx2 %d %d %d %d %d %d", fc_nv, fc_novoff ? "FX2_NOVOFF=1 " : "", self, chain, mode, scen, arr, giveup, norun);
+    snprintf(cmd, sizeof cmd, "FX2_LEVEL=%d FX2_VOICES=%d %s'%s' --fx2 %d %d %d %d %d %d", fc_lvl, fc_nv, fc_novoff ? "FX2_NOVOFF=1 " : "", self, chain, mode, scen, arr, giveup, norun);
     if (!(f = popen(cmd, "r")))
         return -1;
     n = fread(buf, sizeof(float), 2 * FC_BLK * FC_BLOCKS, f);
@@ -369,6 +372,31 @@ static int check_fx_core2(const char *self)
                "(not sample for sample: the sums are added in another order, and Clouds' 16-bit input turns a last-bit difference into a step of it now and then); "
                "GRANULR and SPECTRL: the same sound, rms within %.2f%% (the random numbers' order); real thread within %.2f%% rms; failing worker within %.2f%% rms, no NaN, no block lost\n",
                n, nsplit, worst_loop, worst_off, worst_exact, worst_rms * 100.0, worst_rms_t * 100.0, worst_g * 100.0);
+    }
+    /* 7i (update 44): LIGHT (RENDER 0, the default) on two cores: the same checks as 7d for GRANULR, LOOPDLY, SPECTRL, Clouds in FX 1 with an effect in FX 2 (FREEZE on and off): no NaN, no block lost,
+     * two cores = one core delayed 48 frames (LOOPDLY, sample for sample to 2e-4), the other modes the same sound (rms within 12 %: with half the samples the random grains' rms varies more) */
+    {
+        float worstd = 0; double worstr = 0, worstt = 0;
+        int n = 0, bad = 0;
+        fc_lvl = 0; fc_nv = 4;
+        for (chain = 0; chain < FC_NCHAIN; chain++)
+            for (mode = 0; mode < 3; mode++) {
+                fc_stat_t sa, sd, st;
+                float d;
+                if (chain == FC_C1_REVERB || chain == FC_REVERB_C2 || chain == FC_C1_CHORUS) continue;   /* (modulated effects: 7d's own limits) */
+                if (fc_played(self, chain, mode, FS_FREEZE, FM_A, 0, 0, A) || fc_played(self, chain, mode, FS_FREEZE, FM_D, 0, 0, B) || fc_played(self, chain, mode, FS_FREEZE, FM_T, 0, 0, X)) { fails++; printf("7i could not play\n"); continue; }
+                sa = fc_stat(A); sd = fc_stat(B); st = fc_stat(X); d = fc_delayed_diff(A, B); n++;
+                if (mode == CM_LOOPDLY && d > worstd) worstd = d;
+                if (fabs(sd.rms / sa.rms - 1.0) > worstr) worstr = fabs(sd.rms / sa.rms - 1.0);
+                if (fabs(st.rms / sa.rms - 1.0) > worstt) worstt = fabs(st.rms / sa.rms - 1.0);
+                if (sd.bad || st.bad || sd.zero_run > sa.zero_run + 1 || fabs(sd.rms / sa.rms - 1.0) > (mode == CM_LOOPDLY ? 0.01 : 0.12) || fabs(st.rms / sa.rms - 1.0) > 0.12 || (mode == CM_LOOPDLY && d > 2e-4f)) {
+                    printf("7i LIGHT %-14s %-8s: diff %g, rms %.5f / %.5f, thread rms %.5f, NaN %d/%d   FAIL\n", FC_CHAIN[chain], CM_NAME[mode], d, sd.rms, sa.rms, st.rms, sd.bad, st.bad);
+                    bad++; fails++;
+                }
+            }
+        fc_lvl = 2;
+        printf("7i LIGHT (the default) on two cores, %d cases: no NaN, no block lost; LOOPDLY two cores = one core delayed 48 frames to within %g; the other modes' rms within %.2f%% (thread %.2f%%)%s\n",
+               n, worstd, worstr * 100.0, worstt * 100.0, bad ? "   FAIL" : "");
     }
     /* 7h: the overload guard's question, with a made-up clock: the first core's work before it hands the job over and the time it waits at the join */
     {

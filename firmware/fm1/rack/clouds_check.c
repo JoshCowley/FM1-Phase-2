@@ -148,13 +148,15 @@ static void cl_heavy(int slot, int on)
 static int check_clouds_arena(void)
 {
     static const int FX[5] = {0, 30, 31, 32, 33};
-    int fails = 0, a, b, heavy, shp, cases = 0, worst = 0, arena = 0, nodrop_other = 0;
+    int fails = 0, a, b, heavy, shp, cases = 0, worst = 0, arena = 0, nodrop_other = 0, lvl;
+    for (lvl = 0; lvl < 2; lvl++)   /* update 44: LIGHT (0) and NORMAL (2) */
     for (shp = 0; shp < 2; shp++)
         for (heavy = 0; heavy < 2; heavy++)
             for (a = 0; a < 5; a++)
                 for (b = 0; b < 5; b++) {
                     int used, voices, dropped;
                     cl_patch(FX[a], FX[b], shp ? 10 : 0);
+                    if (FX[a] == 30) rk_set_param(RS_FX1, 25, lvl ? 2.0f : 0.0f); else if (FX[b] == 30) rk_set_param(RS_FX2, 25, lvl ? 2.0f : 0.0f);
                     cl_heavy(RS_FX1, heavy);
                     cl_heavy(RS_FX2, heavy);
                     used = rk_fm1_status(0); arena = rk_fm1_status(1); voices = rk_fm1_status(2); dropped = rk_fm1_status(4);
@@ -184,11 +186,14 @@ static const char *cl_dropped_text(int d, char *t)
     if (!t[0]) strcpy(t, "none");
     return t;
 }
+/* update 44: RENDER's level the give-way cases run at: 2 NORMAL (2.41's default: the full buffers, so these cases keep their sizes and what they expect), 0 LIGHT (half the buffers) */
+static int cl_lvl = 2;
 static int cl_expect(const char *what, int fx1, int fx2, int shp, int h1, int h2, int want_drop, int min_voices)
 {
     char t[32];
     int d, v, u;
     cl_patch(fx1, fx2, shp);
+    if (fx1 == 30) rk_set_param(RS_FX1, 25, (float)cl_lvl); else if (fx2 == 30) rk_set_param(RS_FX2, 25, (float)cl_lvl);
     rk_set_param(RS_SRC, 0, 15.0f);          /* SAW COMB (2.43): the voice keeps its 16 KB delay line, as every voice did before, so these cases are sized as they were */
     rk_fm1_fit();
     cl_heavy(RS_FX1, h1);
@@ -218,9 +223,17 @@ static int check_clouds_giveway(void)
     /* the DELAY only if absolutely necessary: the same Rings, a short DELAY (1/16) stays while one voice fits ... */
     f += cl_expect("CLOUDS + DELAY 1/16 + Rings: the delay stays", 30, 31, 10, 0, 2, 0, 1);
     /* ... and goes when it does not: the page's DELAY (1/8D) with Rings, or a 1 s line without; CLOUDS stays either way */
-    f += cl_expect("CLOUDS + DELAY 1/8D + Rings: one voice does not fit", 30, 31, 10, 0, 0, R2, 1);
-    f += cl_expect("DELAY 1/8D + CLOUDS + Rings: (FX 1)", 31, 30, 10, 0, 0, R, 1);
+    /* (update 44: Clouds' player keeps 24 grains' slots, not 64 (RACK_CLOUDS_GRAIN_SLOTS): 2 KB the arena has back, and the one voice now fits beside the 1/8D delay at NORMAL) */
+    f += cl_expect("CLOUDS (NORMAL) + DELAY 1/8D + Rings: one voice fits, the delay stays", 30, 31, 10, 0, 0, 0, 1);
+    f += cl_expect("DELAY 1/8D + CLOUDS (NORMAL) + Rings: (FX 1)", 31, 30, 10, 0, 0, 0, 1);
     f += cl_expect("CLOUDS + DELAY 1 s: it does not fit with Clouds at all", 30, 31, 0, 0, 1, R2, 1);
+    /* update 44: LIGHT (RENDER 0, the default) takes half the buffers: what did not fit with the full ones now does, and the voices that went are back */
+    cl_lvl = 0;
+    f += cl_expect("LIGHT: CLOUDS + REVERB at its longest + Rings: the reverb stays", 30, 32, 10, 0, 1, 0, 4);
+    f += cl_expect("LIGHT: REVERB at its longest + CLOUDS + Rings: the reverb stays", 32, 30, 10, 1, 0, 0, 4);
+    f += cl_expect("LIGHT: CLOUDS + DELAY 1/8D + Rings: the delay stays", 30, 31, 10, 0, 0, 0, 3);
+    f += cl_expect("LIGHT: CLOUDS + DELAY 1 s: fits, 2 voices", 30, 31, 0, 0, 1, 0, 2);
+    cl_lvl = 2;
     /* a second CLOUDS is refused: one engine instance */
     f += cl_expect("CLOUDS in both slots: the second is refused", 30, 30, 0, 0, 0, R2, 4);
     /* without CLOUDS nothing changes: the long delay and the long reverb fit together, nothing is dropped */
@@ -395,7 +408,7 @@ static void rh_run0(int which, unsigned mask, int page, int mode, float tex, flo
     rk_set_voices(4);
     for (ms = 0; ms < 2000; ms++) {
         if (ms == 0) cl_chord(0);
-        if (switches && ms % 600 == 0) rk_clouds_mask(ms == 600 ? RM_LITE : ms == 1200 ? RM_NORMAL : ms == 1800 ? RM_HIGH : mask);
+        if (switches && ms % 600 == 0) rk_clouds_mask(ms == 600 ? RM_LITE : ms == 1200 ? RM_NORMAL : ms == 1800 ? rk_clouds_level_mask(0) : mask);
         rk_render(48);
         for (i = 0; i < 48 && n < RH_N; i++) rh_out[which][n++] = rk_out_l()[i];
     }
@@ -419,23 +432,24 @@ static int check_clouds_render(void)
         {"GRANULR TEXTURE 0.4 FEEDBACK 0 REVERB 0.3", 0, 0.4f, 0.0f, 0.3f, 0.95f}, {"GRANULR TEXTURE 0.9 FEEDBACK 0.3", 0, 0.9f, 0.3f, 0.0f, 0.95f},
         {"LOOPDLY FEEDBACK 0.3", 1, 0.5f, 0.3f, 0.0f, 0.6f}, {"SPECTRL", 2, 0.5f, 0.2f, 0.0f, 0.6f}};
     for (k = 0; k < 4; k++) {
-        double r0, rn, rl, nd, ld;
+        double r0, rn, rl, rg, nd, ld, gd;
         int nan = 0, i, ok;
         rh_run(0, RM_HIGH, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0);   /* (a first run settles what the earlier checks left) */
         rh_run(0, RM_HIGH, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); r0 = rh_rms(0);
         rh_run(0, RM_NORMAL, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rn = rh_rms(0);
         rh_run(0, RM_LITE, -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rl = rh_rms(0);
+        rh_run(0, rk_clouds_level_mask(0), -1, C[k].mode, C[k].tex, C[k].fb, C[k].rev, C[k].dens, 0); rg = rh_rms(0);   /* update 44: LIGHT */
         for (i = 0; i < RH_N; i++) if (rh_out[0][i] != rh_out[0][i] || fabsf(rh_out[0][i]) > 4.0f) nan++;
-        nd = 20.0 * log10(rn / r0); ld = 20.0 * log10(rl / r0);
-        ok = fabs(nd) < 0.5 && fabs(ld) < 2.0 && !nan && r0 > 0.001;
-        printf("6h %-42s level against HIGH: NORMAL %+.2f dB (limit 0.5), LITE %+.2f dB (limit 2), %d bad samples%s\n", C[k].nm, nd, ld, nan, ok ? "" : "   FAIL");
+        nd = 20.0 * log10(rn / r0); ld = 20.0 * log10(rl / r0); gd = 20.0 * log10(rg / r0);
+        ok = fabs(nd) < 0.5 && fabs(ld) < 2.0 && fabs(gd) < 3.0 && !nan && r0 > 0.001;
+        printf("6h %-42s level against HIGH: NORMAL %+.2f dB (limit 0.5), LITE %+.2f dB (limit 2), LIGHT %+.2f dB (limit 3), %d bad samples%s\n", C[k].nm, nd, ld, gd, nan, ok ? "" : "   FAIL");
         fails += !ok;
     }
     {   /* switching while it plays: no NaN, no step over 0.5 (the resamplers and the dry line start again at each) */
         double big = 0; int i, nan = 0;
         rh_run(0, RM_HIGH, -1, 0, 0.4f, 0.2f, 0.3f, 0.95f, 1);
         for (i = 1; i < RH_N; i++) { double d = fabs(rh_out[0][i] - rh_out[0][i - 1]); if (d > big) big = d; if (rh_out[0][i] != rh_out[0][i]) nan++; }
-        printf("6h HIGH -> LITE -> NORMAL -> HIGH every 0.6 s while playing: largest step between samples %.3f (limit 0.5), %d NaN%s\n", big, nan, big < 0.5 && !nan ? "" : "   FAIL");
+        printf("6h HIGH -> LITE -> NORMAL -> LIGHT (update 44) every 0.6 s while playing: largest step between samples %.3f (limit 0.5), %d NaN%s\n", big, nan, big < 0.5 && !nan ? "" : "   FAIL");
         fails += !(big < 0.5 && !nan);
     }
     return fails;
@@ -513,13 +527,16 @@ static int check_clouds_grain_run(void)
     {
         int v;
         double var[2];
+        int lv6;
+        for (lv6 = 2; lv6 >= 0; lv6 -= 2)   /* update 44: NORMAL (2: the limit as it was) and LIGHT (0) */
+        {
         for (v = 0; v < 2; v++) {
             int s, ms, bin = 0, i;
             double e = 0, lv[40], mn = 1e9, mx = 0;
             cl_patch(30, 0, 0);
             s = cl_clouds_slot();
             cl_set(s, P_POS, 0.5f); cl_set(s, P_SIZE, 0.3f); cl_set(s, P_DENS, 0.8f); cl_set(s, P_TEX, 0.4f); cl_set(s, P_BLEND, 1.0f);
-            cl_set(s, GP_WIN, 0.7f); cl_set(s, GP_SPEED, v ? 0.5f : 0.0f);
+            cl_set(s, GP_WIN, 0.7f); cl_set(s, GP_SPEED, v ? 0.5f : 0.0f); cl_set(s, 25, (float)lv6); rk_fm1_fit();
             rk_set_voices(4);
             for (ms = 0; ms < 5000; ms += 10) {
                 if (ms == 0) cl_chord(0);
@@ -533,8 +550,9 @@ static int check_clouds_grain_run(void)
             }
             var[v] = mx > 0 ? (mx - mn) / mx : 0;
         }
-        printf("6g FREEZE + SPEED: level of the frozen sound (loudest 100 ms against quietest, as a share of the loudest): playhead still %.2f, swept at +0.5 %.2f%s\n", var[0], var[1], var[1] > var[0] + 0.15 ? "" : "   FAIL");
-        fails += !(var[1] > var[0] + 0.15);
+        printf("6g FREEZE + SPEED, %s: level of the frozen sound (loudest 100 ms against quietest, as a share of the loudest): playhead still %.2f, swept at +0.5 %.2f%s\n", lv6 ? "NORMAL" : "LIGHT", var[0], var[1], var[1] > var[0] + (lv6 ? 0.15 : 0.05) ? "" : "   FAIL");
+        fails += !(var[1] > var[0] + (lv6 ? 0.15 : 0.05));
+        }
     }
     return fails;
 }

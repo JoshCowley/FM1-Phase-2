@@ -75,7 +75,10 @@ extern float rack_gr_window, rack_gr_speed, rack_gr_jitter, rack_gr_ph, rack_gr_
 void rack_gr_stat(float start);   // the host check's: where each grain was scheduled (engine/rack.cc)
 #endif
 
-const int32_t kMaxNumGrains = 64;
+#ifndef RACK_CLOUDS_GRAIN_SLOTS
+#define RACK_CLOUDS_GRAIN_SLOTS 64   // update 44: the firmware builds say 24 (the ceiling RACK_CLOUDS_MAX_GRAINS: no more than that many grains are ever kept, 52 B each)
+#endif
+const int32_t kMaxNumGrains = RACK_CLOUDS_GRAIN_SLOTS;
 
 using namespace stmlib;
 
@@ -269,6 +272,7 @@ class GranularSamplePlayer {
     float pitch = parameters.pitch;
     float window_shape = parameters.granular.window_shape;
     float grain_size = Interpolate(lut_grain_size, parameters.size, 256.0f);
+    if (rack_cl_q & CLQ_16K) grain_size *= 0.5f;   // update 44: the same SIZE in seconds at 16 kHz
     float pitch_ratio = SemitonesToRatio(pitch);
     float inv_pitch_ratio = SemitonesToRatio(-pitch);
     float pan = 0.5f + parameters.stereo_spread * (Random::GetFloat() - 0.5f);
